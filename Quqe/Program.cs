@@ -10,6 +10,7 @@ namespace Quqe
   {
     static void Main(string[] args)
     {
+      DoSimpler();
       var allBars = DataSet.LoadNinjaBars("TQQQ.txt");
       var nn = new NeuralNet(
         new[] { "Open0", "Open1", "Low1", "High1", "Close1" },
@@ -34,11 +35,10 @@ namespace Quqe
         return new double[] { bs[0].Close > bs[0].Open ? 1 : 0 };
       };
 
-      //var iterations = 3000;
-      //nn.Anneal(iterations, time => Math.Exp(-(double)time / (double)iterations * 7),
-      //  net => -1 * Backtest(net, trainingSet, inputBarCount, cookInputs).ProfitFactor);
+      var iterations = 3000;
+      nn.Anneal(iterations, time => Math.Exp(-(double)time / (double)iterations * 7),
+        net => -1 * Backtest(net, trainingSet, inputBarCount, cookInputs).ProfitFactor);
 
-      nn.SetWeights(0.5);
       double bestTest = 0;
       double bestValidation = 0;
       nn.GradientlyDescend(7, 0.00001, MakeExamples(trainingSet, 5).Select(bars => new Example {
@@ -116,6 +116,85 @@ namespace Quqe
     {
       public double ProfitFactor { get; set; }
       public double WinningPercentage { get; set; }
+    }
+
+    static void DoSimple()
+    {
+      var nn = new NeuralNet(
+        new[] { "c1", "c2", "c3", "c4", "c5" },
+        new[] { 10 },
+        new[] { "is0", "is1", "is2", "is3", "is4", "is5", "is6", "is7", "is8", "is9" });
+
+      var inputSet = new[] { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine" }.ToList();
+
+      Func<string, double[]> cook = s => s.PadRight(5).Select(c => (double)(int)c).ToArray();
+      Func<string, double[]> makeCorrectOuputs = s => {
+        var outputs = new double[10];
+        outputs[inputSet.IndexOf(s)] = 1;
+        return outputs;
+      };
+
+      //nn.Anneal(50000, null, net => {
+      //  double cost = 0;
+      //  foreach (var s in inputSet)
+      //  {
+      //    var inputs = cook(s);
+      //    var correctOutputs = makeCorrectOuputs(s);
+      //    var experimentalOutputs = net.Propagate(inputs);
+      //    for (int i = 0; i < correctOutputs.Length; i++)
+      //      cost += Math.Pow(correctOutputs[i] - experimentalOutputs[i], 2);
+      //  }
+      //  return -cost;
+      //});
+
+      //Console.ReadLine();
+
+      nn.SetWeights(1);
+      nn.GradientlyDescend(20, 0.0000001, inputSet.Select(s => {
+        return new Example {
+          Inputs = cook(s),
+          BestOutputs = makeCorrectOuputs(s)
+        };
+      }).ToList(), () => {
+        Console.WriteLine(string.Join("\t", nn.Propagate(cook("five")).Select(d => d.ToString("N4")).ToArray()));
+      });
+    }
+
+    static double OutputError(double[] experimental, double[] correct)
+    {
+      double error = 0;
+      for (int i = 0; i < experimental.Length; i++)
+        error += Math.Pow(experimental[i] - correct[i], 2);
+      return error;
+    }
+
+    static double TotalOutputError(NeuralNet nn, IEnumerable<double[]> inputSet, IEnumerable<double[]> outputSet)
+    {
+      return inputSet.Zip(outputSet, (i, o) => OutputError(nn.Propagate(i), o)).Sum();
+    }
+
+    static void DoSimpler()
+    {
+      var nn = new NeuralNet(
+        new[] { "c1", "c2" },
+        new int[] { },
+        new[] { "isBoy", "isGirl" });
+
+      var inputSet = new[] { "xx", "xy", "yx" }.ToList();
+
+      Func<string, double[]> cook = s => s.Select(c => c == 'x' ? 0.0 : 1.0).ToArray();
+      Func<string, double[]> makeCorrectOuputs = s => s.Contains('y') ? new double[] { 1, 0 } : new double[] { 0, 1 };
+
+      nn.Anneal(100000, null, net => TotalOutputError(net, inputSet.Select(cook), inputSet.Select(makeCorrectOuputs)));
+
+      nn.GradientlyDescend(1, 0.0000001, inputSet.Select(s => {
+        return new Example {
+          Inputs = cook(s),
+          BestOutputs = makeCorrectOuputs(s)
+        };
+      }).ToList(), () => {
+        Console.WriteLine(string.Join("\t", nn.Propagate(cook("xx")).Select(d => d.ToString("N4")).ToArray()));
+      });
     }
   }
 }

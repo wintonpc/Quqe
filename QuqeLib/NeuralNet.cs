@@ -30,7 +30,7 @@ namespace Quqe
       InputNames = inputs.ToList();
       OutputNames = outputs.ToList();
       Weights = MakeHiddenLayers(InputNames.Count, hiddenLayers);
-      Weights.Add(new double[Weights.Last().NodeCount() + 1 /* +1 for bias weight */, OutputNames.Count]); // output weights
+      Weights.Add(new double[Weights.Any() ? Weights.Last().NodeCount() + 1 : InputNames.Count + 1 /* +1 for bias weight */, OutputNames.Count]); // output weights
       RandomizeWeights();
     }
 
@@ -123,9 +123,10 @@ namespace Quqe
           }
 
           var firstW = Weights[0];
-          for (int j = 0; j < ex.Inputs.Length; j++)
+          var inputsWithBias = AddBiasInput(ex.Inputs);
+          for (int j = 0; j < inputsWithBias.Length; j++)
             for (int i = 0; i < firstW.NodeCount(); i++)
-              firstW[j, i] += learningRate * ex.Inputs[j] * deltas[0, i];
+              firstW[j, i] += learningRate * inputsWithBias[j] * deltas[0, i];
         }
         afterEpoch();
       } while (true);
