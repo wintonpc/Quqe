@@ -8,6 +8,17 @@ using System.IO;
 
 namespace Quqe
 {
+  public class Example
+  {
+    public double[] Inputs { get; set; }
+    public double[] BestOutputs { get; set; }
+  }
+
+  public class Example<T> : Example
+  {
+    public T Tag { get; set; }
+  }
+
   public class NeuralNet
   {
     List<string> InputNames;
@@ -41,7 +52,7 @@ namespace Quqe
       //var rejectCount = 0;
       for (int i = 0; i < iterations; i++)
       {
-        var temperature = schedule(i);
+        //var temperature = schedule(i);
         var currentCost = computeCost(this);
         var current = Weights.ToList();
         RandomizeWeights();
@@ -79,9 +90,74 @@ namespace Quqe
       }
     }
 
-    public void GradientlyDescend(double threshold)
+    public void GradientlyDescend(double learningRate, double threshold, List<Example> examples, Action afterEpoch)
     {
+      bool anyExceeded;
+      do
+      {
+        anyExceeded = false;
+        foreach (var ex in examples)
+        {
+          double[,] inValues = new double[Weights.Count, Weights.Max(w => w.NodeCount())];
+          double[,] outValues = new double[Weights.Count, Weights.Max(w => w.NodeCount())];
+          double[,] deltas = new double[Weights.Count, Weights.Max(w => w.NodeCount())];
+          var outputs = Propagate(ex.Inputs, 0, inValues, outValues);
 
+          int outputLayerNum = Weights.Count - 1;
+          var outputW = Weights[outputLayerNum];
+          for (int nodeNum = 0; nodeNum < outputW.NodeCount(); nodeNum++)
+            deltas[outputLayerNum, nodeNum] = ActivationFunctionPrime(inValues[outputLayerNum, nodeNum]) * (ex.BestOutputs[nodeNum] - outputs[nodeNum]);
+
+          for (int layerNum = Weights.Count - 2; layerNum >= 0; layerNum--)
+          {
+            var w = Weights[layerNum];
+            for (int j = 0; j < w.NodeCount(); j++)
+            {
+              var weightsFromThisNode = Weights[layerNum + 1].Row(j).ToArray();
+              deltas[layerNum, j] = ActivationFunctionPrime(inValues[layerNum, j]) * DotProduct(weightsFromThisNode, deltas.Row(layerNum + 1).Take(weightsFromThisNode.Length));
+
+              var forwardW = Weights[layerNum + 1];
+              for (int i = 0; i < forwardW.NodeCount(); i++)
+                forwardW[j, i] -= learningRate * outValues[layerNum, j] * deltas[layerNum + 1, i];
+            }
+          }
+
+          var firstW = Weights[0];
+          for (int j = 0; j<ex.Inputs.Length; j++)
+            for (int i = 0; i < firstW.NodeCount(); i++)
+              firstW[j, i] -= learningRate * ex.Inputs[j] * deltas[0, i];
+        }
+        afterEpoch();
+      } while (true);
+    }
+
+    //double[] Propagate(double[] inputs, int layerNum)
+    //{
+    //  if (layerNum >= Weights.Count)
+    //    return inputs;
+    //  var w = Weights[layerNum];
+    //  return Propagate(Repeat(w.NodeCount(), nodeNum => ActivationFunction(DotProduct(AddBiasInput(inputs), w.Col(nodeNum)))), layerNum + 1);
+    //}
+
+    double[] Propagate(double[] inputs, int layerNum)
+    {
+      return Propagate(inputs, layerNum, null, null);
+    }
+
+    double[] Propagate(double[] inputs, int layerNum, double[,] inValues, double[,] outValues)
+    {
+      if (layerNum >= Weights.Count)
+        return inputs;
+      var w = Weights[layerNum];
+      return Propagate(Repeat(w.NodeCount(), nodeNum => {
+        var inValue = DotProduct(AddBiasInput(inputs), w.Col(nodeNum));
+        var outValue = ActivationFunction(inValue);
+        if (inValues != null)
+          inValues[layerNum, nodeNum] = inValue;
+        if (outValues != null)
+          outValues[layerNum, nodeNum] = outValue;
+        return outValue;
+      }), layerNum + 1, inValues, outValues);
     }
 
     public void JiggleWeights()
@@ -105,14 +181,6 @@ namespace Quqe
         for (int j = 0; j < nCols; j++)
           result[i, j] = Random.NextDouble() * 20 - 10;
       return result;
-    }
-
-    double[] Propagate(double[] inputs, int layerNum)
-    {
-      if (layerNum >= Weights.Count)
-        return inputs;
-      var w = Weights[layerNum];
-      return Propagate(Repeat(w.NodeCount(), nodeNum => ActivationFunction(DotProduct(AddBiasInput(inputs), w.Col(nodeNum)))), layerNum + 1);
     }
 
     static double[] Repeat(int n, Func<int, double> f)
