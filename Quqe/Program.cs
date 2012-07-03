@@ -34,17 +34,24 @@ namespace Quqe
         return new double[] { bs[0].Close > bs[0].Open ? 1 : 0 };
       };
 
-      var iterations = 3000;
-      nn.Anneal(iterations, time => Math.Exp(-(double)time / (double)iterations * 7),
-        net => -1 * Backtest(net, trainingSet, inputBarCount, cookInputs).ProfitFactor);
+      //var iterations = 3000;
+      //nn.Anneal(iterations, time => Math.Exp(-(double)time / (double)iterations * 7),
+      //  net => -1 * Backtest(net, trainingSet, inputBarCount, cookInputs).ProfitFactor);
 
-      nn.GradientlyDescend(0.8, 0.00001, MakeExamples(trainingSet, 5).Select(bars => new Example {
+      nn.SetWeights(0.5);
+      double bestTest = 0;
+      double bestValidation = 0;
+      nn.GradientlyDescend(7, 0.00001, MakeExamples(trainingSet, 5).Select(bars => new Example {
         Inputs = cookInputs(bars),
         BestOutputs = calcOutputs(bars)
       }).ToList(), () => {
-        Console.WriteLine(nn.ToString());
-        Console.WriteLine("ProfitFactor: " + Backtest(nn, trainingSet, inputBarCount, cookInputs).ProfitFactor);
-        Console.ReadLine();
+        //Console.WriteLine(nn.ToString());
+        var test = Backtest(nn, trainingSet, inputBarCount, cookInputs).ProfitFactor;
+        var validation = Backtest(nn, validationSet, inputBarCount, cookInputs).ProfitFactor;
+        bestTest = Math.Max(bestTest, test);
+        bestValidation = Math.Max(bestValidation, validation);
+        Console.WriteLine(string.Format("ProfitFactor: {0:N9}\t{1:N9}\t{2:N9}\t{3:N9}", test, validation, bestTest, bestValidation));
+        //Console.ReadLine();
       });
 
       var ns = nn.ToString();

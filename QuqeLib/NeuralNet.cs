@@ -118,14 +118,14 @@ namespace Quqe
 
               var forwardW = Weights[layerNum + 1];
               for (int i = 0; i < forwardW.NodeCount(); i++)
-                forwardW[j, i] -= learningRate * outValues[layerNum, j] * deltas[layerNum + 1, i];
+                forwardW[j, i] += learningRate * outValues[layerNum, j] * deltas[layerNum + 1, i];
             }
           }
 
           var firstW = Weights[0];
-          for (int j = 0; j<ex.Inputs.Length; j++)
+          for (int j = 0; j < ex.Inputs.Length; j++)
             for (int i = 0; i < firstW.NodeCount(); i++)
-              firstW[j, i] -= learningRate * ex.Inputs[j] * deltas[0, i];
+              firstW[j, i] += learningRate * ex.Inputs[j] * deltas[0, i];
         }
         afterEpoch();
       } while (true);
@@ -173,13 +173,23 @@ namespace Quqe
       Weights = Weights.Select(w => MakeRandomWeightTable(w.RowCount(), w.ColCount())).ToList();
     }
 
+    public void SetWeights(double weightValue)
+    {
+      Weights = Weights.Select(w => MakeWeightTable(w.RowCount(), w.ColCount(), (r, c) => weightValue)).ToList();
+    }
+
     static Random Random = new Random();
     static double[,] MakeRandomWeightTable(int nRows, int nCols)
+    {
+      return MakeWeightTable(nRows, nCols, (r, c) => Random.NextDouble() * 20 - 10);
+    }
+
+    static double[,] MakeWeightTable(int nRows, int nCols, Func<int, int, double> makeValue)
     {
       var result = new double[nRows, nCols];
       for (int i = 0; i < nRows; i++)
         for (int j = 0; j < nCols; j++)
-          result[i, j] = Random.NextDouble() * 20 - 10;
+          result[i, j] = makeValue(i, j);
       return result;
     }
 
