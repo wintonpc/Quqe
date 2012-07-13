@@ -5,6 +5,7 @@ using System.Text;
 using PCW;
 using System.Diagnostics;
 using System.IO;
+using Backtest;
 
 namespace Quqe
 {
@@ -19,19 +20,82 @@ namespace Quqe
     public T Tag { get; set; }
   }
 
+  public class WardNet : NeuralNet
+  {
+    public readonly string Name;
+    static readonly List<Func<double, double>> ActivationFunction = List.Create<Func<double, double>>(Math.Tanh, Gaussian);
+
+    public WardNet(IEnumerable<string> inputs, string output, Genome g)
+      :this(inputs, output)
+    {
+      FromGenome(g);
+    }
+
+    public WardNet(IEnumerable<string> inputs, string output)
+      : base(inputs, List.Create(2), List.Create(output))
+    {
+      Name = output;
+    }
+
+    void FromGenome(Genome g)
+    {
+      var genes = new Queue<double>(g.Genes);
+      for (int layer = 0; layer < Weights.Count; layer++)
+      {
+        var w = Weights[layer];
+        for (int input = 0; input < w.RowCount(); input++)
+          for (int node = 0; node < w.ColCount(); node++)
+            w[input, node] = genes.Dequeue();
+      }
+      for (int layer = 0; layer < Weights.Count; layer++)
+        for (int node = 0; node < Weights[layer].ColCount(); node++)
+          ActivationFunctions[layer, node] = ActivationFunctionFromGene(genes.Dequeue());
+    }
+
+    public Genome ToGenome()
+    {
+      var g = new List<double>();
+      for (int layer = 0; layer < Weights.Count; layer++)
+      {
+        var w = Weights[layer];
+        for (int input = 0; input < w.RowCount(); input++)
+          for (int node = 0; node < w.ColCount(); node++)
+            g.Add(w[input, node]);
+      }
+      for (int layer = 0; layer < Weights.Count; layer++)
+        for (int node = 0; node < Weights[layer].ColCount(); node++)
+          g.Add(ActivationFunctionToGene(ActivationFunctions[layer, node]));
+      return new Genome { Genes = g };
+    }
+
+    static double ActivationFunctionToGene(Func<double, double> f)
+    {
+      return f == Math.Tanh ? 0.5 : -0.5;
+    }
+
+    static Func<double, double> ActivationFunctionFromGene(double gene)
+    {
+      return gene >= 0 ? (Func<double, double>)Math.Tanh : (Func<double, double>)Gaussian;
+    }
+  }
+
   public class NeuralNet
   {
     List<string> InputNames;
     List<string> OutputNames;
-    List<double[,]> Weights; // Weights[layer][input, node]
+    protected List<double[,]> Weights; // Weights[layer][input, node]
+    protected Func<double, double>[,] ActivationFunctions; // ActivationFunctions[layer, node]
 
     public NeuralNet(IEnumerable<string> inputs, IEnumerable<int> hiddenLayers, IEnumerable<string> outputs)
     {
       InputNames = inputs.ToList();
       OutputNames = outputs.ToList();
       Weights = MakeHiddenLayers(InputNames.Count, hiddenLayers);
-      Weights.Add(new double[Weights.Any() ? Weights.Last().NodeCount() + 1 : InputNames.Count + 1 /* +1 for bias weight */, OutputNames.Count]); // output weights
-      RandomizeWeights();
+      Weights.Add(new double[Weights.Any() ? Weights.Last().NodeCount() + 1 : InputNames.Count, OutputNames.Count]); // output weights
+      ActivationFunctions = new Func<double, double>[Weights.Count, hiddenLayers.Max()];
+      for (int layer = 0; layer < ActivationFunctions.RowCount(); layer++)
+        for (int i = 0; i < ActivationFunctions.ColCount(); i++)
+          ActivationFunctions[layer, i] = Identity;
     }
 
     public NeuralNet(IEnumerable<string> inputs, IEnumerable<string> outputs, IEnumerable<double[,]> weights)
@@ -44,6 +108,27 @@ namespace Quqe
     public double[] Propagate(double[] inputs)
     {
       return Propagate(inputs, 0);
+    }
+
+    double[] Propagate(double[] inputs, int layerNum)
+    {
+      return Propagate(inputs, layerNum, null, null);
+    }
+
+    double[] Propagate(double[] inputs, int layerNum, double[,] inValues, double[,] outValues)
+    {
+      if (layerNum >= Weights.Count)
+        return inputs;
+      var w = Weights[layerNum];
+      return Propagate(Repeat(w.NodeCount(), nodeNum => {
+        var inValue = DotProduct(inputs, w.Col(nodeNum));
+        var outValue = ActivationFunctions[layerNum, nodeNum](inValue);
+        if (inValues != null)
+          inValues[layerNum, nodeNum] = inValue;
+        if (outValues != null)
+          outValues[layerNum, nodeNum] = outValue;
+        return outValue;
+      }), layerNum + 1, inValues, outValues);
     }
 
     public void Anneal(int iterations, Func<int, double> schedule, Func<NeuralNet, double> computeCost)
@@ -90,47 +175,46 @@ namespace Quqe
       }
     }
 
-    public void GradientlyDescend(double learningRate, double threshold, List<Example> examples, Action afterEpoch)
-    {
-      bool anyExceeded;
-      do
-      {
-        anyExceeded = false;
-        foreach (var ex in examples)
-        {
-          double[,] inValues = new double[Weights.Count, Weights.Max(w => w.NodeCount())];
-          double[,] outValues = new double[Weights.Count, Weights.Max(w => w.NodeCount())];
-          double[,] deltas = new double[Weights.Count, Weights.Max(w => w.NodeCount())];
-          var outputs = Propagate(ex.Inputs, 0, inValues, outValues);
+    //public void GradientlyDescend(double learningRate, double threshold, List<Example> examples, Action afterEpoch)
+    //{
+    //  bool anyExceeded;
+    //  do
+    //  {
+    //    anyExceeded = false;
+    //    foreach (var ex in examples)
+    //    {
+    //      double[,] inValues = new double[Weights.Count, Weights.Max(w => w.NodeCount())];
+    //      double[,] outValues = new double[Weights.Count, Weights.Max(w => w.NodeCount())];
+    //      double[,] deltas = new double[Weights.Count, Weights.Max(w => w.NodeCount())];
+    //      var outputs = Propagate(ex.Inputs, 0, inValues, outValues);
 
-          int outputLayerNum = Weights.Count - 1;
-          var outputW = Weights[outputLayerNum];
-          for (int nodeNum = 0; nodeNum < outputW.NodeCount(); nodeNum++)
-            deltas[outputLayerNum, nodeNum] = ActivationFunctionPrime(inValues[outputLayerNum, nodeNum]) * (ex.BestOutputs[nodeNum] - outputs[nodeNum]);
+    //      int outputLayerNum = Weights.Count - 1;
+    //      var outputW = Weights[outputLayerNum];
+    //      for (int nodeNum = 0; nodeNum < outputW.NodeCount(); nodeNum++)
+    //        deltas[outputLayerNum, nodeNum] = ActivationFunctionPrime(inValues[outputLayerNum, nodeNum]) * (ex.BestOutputs[nodeNum] - outputs[nodeNum]);
 
-          for (int layerNum = Weights.Count - 2; layerNum >= 0; layerNum--)
-          {
-            var w = Weights[layerNum];
-            for (int j = 0; j < w.NodeCount(); j++)
-            {
-              var weightsFromThisNode = Weights[layerNum + 1].Row(j).ToArray();
-              deltas[layerNum, j] = ActivationFunctionPrime(inValues[layerNum, j]) * DotProduct(weightsFromThisNode, deltas.Row(layerNum + 1).Take(weightsFromThisNode.Length));
+    //      for (int layerNum = Weights.Count - 2; layerNum >= 0; layerNum--)
+    //      {
+    //        var w = Weights[layerNum];
+    //        for (int j = 0; j < w.NodeCount(); j++)
+    //        {
+    //          var weightsFromThisNode = Weights[layerNum + 1].Row(j).ToArray();
+    //          deltas[layerNum, j] = ActivationFunctionPrime(inValues[layerNum, j]) * DotProduct(weightsFromThisNode, deltas.Row(layerNum + 1).Take(weightsFromThisNode.Length));
 
-              var forwardW = Weights[layerNum + 1];
-              for (int i = 0; i < forwardW.NodeCount(); i++)
-                forwardW[j, i] += learningRate * outValues[layerNum, j] * deltas[layerNum + 1, i];
-            }
-          }
+    //          var forwardW = Weights[layerNum + 1];
+    //          for (int i = 0; i < forwardW.NodeCount(); i++)
+    //            forwardW[j, i] += learningRate * outValues[layerNum, j] * deltas[layerNum + 1, i];
+    //        }
+    //      }
 
-          var firstW = Weights[0];
-          var inputsWithBias = AddBiasInput(ex.Inputs);
-          for (int j = 0; j < inputsWithBias.Length; j++)
-            for (int i = 0; i < firstW.NodeCount(); i++)
-              firstW[j, i] += learningRate * inputsWithBias[j] * deltas[0, i];
-        }
-        afterEpoch();
-      } while (true);
-    }
+    //      var firstW = Weights[0];
+    //      for (int j = 0; j < ex.Inputs.Length; j++)
+    //        for (int i = 0; i < firstW.NodeCount(); i++)
+    //          firstW[j, i] += learningRate * ex.Inputs[j] * deltas[0, i];
+    //    }
+    //    afterEpoch();
+    //  } while (true);
+    //}
 
     //double[] Propagate(double[] inputs, int layerNum)
     //{
@@ -139,27 +223,6 @@ namespace Quqe
     //  var w = Weights[layerNum];
     //  return Propagate(Repeat(w.NodeCount(), nodeNum => ActivationFunction(DotProduct(AddBiasInput(inputs), w.Col(nodeNum)))), layerNum + 1);
     //}
-
-    double[] Propagate(double[] inputs, int layerNum)
-    {
-      return Propagate(inputs, layerNum, null, null);
-    }
-
-    double[] Propagate(double[] inputs, int layerNum, double[,] inValues, double[,] outValues)
-    {
-      if (layerNum >= Weights.Count)
-        return inputs;
-      var w = Weights[layerNum];
-      return Propagate(Repeat(w.NodeCount(), nodeNum => {
-        var inValue = DotProduct(AddBiasInput(inputs), w.Col(nodeNum));
-        var outValue = ActivationFunction(inValue);
-        if (inValues != null)
-          inValues[layerNum, nodeNum] = inValue;
-        if (outValues != null)
-          outValues[layerNum, nodeNum] = outValue;
-        return outValue;
-      }), layerNum + 1, inValues, outValues);
-    }
 
     public void JiggleWeights()
     {
@@ -218,14 +281,6 @@ namespace Quqe
       return result;
     }
 
-    static double[] AddBiasInput(double[] inputs)
-    {
-      var newInputs = new double[inputs.Length + 1];
-      newInputs[0] = -1;
-      Array.Copy(inputs, 0, newInputs, 1, inputs.Length);
-      return newInputs;
-    }
-
     static List<double[,]> MakeHiddenLayers(int nInputs, IEnumerable<int> hiddenLayers)
     {
       return hiddenLayers.Select(nodeCount => {
@@ -235,14 +290,24 @@ namespace Quqe
       }).ToList();
     }
 
-    static double ActivationFunction(double x)
+    protected static double Identity(double x)
     {
-      return 1 / (1 + Math.Exp(-x)); // sigmoid
+      return x;
     }
 
-    static double ActivationFunctionPrime(double x)
+    protected static double Gaussian(double x)
     {
-      return ActivationFunction(x) * (1 - ActivationFunction(x)); // sigmoid first derivative
+      return Math.Exp(-x * x / 2);
+    }
+
+    static double Sigmoid(double x)
+    {
+      return 1 / (1 + Math.Exp(-x));
+    }
+
+    static double SigmoidFirstDerivative(double x)
+    {
+      return Sigmoid(x) * (1 - Sigmoid(x));
     }
 
     public override string ToString()

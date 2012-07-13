@@ -10,11 +10,11 @@ namespace Quqe
   {
     static void Main(string[] args)
     {
-      DoSimpler();
+      //DoSimpler();
       var allBars = DataSet.LoadNinjaBars("TQQQ.txt");
       var nn = new NeuralNet(
         new[] { "Open0", "Open1", "Low1", "High1", "Close1" },
-        new[] { 5 },
+        new int[] { },
         new[] { "Bias" });
 
       int inputBarCount = 2;
@@ -35,13 +35,13 @@ namespace Quqe
         return new double[] { bs[0].Close > bs[0].Open ? 1 : 0 };
       };
 
-      var iterations = 3000;
+      var iterations = 2000;
       nn.Anneal(iterations, time => Math.Exp(-(double)time / (double)iterations * 7),
         net => -1 * Backtest(net, trainingSet, inputBarCount, cookInputs).ProfitFactor);
 
       double bestTest = 0;
       double bestValidation = 0;
-      nn.GradientlyDescend(7, 0.00001, MakeExamples(trainingSet, 5).Select(bars => new Example {
+      nn.GradientlyDescend(1, 0.00001, MakeExamples(trainingSet, 10).Select(bars => new Example {
         Inputs = cookInputs(bars),
         BestOutputs = calcOutputs(bars)
       }).ToList(), () => {
@@ -51,7 +51,7 @@ namespace Quqe
         bestTest = Math.Max(bestTest, test);
         bestValidation = Math.Max(bestValidation, validation);
         Console.WriteLine(string.Format("ProfitFactor: {0:N9}\t{1:N9}\t{2:N9}\t{3:N9}", test, validation, bestTest, bestValidation));
-        //Console.ReadLine();
+        Console.ReadLine();
       });
 
       var ns = nn.ToString();
