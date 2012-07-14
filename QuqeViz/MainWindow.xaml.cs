@@ -22,7 +22,7 @@ namespace QuqeViz
     public static void Go()
     {
       var symbol = "TQQQ";
-      var s = Data.Get(symbol).From("02/12/2010").To("02/12/2012");
+      var tqqq = Data.Get(symbol).From("02/12/2010").To("02/12/2012");
       Func<BacktestReport, double> goal = r => r.ProfitFactor;
 
       var results = Optimizer.OptimizeStrategyParameters(
@@ -33,19 +33,22 @@ namespace QuqeViz
           Func<string, double> param = name => sParams.First(sp => sp.Name == name).Value;
 
           var eParams = new EvolutionParams {
-            NumGenerations = 100,
-            GenerationSurvivorCount = 5,
-            RandomAliensPerGeneration = 5,
-            MaxOffspring = 15,
-            MutationRate = 0.7,
-            MaxMutation = 0.05,
+            NumGenerations = 1000,
+            GenerationSurvivorCount = 15,
+            RandomAliensPerGeneration = 60,
+            MaxOffspring = 1,
+            MutationRate = 1,
+            MaxMutationTimesVariance = 0.003,
           };
 
-          var zlemaSlope = s.ZLEMA((int)param("ZLEMAPeriod"), bar => param("ZLEMAOpenOrClose") == 0 ? bar.Open : bar.Close).Derivative();
+          var tqqqZlemaSlope = tqqq.ZLEMA((int)param("ZLEMAPeriod"), bar => param("ZLEMAOpenOrClose") == 0 ? bar.Open : bar.Close).Derivative();
 
-          var inputNames = List.Create("Close1", "Open0", "ZLEMASlope");
+          var inputNames = List.Create("O1", "L1", "H1", "C1", "O0", "ZLEMASlope");
           var outputNames = List.Create("BuySignal", "StopLimit");
           var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputNames.Count, outputNames.Count)), g => {
+            var s = tqqq.Clone();
+            var zlemaSlope = tqqqZlemaSlope.Clone();
+
             var net = new WardNet(inputNames, outputNames, g);
             var account = new Account { Equity = 10000, MarginFactor = 1 };
             var backtester = new Backtester(s, account);
@@ -57,7 +60,7 @@ namespace QuqeViz
               if (pos == 0)
                 return;
               var normal = s[1].Close;
-              var normalizedPrices = List.Create(s[1].Close, s[0].Open).Select(x => x / normal).ToList();
+              var normalizedPrices = List.Create(s[1].Open, s[1].Low, s[1].High, s[1].Close, s[0].Open).Select(x => x / normal).ToList();
               var inputs = normalizedPrices.Concat(List.Create(zlemaSlope[0].Val));
               var shouldBuy = net.Propagate(inputs)[0] >= 0;
               var stopLimit = net.Propagate(inputs)[1] * normal;

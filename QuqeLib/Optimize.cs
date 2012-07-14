@@ -6,6 +6,7 @@ using PCW;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace Quqe
 {
@@ -48,7 +49,8 @@ namespace Quqe
     public int GenerationSurvivorCount;
     public int RandomAliensPerGeneration;
     public double MutationRate;
-    public double MaxMutation;
+    //public double MaxMutation;
+    public double MaxMutationTimesVariance;
     public int MaxOffspring;
     public int NumGenerations;
   }
@@ -92,11 +94,14 @@ namespace Quqe
       Action updateFitness = () => {
         var unmeasured = population.Where(g => g.Fitness == null).ToList();
         //Trace.WriteLine("Calculating fitness for " + unmeasured.Count + " individuals");
-        foreach (var g in unmeasured)
-          g.Fitness = fitnessFunc(g);
+        Parallel.ForEach(unmeasured, g => { g.Fitness = fitnessFunc(g); });
+        //foreach (var g in unmeasured)
+        //  g.Fitness = fitnessFunc(g);
       };
 
       updateFitness();
+
+      double maxMutation = 0;
 
       for (int gen = 0; gen < eParams.NumGenerations; gen++)
       {
@@ -104,13 +109,27 @@ namespace Quqe
         var averageFitness = population.Average(g => g.Fitness).Value;
         Func<double, int> numOffspring = fitness => (int)Math.Max(0, (fitness - averageFitness) / (maxFitness - averageFitness) * eParams.MaxOffspring);
 
+        var z = gen % 100;
+        if (40 <= z && z < 45)
+        {
+          Trace.WriteLine("Radiation burst!");
+          maxMutation = 0.4;  // radiation burst
+        }
+
         // asexual reproduction
         foreach (var g in population.ToList())
-          population.AddRange(List.Repeat(numOffspring(g.Fitness.Value), () => Breed(g, g, eParams)));
+          population.AddRange(List.Repeat(eParams.MaxOffspring /*numOffspring(g.Fitness.Value)*/, () => Breed(g, g, eParams, maxMutation)));
         updateFitness();
 
+        int numAliens = eParams.RandomAliensPerGeneration;
+        if (90 <= z && z < 95)
+        {
+          Trace.WriteLine("Alien invasion!");
+          numAliens = 200;  // alien invasion
+        }
+
         // add random aliens
-        population.AddRange(List.Repeat(eParams.RandomAliensPerGeneration, () => MakeRandomGenome(seed.Size)));
+        population.AddRange(List.Repeat(numAliens, () => MakeRandomGenome(seed.Size)));
         updateFitness();
 
         //// sexual reproduction
@@ -120,12 +139,20 @@ namespace Quqe
 
         // kill off the unfit
         population = population.OrderByDescending(g => g.Fitness).Take(eParams.GenerationSurvivorCount).ToList();
-        Trace.WriteLine("Gen " + gen + ", fittest: " + population.First().Fitness.Value.ToString("N6"));
+        var variance = Variance(population.Select(g => g.Fitness.Value));
+        maxMutation = eParams.MaxMutationTimesVariance / variance;
+        Trace.WriteLine("Gen " + gen + ", fittest: " + population.First().Fitness.Value.ToString("N6") + "   Variance: " + variance.ToString("N6") + "   MaxMutation: " + maxMutation.ToString("N6"));
       }
       return population.First();
     }
 
-    static Genome Breed(Genome a, Genome b, EvolutionParams eParams)
+    static double Variance(IEnumerable<double> xs)
+    {
+      var u = xs.Average();
+      return xs.Average(x => Math.Pow(x - u, 2));
+    }
+
+    static Genome Breed(Genome a, Genome b, EvolutionParams eParams, double maxMutation)
     {
       var c = new Genome { Genes = new List<double>() };
       for (int i = 0; i < a.Size; i++)
@@ -133,7 +160,7 @@ namespace Quqe
         var p = Random.Next(2);
         var gene = p == 0 ? a.Genes[i] : b.Genes[i];
         if (WithProb(eParams.MutationRate))
-          gene += RandomDouble(-eParams.MaxMutation, eParams.MaxMutation);
+          gene += RandomDouble(-maxMutation, maxMutation);
         c.Genes.Add(Clip(GeneMin, GeneMax, gene));
       }
       return c;

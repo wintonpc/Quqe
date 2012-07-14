@@ -166,6 +166,11 @@ namespace Quqe
       _Elements = elements;
     }
 
+    public DataSeries<T> Clone()
+    {
+      return new DataSeries<T>(Symbol, _Elements);
+    }
+
     public T this[int offset]
     {
       get
