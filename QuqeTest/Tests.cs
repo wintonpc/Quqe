@@ -5,6 +5,7 @@ using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Quqe;
 using PCW;
+using Backtest;
 
 namespace QuqeTest
 {
@@ -64,11 +65,18 @@ namespace QuqeTest
       Assert.IsTrue(threw);
     }
 
+    //[TestMethod]
+    //public void SMA1()
+    //{
+    //  var sma = Indicators.SMA(3, new double[] { 1, 4, 6, 2, 4, 7, 2, 4 });
+    //  Assert.IsTrue(List.Equal(sma, new double[] { 1, 5.0 / 2.0, 11.0 / 3.0, 4, 4, 13.0 / 3.0, 13.0 / 3.0, 13.0 / 3.0 }));
+    //}
+
     [TestMethod]
-    public void SMA1()
+    public void Drawdown()
     {
-      var sma = Indicators.SMA(3, new double[] { 1, 4, 6, 2, 4, 7, 2, 4 });
-      Assert.IsTrue(List.Equal(sma, new double[] { 1, 5.0 / 2.0, 11.0 / 3.0, 4, 4, 13.0 / 3.0, 13.0 / 3.0, 13.0 / 3.0 }));
+      var dd = Backtester.CalcMaxDrawdownPercent(new DataSeries<Value>("Foo", List.Create(1.0, 2, 3, 4, 7, 5, 4, 5, 2, 10, 12, 11, 15).Select(x => new Value(DateTime.MinValue, x))));
+      Assert.IsTrue(dd == (7 - 2) / 7.0);
     }
   }
 }

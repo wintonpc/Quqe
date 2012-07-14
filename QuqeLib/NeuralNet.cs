@@ -26,7 +26,7 @@ namespace Quqe
     static readonly List<Func<double, double>> ActivationFunction = List.Create<Func<double, double>>(Math.Tanh, Gaussian);
 
     public WardNet(IEnumerable<string> inputs, string output, Genome g)
-      :this(inputs, output)
+      : this(inputs, output)
     {
       FromGenome(g);
     }
@@ -76,6 +76,18 @@ namespace Quqe
     static Func<double, double> ActivationFunctionFromGene(double gene)
     {
       return gene >= 0 ? (Func<double, double>)Math.Tanh : (Func<double, double>)Gaussian;
+    }
+
+    static Dictionary<int, int> GenomeSizes = new Dictionary<int, int>();
+    public static int GenomeSize(int numInputs)
+    {
+      int size;
+      if (!GenomeSizes.TryGetValue(numInputs, out size))
+      {
+        size = new WardNet(List.Repeat(numInputs, () => ""), "").ToGenome().Size;
+        GenomeSizes.Add(numInputs, size);
+      }
+      return size;
     }
   }
 
