@@ -5,7 +5,6 @@ using System.Text;
 using PCW;
 using System.Diagnostics;
 using System.IO;
-using Backtest;
 
 namespace Quqe
 {

@@ -1,0 +1,7 @@
+﻿<Window x:Class="QuqeViz.ChartWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sc="clr-namespace:StockCharts;assembly=StockCharts"
+        Title="ChartWindow" Height="320" Width="520">
+  <sc:StockChart x:Name="Chart"></sc:StockChart>
+</Window>

@@ -40,17 +40,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Config.cs" />
-    <Compile Include="DataSet.cs" />
+    <Compile Include="Account.cs" />
+    <Compile Include="Backtest.cs" />
+    <Compile Include="DataSeries.cs" />
     <Compile Include="Indicators.cs" />
     <Compile Include="NeuralNet.cs" />
+    <Compile Include="Optimize.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Backtester\Backtest\Backtest.csproj">
-      <Project>{BC4A6304-77D1-4619-8CEE-83FB15C16746}</Project>
-      <Name>Backtest</Name>
-    </ProjectReference>
     <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">
       <Project>{2BFAD437-7AF7-4F7B-B0FD-8305F6CF3392}</Project>
       <Name>PCW</Name>

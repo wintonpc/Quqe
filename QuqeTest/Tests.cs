@@ -5,7 +5,6 @@ using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Quqe;
 using PCW;
-using Backtest;
 
 namespace QuqeTest
 {
