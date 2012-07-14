@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.Diagnostics;
+using PCW;
 
 namespace Quqe
 {
@@ -73,26 +75,78 @@ namespace Quqe
   public abstract class DataSeries
   {
     public readonly string Symbol;
-    public abstract IEnumerable<DataSeriesElement> GetElements();
-    public int Pos { get; protected set; }
+    public abstract int Length { get; }
+    Stack<Frame> Frames = new Stack<Frame>();
+
+    protected bool IsFramed { get { return Frames.Any(); } }
+    public int Pos { get { return IsFramed ? Frames.Peek().Pos : 0; } }
+
+    public abstract IEnumerable<DataSeriesElement> Elements { get; }
 
     public DataSeries(string symbol)
     {
       Symbol = symbol;
     }
 
-    public static void Walk<T1, T2>(DataSeries<T1> s1, DataSeries<T2> s2, Action<DataSeries<T1>, DataSeries<T2>> f)
-      where T1 : DataSeriesElement
-      where T2 : DataSeriesElement
+    void PushFrame(Frame f)
     {
-      var c1 = new DataSeries<T1>(s1.Symbol, s1.GetElements().Cast<T1>());
-      var c2 = new DataSeries<T2>(s2.Symbol, s2.GetElements().Cast<T2>());
-      var count = c1.Count();
-      for (int i = 0; i < count; i++)
+      Frames.Push(f);
+    }
+
+    void PopFrame(Frame f)
+    {
+      Debug.Assert(Frames.Peek() == f);
+      Frames.Pop();
+    }
+
+    class Frame : IDisposable
+    {
+      public int Pos { get; private set; }
+      readonly DataSeries[] Series;
+      readonly int Length;
+      public Frame(params DataSeries[] series)
       {
-        c1.Pos = i;
-        c2.Pos = i;
-        f(c1, c2);
+        Series = series;
+        Length = series.Min(s => s.Length);
+        Debug.Assert(Length == series.Max(s => s.Length));
+        foreach (var s in Series)
+          s.PushFrame(this);
+      }
+
+      bool IsDisposed;
+      public void Dispose()
+      {
+        if (IsDisposed) return;
+        IsDisposed = true;
+        foreach (var s in Series)
+          s.PopFrame(this);
+      }
+
+      public bool Advance()
+      {
+        if (Pos == Length - 1)
+          return false;
+        else
+        {
+          Pos++;
+          return true;
+        }
+      }
+    }
+
+    public static void Walk(DataSeries s1, Action<int> onBar) { Walk(List.Create(s1), onBar); }
+    public static void Walk(DataSeries s1, DataSeries s2, Action<int> onBar) { Walk(List.Create(s1, s2), onBar); }
+    public static void Walk(DataSeries s1, DataSeries s2, DataSeries s3, Action<int> onBar) { Walk(List.Create(s1, s2, s3), onBar); }
+    public static void Walk(DataSeries s1, DataSeries s2, DataSeries s3, DataSeries s4, Action<int> onBar) { Walk(List.Create(s1, s2, s3, s4), onBar); }
+
+    public static void Walk(IEnumerable<DataSeries> series, Action<int> onBar)
+    {
+      using (var f = new Frame(series.ToArray()))
+      {
+        do
+        {
+          onBar(f.Pos);
+        } while (f.Advance());
       }
     }
   }
@@ -101,7 +155,6 @@ namespace Quqe
     where T : DataSeriesElement
   {
     readonly T[] _Elements;
-
     public DataSeries(string symbol, IEnumerable<T> elements)
       : this(symbol, elements.ToArray())
     {
@@ -110,14 +163,6 @@ namespace Quqe
     public DataSeries(string symbol, T[] elements)
       : base(symbol)
     {
-      Pos = 0;
-      _Elements = elements;
-    }
-
-    DataSeries(string symbol, T[] elements, int pos)
-      : base(symbol)
-    {
-      Pos = pos;
       _Elements = elements;
     }
 
@@ -125,44 +170,45 @@ namespace Quqe
     {
       get
       {
-        if (offset < 0)
-          throw new ArgumentException("Offset cannot be negative. Can\'t look forward.");
-        var k = Pos - offset;
-        if (k < 0)
-          throw new ArgumentException("Offset it too large. DataSeries doesn't go back that far.");
-        return _Elements[k];
+        if (!IsFramed)
+          return _Elements[offset];
+        else
+        {
+          if (offset < 0)
+            throw new ArgumentException("Offset cannot be negative. Can\'t look forward.");
+          var k = Pos - offset;
+          if (k < 0)
+            throw new ArgumentException("Offset is too large. DataSeries doesn't go back that far.");
+          return _Elements[k];
+        }
       }
     }
 
     public DataSeries<TNewElement> MapElements<TNewElement>(Func<DataSeries<T>, DataSeries<TNewElement>, TNewElement> map)
       where TNewElement : DataSeriesElement
     {
-      var newElements = new TNewElement[_Elements.Length];
-      for (int i = 0; i < _Elements.Length; i++)
-      {
-        var clone = new DataSeries<T>(Symbol, _Elements, i);
-        var v = map(clone, new DataSeries<TNewElement>(Symbol, newElements, i));
-        v.SetTimestamp(clone[0].Timestamp);
-        newElements[i] = v;
-      }
-      return new DataSeries<TNewElement>(Symbol, newElements);
+      TNewElement[] newInternalArray = new TNewElement[_Elements.Length];
+      var result = new DataSeries<TNewElement>(Symbol, newInternalArray);
+      Walk(this, result, pos => {
+        var v = map(this, result);
+        v.SetTimestamp(this[0].Timestamp);
+        newInternalArray[pos] = v;
+      });
+      return result;
     }
 
-    public DataSeries<TNewElement> ZipElements<TNewElement>(DataSeries<T> other, Func<DataSeries<T>, DataSeries<T>, DataSeries<TNewElement>, TNewElement> map)
+    public DataSeries<TNewElement> ZipElements<TOther, TNewElement>(DataSeries<TOther> other, Func<DataSeries<T>, DataSeries<TOther>, DataSeries<TNewElement>, TNewElement> map)
+      where TOther : DataSeriesElement
       where TNewElement : DataSeriesElement
     {
-      if (this._Elements.Length != other._Elements.Length || this._Elements.First().Timestamp != other._Elements.First().Timestamp)
-        throw new ArgumentException("DataSeries arguments must be the same length and start on the same date");
-      var newElements = new TNewElement[_Elements.Length];
-      for (int i = 0; i < _Elements.Length; i++)
-      {
-        var clone = new DataSeries<T>(Symbol, _Elements, i);
-        var otherClone = new DataSeries<T>(Symbol, other._Elements, i);
-        var v = map(clone, otherClone, new DataSeries<TNewElement>(Symbol, newElements, i));
-        v.SetTimestamp(clone[0].Timestamp);
-        newElements[i] = v;
-      }
-      return new DataSeries<TNewElement>(Symbol, newElements);
+      TNewElement[] newInternalArray = new TNewElement[_Elements.Length];
+      var result = new DataSeries<TNewElement>(Symbol, newInternalArray);
+      Walk(this, other, result, pos => {
+        var v = map(this, other, result);
+        v.SetTimestamp(this[0].Timestamp);
+        newInternalArray[pos] = v;
+      });
+      return result;
     }
 
     public DataSeries<T> From(DateTime timestamp)
@@ -175,11 +221,6 @@ namespace Quqe
       return new DataSeries<T>(Symbol, _Elements.Where(x => x.Timestamp <= timestamp));
     }
 
-    public IEnumerable<T> FromHere()
-    {
-      return _Elements.Skip(Pos);
-    }
-
     public IEnumerator<T> GetEnumerator()
     {
       return _Elements.Cast<T>().GetEnumerator();
@@ -187,15 +228,12 @@ namespace Quqe
 
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
     {
-      return ((System.Collections.IEnumerable)_Elements).GetEnumerator();
+      return (System.Collections.IEnumerator)GetEnumerator();
     }
 
-    public override IEnumerable<DataSeriesElement> GetElements()
-    {
-      return _Elements;
-    }
+    public override IEnumerable<DataSeriesElement> Elements { get { return _Elements; } }
 
-    public T[] Elements { get { return _Elements; } }
+    public override int Length { get { return _Elements.Length; } }
   }
 
 

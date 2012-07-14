@@ -9,24 +9,29 @@ namespace Quqe
   {
     Account Account;
     DataSeries<Bar> Bars;
-    List<TradeRecord> Trades;
     public Backtester(string symbol, DateTime start, DateTime end, Account account)
     {
       Bars = Data.Get(symbol).From(start).To(end);
       Account = account;
-      Account.Traded += tradeRecord => Trades.Add(tradeRecord);
     }
 
-    public BacktestReport Run(IndicatorTransformer t1, Action<DataSeries<Bar>, DataSeries<Value>> onBar)
+    List<TradeRecord> Trades;
+    List<double> AccountValues;
+    public void StartRun()
     {
+      AccountValues = new List<double>();
       Trades = new List<TradeRecord>();
-      var accountValues = new List<double>();
-      DataSeries.Walk(Bars, t1(Bars), (s1, s2) => {
-        onBar(s1, s2);
-        accountValues.Add(Account.AccountValue);
-      });
+      Account.Traded += Trades.Add;
+    }
 
-      var accountValue = new DataSeries<Value>(Bars.Symbol, accountValues.Select(x => (Value)x));
+    public void UpdateAccountValue(double value)
+    {
+      AccountValues.Add(value);
+    }
+
+    public BacktestReport EndRun()
+    {
+      var accountValue = new DataSeries<Value>(Bars.Symbol, AccountValues.Select(x => (Value)x));
 
       return new BacktestReport {
         InputSet = Bars,
@@ -35,27 +40,6 @@ namespace Quqe
         MaxDrawdownPercent = CalcMaxDrawdownPercent(accountValue)
       };
     }
-
-    //public BacktestReport Run<T1, T2>(DataSeries<T1> ds1, DataSeries<T2> ds2, Action<DataSeries<T1>, DataSeries<T2>> onBar)
-    //  where T1 : DataSeriesElement
-    //  where T2 : DataSeriesElement
-    //{
-    //  Trades = new List<TradeRecord>();
-    //  var accountValues = new List<double>();
-    //  DataSeries.Walk(ds1, ds2, (s1, s2) => {
-    //    onBar(s1, s2);
-    //    accountValues.Add(Account.AccountValue);
-    //  });
-
-    //  var accountValue = new DataSeries<Value>(ds1.Symbol, accountValues.Select(x => (Value)x));
-
-    //  return new BacktestReport {
-    //    InputSet = Bars,
-    //    AccountValue = accountValue,
-    //    Trades = Trades,
-    //    MaxDrawdownPercent = CalcMaxDrawdownPercent(accountValue)
-    //  };
-    //}
 
     public static double CalcMaxDrawdownPercent(DataSeries<Value> accountValue)
     {

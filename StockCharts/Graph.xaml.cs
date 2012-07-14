@@ -68,7 +68,7 @@ namespace StockCharts
         var pb = PlotBoundaries[p];
         pb.ClipLeft = Math.Max(SlotOffset, pb.Left);
         pb.ClipRight = Math.Min(SlotOffset + SlotsInView - 1, pb.Right);
-        var ds = p.DataSeries.GetElements().ToArray();
+        var ds = p.DataSeries.Elements.ToArray();
         for (int i = pb.ClipLeft; i <= pb.ClipRight; i++)
         {
           minVal = Math.Min(minVal, ds[i - pb.Left].Min);
@@ -104,7 +104,7 @@ namespace StockCharts
             var geom = new StreamGeometry();
             using (var ctx = geom.Open())
             {
-              var es = ((DataSeries<Value>)p.DataSeries).Elements;
+              var es = ((DataSeries<Value>)p.DataSeries).ToArray();
               for (int i = pb.ClipLeft; i < pb.ClipRight; i++)
               {
                 int k = i - pb.Left;
@@ -121,7 +121,7 @@ namespace StockCharts
           }
           else if (p.Type == PlotType.Candlestick)
           {
-            var bars = ((DataSeries<Bar>)p.DataSeries).Elements;
+            var bars = ((DataSeries<Bar>)p.DataSeries).ToArray();
             for (int i = pb.ClipLeft; i <= pb.ClipRight; i++)
             {
               int k = i - pb.Left;
@@ -209,12 +209,12 @@ namespace StockCharts
             continue;
           if (plot.Type == PlotType.ValueLine)
           {
-            double v = ((DataSeries<Value>)plot.DataSeries).Elements[absoluteSlotNumber - pb.Left];
+            double v = ((DataSeries<Value>)plot.DataSeries).ToArray()[absoluteSlotNumber - pb.Left];
             sb.AppendFormat("   {0}: {1:N2}", plot.Title, v);
           }
           else if (plot.Type == PlotType.Candlestick)
           {
-            var bar = ((DataSeries<Bar>)plot.DataSeries).Elements[absoluteSlotNumber - pb.Left];
+            var bar = ((DataSeries<Bar>)plot.DataSeries).ToArray()[absoluteSlotNumber - pb.Left];
             sb.AppendFormat("   OLHC: {0:N2}, {1:N2}, {2:N2}, {3:N2}", bar.Open, bar.Low, bar.High, bar.Close);
           }
         }

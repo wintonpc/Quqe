@@ -147,8 +147,8 @@ namespace StockCharts
       if (!Graphs.Any())
         return;
 
-      MinDate = Graphs.Min(g => g.Plots.Min(p => p.DataSeries.GetElements().First().Timestamp));
-      MaxDate = Graphs.Max(g => g.Plots.Max(p => p.DataSeries.GetElements().Last().Timestamp));
+      MinDate = Graphs.Min(g => g.Plots.Min(p => p.DataSeries.Elements.ToArray().First().Timestamp));
+      MaxDate = Graphs.Max(g => g.Plots.Max(p => p.DataSeries.Elements.ToArray().Last().Timestamp));
 
       if (Period == PeriodType.OneDay)
         TotalSlots = CalcTotalSlots(out _Timestamps);
@@ -171,23 +171,23 @@ namespace StockCharts
     int CalcTotalSlots(out List<DateTime> timestamps)
     {
       timestamps = new List<DateTime>();
-      var plots = Graphs.SelectMany(g => g.Plots).OrderBy(p => p.DataSeries.GetElements().First().Timestamp).ToArray();
+      var plots = Graphs.SelectMany(g => g.Plots).OrderBy(p => p.DataSeries.Elements.ToArray().First().Timestamp).ToArray();
       if (plots.Length == 0)
         return 0;
       else if (plots.Length == 1)
       {
-        timestamps = plots.First().DataSeries.GetElements().Select(e => e.Timestamp).ToList();
-        return plots.First().DataSeries.GetElements().Count();
+        timestamps = plots.First().DataSeries.Elements.ToArray().Select(e => e.Timestamp).ToList();
+        return plots.First().DataSeries.Elements.ToArray().Count();
       }
       else
       {
         int count = 0;
         for (int i = 0; i < plots.Length - 1; i++)
         {
-          PlotBoundaries[plots[i]] = new PlotInfo { Left = count, Right = count + plots[i].DataSeries.GetElements().Count() - 1 };
+          PlotBoundaries[plots[i]] = new PlotInfo { Left = count, Right = count + plots[i].DataSeries.Elements.ToArray().Count() - 1 };
 
-          DateTime nextFirst = plots[i + 1].DataSeries.GetElements().First().Timestamp;
-          foreach (var el in plots[i].DataSeries.GetElements())
+          DateTime nextFirst = plots[i + 1].DataSeries.Elements.ToArray().First().Timestamp;
+          foreach (var el in plots[i].DataSeries.Elements.ToArray())
           {
             if (el.Timestamp == nextFirst)
               break;
@@ -198,8 +198,8 @@ namespace StockCharts
             }
           }
         }
-        timestamps.AddRange(plots.Last().DataSeries.GetElements().Select(e => e.Timestamp));
-        var lastCount = plots.Last().DataSeries.GetElements().Count();
+        timestamps.AddRange(plots.Last().DataSeries.Elements.ToArray().Select(e => e.Timestamp));
+        var lastCount = plots.Last().DataSeries.Elements.ToArray().Count();
         PlotBoundaries[plots.Last()] = new PlotInfo { Left = count, Right = count + lastCount - 1 };
         count += lastCount;
         return count;

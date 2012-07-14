@@ -77,7 +77,7 @@ namespace QuqeViz
       var qqq3 = qqq.Closes();
       var tqqq3 = tqqq.Closes();
       var faketqqq = qqq3.Derivative().MapElements<Value>((s, v) => 3 * s[0])
-          .Integral(qqq3.Elements[0])/*.MapElements<Value>((s, v) => s[0] * tqqq2.Elements[0] / qqq2.Elements[0])*/;
+          .Integral(qqq3.First())/*.MapElements<Value>((s, v) => s[0] * tqqq2.Elements[0] / qqq2.Elements[0])*/;
       g.Plots.Add(new Plot {
         Title = "QQQ",
         Type = PlotType.ValueLine,
@@ -114,8 +114,8 @@ namespace QuqeViz
         DataSeries = tqqq2.PercentReturn()
       });
 
-      var z = qqq2.PercentReturn().ZipElements<Value>(tqqq2.PercentReturn(), (sq, st, v) => sq[0] == 0 ? 0 : st[0] / sq[0]);
-      var y = qqq3.PercentReturn().ZipElements<Value>(faketqqq.PercentReturn(), (sq, st, v) => sq[0] == 0 ? 0 : st[0] / sq[0]);
+      var z = qqq2.PercentReturn().ZipElements<Value, Value>(tqqq2.PercentReturn(), (sq, st, v) => sq[0] == 0 ? 0 : st[0] / sq[0]);
+      var y = qqq3.PercentReturn().ZipElements<Value, Value>(faketqqq.PercentReturn(), (sq, st, v) => sq[0] == 0 ? 0 : st[0] / sq[0]);
       var g3 = chart.AddGraph();
       g3.Title = "";
       g3.Plots.Add(new Plot {
