@@ -9,9 +9,9 @@ namespace Quqe
   {
     Account Account;
     DataSeries<Bar> Bars;
-    public Backtester(string symbol, DateTime start, DateTime end, Account account)
+    public Backtester(DataSeries<Bar> bars, Account account)
     {
-      Bars = Data.Get(symbol).From(start).To(end);
+      Bars = bars;
       Account = account;
     }
 
@@ -29,7 +29,7 @@ namespace Quqe
       AccountValues.Add(value);
     }
 
-    public BacktestReport EndRun()
+    public BacktestReport StopRun()
     {
       var accountValue = new DataSeries<Value>(Bars.Symbol, AccountValues.Select(x => (Value)x));
 

@@ -21,19 +21,17 @@ namespace Quqe
 
   public class WardNet : NeuralNet
   {
-    public readonly string Name;
     static readonly List<Func<double, double>> ActivationFunction = List.Create<Func<double, double>>(Math.Tanh, Gaussian);
 
-    public WardNet(IEnumerable<string> inputs, string output, Genome g)
-      : this(inputs, output)
+    public WardNet(IEnumerable<string> inputs, IEnumerable<string> outputs, Genome g)
+      : this(inputs, outputs)
     {
       FromGenome(g);
     }
 
-    public WardNet(IEnumerable<string> inputs, string output)
-      : base(inputs, List.Create(2), List.Create(output))
+    public WardNet(IEnumerable<string> inputs, IEnumerable<string> outputs)
+      : base(inputs, List.Create(2), outputs)
     {
-      Name = output;
     }
 
     void FromGenome(Genome g)
@@ -46,7 +44,7 @@ namespace Quqe
           for (int node = 0; node < w.ColCount(); node++)
             w[input, node] = genes.Dequeue();
       }
-      for (int layer = 0; layer < Weights.Count; layer++)
+      for (int layer = 0; layer < Weights.Count - 1 /* -1 to leave output layer alone */; layer++)
         for (int node = 0; node < Weights[layer].ColCount(); node++)
           ActivationFunctions[layer, node] = ActivationFunctionFromGene(genes.Dequeue());
     }
@@ -61,7 +59,7 @@ namespace Quqe
           for (int node = 0; node < w.ColCount(); node++)
             g.Add(w[input, node]);
       }
-      for (int layer = 0; layer < Weights.Count; layer++)
+      for (int layer = 0; layer < Weights.Count - 1 /* -1 to leave output layer alone */; layer++)
         for (int node = 0; node < Weights[layer].ColCount(); node++)
           g.Add(ActivationFunctionToGene(ActivationFunctions[layer, node]));
       return new Genome { Genes = g };
@@ -78,12 +76,12 @@ namespace Quqe
     }
 
     static Dictionary<int, int> GenomeSizes = new Dictionary<int, int>();
-    public static int GenomeSize(int numInputs)
+    public static int GenomeSize(int numInputs, int numOutputs)
     {
       int size;
       if (!GenomeSizes.TryGetValue(numInputs, out size))
       {
-        size = new WardNet(List.Repeat(numInputs, () => ""), "").ToGenome().Size;
+        size = new WardNet(List.Repeat(numInputs, () => ""), List.Repeat(numOutputs, () => "")).ToGenome().Size;
         GenomeSizes.Add(numInputs, size);
       }
       return size;
@@ -102,7 +100,7 @@ namespace Quqe
       InputNames = inputs.ToList();
       OutputNames = outputs.ToList();
       Weights = MakeHiddenLayers(InputNames.Count, hiddenLayers);
-      Weights.Add(new double[Weights.Any() ? Weights.Last().NodeCount() + 1 : InputNames.Count, OutputNames.Count]); // output weights
+      Weights.Add(new double[Weights.Any() ? Weights.Last().NodeCount() : InputNames.Count, OutputNames.Count]); // output weights
       ActivationFunctions = new Func<double, double>[Weights.Count, hiddenLayers.Max()];
       for (int layer = 0; layer < ActivationFunctions.RowCount(); layer++)
         for (int i = 0; i < ActivationFunctions.ColCount(); i++)
@@ -116,9 +114,9 @@ namespace Quqe
       Weights = weights.ToList();
     }
 
-    public double[] Propagate(double[] inputs)
+    public double[] Propagate(IEnumerable<double> inputs)
     {
-      return Propagate(inputs, 0);
+      return Propagate(inputs.ToArray(), 0);
     }
 
     double[] Propagate(double[] inputs, int layerNum)
@@ -295,7 +293,7 @@ namespace Quqe
     static List<double[,]> MakeHiddenLayers(int nInputs, IEnumerable<int> hiddenLayers)
     {
       return hiddenLayers.Select(nodeCount => {
-        var thisInputCount = nInputs + 1; // +1 for bias weight
+        var thisInputCount = nInputs;
         nInputs = nodeCount; // mutation!
         return new double[thisInputCount, nodeCount];
       }).ToList();

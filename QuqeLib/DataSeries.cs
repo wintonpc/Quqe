@@ -221,6 +221,21 @@ namespace Quqe
       return new DataSeries<T>(Symbol, _Elements.Where(x => x.Timestamp <= timestamp));
     }
 
+    public DataSeries<T> From(string timestamp)
+    {
+      return From(DateTime.Parse(timestamp));
+    }
+
+    public DataSeries<T> To(string timestamp)
+    {
+      return To(DateTime.Parse(timestamp));
+    }
+
+    public IEnumerable<T> FromHere()
+    {
+      return _Elements.Skip(Pos);
+    }
+
     public IEnumerator<T> GetEnumerator()
     {
       return _Elements.Cast<T>().GetEnumerator();

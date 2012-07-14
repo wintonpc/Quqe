@@ -37,7 +37,7 @@ namespace Quqe
   public class OptimizerReport
   {
     public List<StrategyParameter> StrategyParams;
-    public List<string> GenomeNames;
+    public string GenomeName;
   }
 
   public delegate OptimizerReport OptimizeKernelFunc(List<StrategyParameter> sParams);
@@ -59,14 +59,14 @@ namespace Quqe
     public int Size { get { return Genes.Count; } }
 
     static string GenomesDir = "Genomes";
-    public string Save(string prefix)
+    public string Save()
     {
       if (!Directory.Exists(GenomesDir))
         Directory.CreateDirectory(GenomesDir);
 
-      int lastGenomeNumber = Directory.EnumerateFiles(GenomesDir).Select(f => int.Parse(Regex.Replace(f, @"\-([^\.])+\.txt$", m => m.Groups[1].Value))).Max();
+      int lastGenomeNumber = Directory.EnumerateFiles(GenomesDir).Select(f => int.Parse(Regex.Replace(f, @"([^\.])+\.txt$", m => m.Groups[1].Value))).Max();
       var number = lastGenomeNumber.ToString("D6");
-      var name = prefix + "-" + number;
+      var name = number;
       var fn = Path.Combine(GenomesDir, name + ".txt");
 
       File.WriteAllText(fn, Genes.Join("\t"));

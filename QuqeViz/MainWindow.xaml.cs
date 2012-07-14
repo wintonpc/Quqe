@@ -21,9 +21,11 @@ namespace QuqeViz
 
     public static void Go()
     {
-      var account = new Account { Equity = 10000, MarginFactor = 6 };
+      var account = new Account { Equity = 10000, MarginFactor = 1 };
       var symbol = "TQQQ";
-      var backtester = new Backtester(symbol, DateTime.Parse("02/12/2010"), DateTime.Parse("02/12/2012"), account);
+      var s = Data.Get(symbol).From("02/12/2010").To("02/12/2012");
+      var backtester = new Backtester(s, account);
+      Func<BacktestReport, double> goal = r => r.ProfitFactor;
 
       var results = Optimizer.OptimizeStrategyParameters(
         new List<OptimizerParameter> {
@@ -41,20 +43,37 @@ namespace QuqeViz
             MaxMutation = 0.02,
           };
 
+          var zlemaSlope = s.ZLEMA((int)param("ZLEMAPeriod"), bar => param("ZLEMAOpenOrClose") == 0 ? bar.Open : bar.Close).Derivative();
+
           var inputNames = List.Create("Close1", "Open0", "ZLEMASlope");
-          var bestBuyGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputNames.Count)), g => {
-            return 0; // ???
+          var outputNames = List.Create("BuySignal", "StopLimit");
+          var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputNames.Count, outputNames.Count)), g => {
+            var net = new WardNet(inputNames, outputNames, g);
+            backtester.StartRun();
+            DataSeries.Walk(s, zlemaSlope, pos => {
+              if (pos == 0)
+                return;
+              var normalizedPrices = List.Create(s[1].Close, s[0].Open).Select(x => x / s[1].Close).ToList();
+              var inputs = normalizedPrices.Concat(List.Create(zlemaSlope[0].Val));
+              var shouldBuy = net.Propagate(inputs)[0] >= 0;
+              var stopLimit = net.Propagate(inputs)[1];
+              if (shouldBuy)
+                account.EnterLong(symbol, (int)(account.BuyingPower / s[0].Open), new ExitOnSessionClose(stopLimit), s.FromHere());
+              else
+                account.EnterShort(symbol, (int)(account.BuyingPower / s[0].Open), new ExitOnSessionClose(stopLimit), s.FromHere());
+              backtester.UpdateAccountValue(account.Equity);
+            });
+            var report = backtester.StopRun();
+            return goal(report);
           });
-          var bestStopLimitGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputNames.Count)), g => {
-            return 0; // ???
-          });
-          var n1 = bestBuyGenome.Save("BuySignal");
-          var n2 = bestStopLimitGenome.Save("StopLimit");
+          var genomeName = bestGenome.Save();
           return new OptimizerReport {
             StrategyParams = sParams,
-            GenomeNames = List.Create(n1, n2)
+            GenomeName = genomeName
           };
         });
+
+      results.ToList();
     }
 
     private void GoButton_Click(object sender, RoutedEventArgs e)
