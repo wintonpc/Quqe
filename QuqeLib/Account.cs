@@ -8,7 +8,7 @@ namespace Quqe
 {
   public abstract class ExitCriteria
   {
-    public abstract double GetExit(PositionDirection pd, IEnumerable<Bar> dailyBarsFromNow, out DateTime exitTime);
+    public abstract double GetExit(PositionDirection pd, double entry, IEnumerable<Bar> dailyBarsFromNow, out DateTime exitTime);
   }
 
   public class ExitOnSessionClose : ExitCriteria
@@ -19,12 +19,12 @@ namespace Quqe
       StopLimit = stopLimit;
     }
 
-    public override double GetExit(PositionDirection pd, IEnumerable<Bar> dailyBarsFromNow, out DateTime exitTime)
+    public override double GetExit(PositionDirection pd, double entry, IEnumerable<Bar> dailyBarsFromNow, out DateTime exitTime)
     {
       var todayBar = dailyBarsFromNow.First();
       exitTime = todayBar.Timestamp.AddHours(16);
-      if ((pd == PositionDirection.Long && todayBar.Low <= StopLimit)
-        || (pd == PositionDirection.Short && todayBar.High >= StopLimit))
+      if ((pd == PositionDirection.Long && StopLimit < entry && todayBar.Low <= StopLimit)
+        || (pd == PositionDirection.Short && StopLimit > entry && todayBar.High >= StopLimit))
         return StopLimit;
       else
         return todayBar.Close;
@@ -38,9 +38,20 @@ namespace Quqe
     List<Position> Positions = new List<Position>();
     public Func<int, double> Commission = numShares => 4.95;
 
-    public double Equity { get; set; }
+    double _Equity;
+    public double Equity
+    {
+      get { return _Equity; }
+      set
+      {
+        _Equity = value;
+        if (double.IsNaN(_Equity))
+          throw new Exception();
+      }
+    }
+    //public double Equity { get; set; }
     public double MarginFactor { get; set; }
-    public double TotalBorrowable { get { return Math.Round(Equity * MarginFactor); } }
+    public double TotalBorrowable { get { return Equity * MarginFactor; } }
     public double BuyingPower { get { return TotalBorrowable - AmountBorrowed; } }
     public double AccountValue { get { return Equity - AmountBorrowed + Positions.Sum(p => Math.Abs(p.NumShares * CurrentPrice(p.Symbol))); } }
 
@@ -56,7 +67,7 @@ namespace Quqe
       var valueBefore = AccountValue;
       p.Open(numShares, entry);
       DateTime exitTime;
-      var exit = exitCriteria.GetExit(PositionDirection.Long, barsFromNow, out exitTime);
+      var exit = exitCriteria.GetExit(PositionDirection.Long, entry, barsFromNow, out exitTime);
       p.Close(numShares, exit);
       FireTraded(new TradeRecord(symbol, entry, exit, todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore));
     }
@@ -69,7 +80,7 @@ namespace Quqe
       var valueBefore = AccountValue;
       p.Open(-numShares, entry);
       DateTime exitTime;
-      var exit = exitCriteria.GetExit(PositionDirection.Short, barsFromNow, out exitTime);
+      var exit = exitCriteria.GetExit(PositionDirection.Short, entry, barsFromNow, out exitTime);
       p.Close(-numShares, exit);
       FireTraded(new TradeRecord(symbol, entry, exit, todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore));
     }
@@ -112,24 +123,26 @@ namespace Quqe
 
       public void Open(int size, double price)
       {
-        Account.Equity = Math.Round(Account.Equity - Account.Commission(Math.Abs(size)), 2);
+        Account.Equity = Account.Equity - Account.Commission(Math.Abs(size));
         double formerValue = NumShares * AveragePrice;
         double sizeValue = Math.Abs(size) * price;
+        if (NumShares + size == 0)
+          throw new Exception();
         NumShares += size;
         AveragePrice = Math.Abs((formerValue + sizeValue) / NumShares);
         if (sizeValue > Account.BuyingPower)
           throw new Exception("Insufficient buying power");
-        Account.AmountBorrowed = Math.Round(Account.AmountBorrowed + sizeValue, 2);
+        Account.AmountBorrowed = Account.AmountBorrowed + sizeValue;
       }
 
       public void Close(int size, double price)
       {
-        Account.Equity = Math.Round(Account.Equity - Account.Commission(Math.Abs(size)), 2);
+        Account.Equity = Account.Equity - Account.Commission(Math.Abs(size));
         NumShares -= size;
         var profit = size * (price - AveragePrice);
-        Account.Equity = Math.Round(Account.Equity + profit, 2);
+        Account.Equity = Account.Equity + profit;
         double sizeValue = Math.Abs(size) * AveragePrice;
-        Account.AmountBorrowed = Math.Round(Account.AmountBorrowed - sizeValue, 2);
+        Account.AmountBorrowed = Account.AmountBorrowed - sizeValue;
       }
     }
   }

@@ -5,6 +5,7 @@ using System.Text;
 using PCW;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -64,8 +65,9 @@ namespace Quqe
       if (!Directory.Exists(GenomesDir))
         Directory.CreateDirectory(GenomesDir);
 
-      int lastGenomeNumber = Directory.EnumerateFiles(GenomesDir).Select(f => int.Parse(Regex.Replace(f, @"([^\.])+\.txt$", m => m.Groups[1].Value))).Max();
-      var number = lastGenomeNumber.ToString("D6");
+      var nums = Directory.EnumerateFiles(GenomesDir).Select(f => int.Parse(Regex.Replace(f, @"([^\.])+\.txt$", m => m.Groups[1].Value)));
+      var lastGenomeNumber = nums.Any() ? nums.Max() : 0;
+      var number = (lastGenomeNumber+1).ToString("D6");
       var name = number;
       var fn = Path.Combine(GenomesDir, name + ".txt");
 
@@ -87,42 +89,52 @@ namespace Quqe
       population.Add(seed);
       population.AddRange(List.Repeat(eParams.GenerationSurvivorCount - 1, () => MakeRandomGenome(seed.Size)));
 
-      foreach (var g in population)
-        g.Fitness = fitnessFunc(g);
+      Action updateFitness = () => {
+        var unmeasured = population.Where(g => g.Fitness == null).ToList();
+        //Trace.WriteLine("Calculating fitness for " + unmeasured.Count + " individuals");
+        foreach (var g in unmeasured)
+          g.Fitness = fitnessFunc(g);
+      };
+
+      updateFitness();
 
       for (int gen = 0; gen < eParams.NumGenerations; gen++)
       {
-        var minFitnessSquared = Math.Pow(population.Min(g => g.Fitness).Value, 2);
-        var maxFitnessSquared = Math.Pow(population.Max(g => g.Fitness).Value, 2);
-        Func<double, int> numOffspring = fitness => (int)(fitness * fitness / (maxFitnessSquared - minFitnessSquared) * eParams.MaxOffspring);
+        var maxFitness = population.Max(g => g.Fitness).Value;
+        var averageFitness = population.Average(g => g.Fitness).Value;
+        Func<double, int> numOffspring = fitness => (int)Math.Max(0, (fitness - averageFitness) / (maxFitness - averageFitness) * eParams.MaxOffspring);
 
-        // add children
+        // asexual reproduction
         foreach (var g in population.ToList())
-          population.AddRange(List.Repeat(numOffspring(g.Fitness.Value), () => Breed(g, population.RandomItem(), eParams)));
+          population.AddRange(List.Repeat(numOffspring(g.Fitness.Value), () => Breed(g, g, eParams)));
+        updateFitness();
 
         // add random aliens
         population.AddRange(List.Repeat(eParams.RandomAliensPerGeneration, () => MakeRandomGenome(seed.Size)));
+        updateFitness();
 
-        // update fitness for those that don't have it
-        foreach (var g in population.Where(g => g.Fitness == null).ToList())
-          g.Fitness = fitnessFunc(g);
+        //// sexual reproduction
+        //foreach (var g in population.ToList())
+        //  population.AddRange(List.Repeat(numOffspring(g.Fitness.Value), () => Breed(g, population.RandomItem(), eParams)));
+        //updateFitness();
 
         // kill off the unfit
         population = population.OrderByDescending(g => g.Fitness).Take(eParams.GenerationSurvivorCount).ToList();
+        Trace.WriteLine("Gen " + gen + ", fittest: " + population.First().Fitness.Value.ToString("N6"));
       }
       return population.First();
     }
 
     static Genome Breed(Genome a, Genome b, EvolutionParams eParams)
     {
-      var c = new Genome();
+      var c = new Genome { Genes = new List<double>() };
       for (int i = 0; i < a.Size; i++)
       {
         var p = Random.Next(2);
         var gene = p == 0 ? a.Genes[i] : b.Genes[i];
         if (WithProb(eParams.MutationRate))
           gene += RandomDouble(-eParams.MaxMutation, eParams.MaxMutation);
-        c.Genes[i] = Clip(GeneMin, GeneMax, gene);
+        c.Genes.Add(Clip(GeneMin, GeneMax, gene));
       }
       return c;
     }

@@ -21,26 +21,24 @@ namespace QuqeViz
 
     public static void Go()
     {
-      var account = new Account { Equity = 10000, MarginFactor = 1 };
       var symbol = "TQQQ";
       var s = Data.Get(symbol).From("02/12/2010").To("02/12/2012");
-      var backtester = new Backtester(s, account);
       Func<BacktestReport, double> goal = r => r.ProfitFactor;
 
       var results = Optimizer.OptimizeStrategyParameters(
         new List<OptimizerParameter> {
-          new OptimizerParameter("ZLEMAPeriod", 3, 15, 1),
-          new OptimizerParameter("ZLEMAOpenOrClose", 0, 1, 1),
+          new OptimizerParameter("ZLEMAPeriod", 3, 1, 1),
+          new OptimizerParameter("ZLEMAOpenOrClose", 0, 0, 1),
         }, sParams => {
           Func<string, double> param = name => sParams.First(sp => sp.Name == name).Value;
 
           var eParams = new EvolutionParams {
-            NumGenerations = 1000,
-            GenerationSurvivorCount = 80,
-            RandomAliensPerGeneration = 20,
-            MaxOffspring = 4,
-            MutationRate = 0.1,
-            MaxMutation = 0.02,
+            NumGenerations = 100,
+            GenerationSurvivorCount = 5,
+            RandomAliensPerGeneration = 5,
+            MaxOffspring = 15,
+            MutationRate = 0.7,
+            MaxMutation = 0.05,
           };
 
           var zlemaSlope = s.ZLEMA((int)param("ZLEMAPeriod"), bar => param("ZLEMAOpenOrClose") == 0 ? bar.Open : bar.Close).Derivative();
@@ -49,18 +47,28 @@ namespace QuqeViz
           var outputNames = List.Create("BuySignal", "StopLimit");
           var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputNames.Count, outputNames.Count)), g => {
             var net = new WardNet(inputNames, outputNames, g);
+            var account = new Account { Equity = 10000, MarginFactor = 1 };
+            var backtester = new Backtester(s, account);
             backtester.StartRun();
+            backtester.UpdateAccountValue(account.Equity);
+            double accountPadding = 20.0;
+
             DataSeries.Walk(s, zlemaSlope, pos => {
               if (pos == 0)
                 return;
-              var normalizedPrices = List.Create(s[1].Close, s[0].Open).Select(x => x / s[1].Close).ToList();
+              var normal = s[1].Close;
+              var normalizedPrices = List.Create(s[1].Close, s[0].Open).Select(x => x / normal).ToList();
               var inputs = normalizedPrices.Concat(List.Create(zlemaSlope[0].Val));
               var shouldBuy = net.Propagate(inputs)[0] >= 0;
-              var stopLimit = net.Propagate(inputs)[1];
-              if (shouldBuy)
-                account.EnterLong(symbol, (int)(account.BuyingPower / s[0].Open), new ExitOnSessionClose(stopLimit), s.FromHere());
-              else
-                account.EnterShort(symbol, (int)(account.BuyingPower / s[0].Open), new ExitOnSessionClose(stopLimit), s.FromHere());
+              var stopLimit = net.Propagate(inputs)[1] * normal;
+              var size = (int)((account.BuyingPower - accountPadding) / s[0].Open);
+              if (size > 0)
+              {
+                if (shouldBuy)
+                  account.EnterLong(symbol, size, new ExitOnSessionClose(Math.Max(0, stopLimit)), s.FromHere());
+                else
+                  account.EnterShort(symbol, size, new ExitOnSessionClose(Math.Min(100000, stopLimit)), s.FromHere());
+              }
               backtester.UpdateAccountValue(account.Equity);
             });
             var report = backtester.StopRun();
