@@ -75,16 +75,9 @@ namespace Quqe
       return gene >= 0 ? (Func<double, double>)Math.Tanh : (Func<double, double>)Gaussian;
     }
 
-    static Dictionary<int, int> GenomeSizes = new Dictionary<int, int>();
-    public static int GenomeSize(int numInputs, int numOutputs)
+    public static int GenomeSize(IEnumerable<string> inputNames, IEnumerable<string> outputNames)
     {
-      int size;
-      if (!GenomeSizes.TryGetValue(numInputs, out size))
-      {
-        size = new WardNet(List.Repeat(numInputs, () => ""), List.Repeat(numOutputs, () => "")).ToGenome().Size;
-        GenomeSizes.Add(numInputs, size);
-      }
-      return size;
+      return new WardNet(inputNames, outputNames).ToGenome().Size;
     }
   }
 

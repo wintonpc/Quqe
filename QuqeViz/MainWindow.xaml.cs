@@ -19,72 +19,63 @@ namespace QuqeViz
       InitializeComponent();
     }
 
+    //public static void Go()
+    //{
+    //  var tqqq = Data.Get("TQQQ").From("02/12/2010").To("02/12/2012");
+    //  Func<BacktestReport, double> goal = r => r.CPC;
+
+    //  var results = Optimizer.OptimizeStrategyParameters(
+    //    new List<OptimizerParameter> {
+    //      new OptimizerParameter("ZLEMAPeriod", 3, 1, 1),
+    //      new OptimizerParameter("ZLEMAOpenOrClose", 0, 0, 1),
+    //    }, sParams => {
+    //      var eParams = new EvolutionParams {
+    //        NumGenerations = 1000,
+    //        GenerationSurvivorCount = 15,
+    //        RandomAliensPerGeneration = 60,
+    //        MaxOffspring = 1,
+    //        MutationRate = 1,
+    //        MaxMutationTimesVariance = 0.002,
+    //      };
+
+    //      Strategy strat = new OnePerDayStrategy1(sParams, tqqq);
+
+    //      var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(strat.InputNames, strat.OutputNames)), g => {
+    //        var report = strat.Backtest(new WardNet(strat.InputNames, strat.OutputNames, g));
+    //        return goal(report);
+    //      });
+
+    //      var genomeName = bestGenome.Save();
+    //      return new OptimizerReport {
+    //        StrategyParams = sParams,
+    //        GenomeName = genomeName
+    //      };
+    //    });
+
+    //  results.ToList();
+
+    //  foreach (var r in results)
+    //  {
+
+    //  }
+    //}
+
     public static void Go()
     {
-      var symbol = "TQQQ";
-      var tqqq = Data.Get(symbol).From("02/12/2010").To("02/12/2012");
-      Func<BacktestReport, double> goal = r => r.ProfitFactor;
-
-      var results = Optimizer.OptimizeStrategyParameters(
-        new List<OptimizerParameter> {
-          new OptimizerParameter("ZLEMAPeriod", 3, 1, 1),
-          new OptimizerParameter("ZLEMAOpenOrClose", 0, 0, 1),
-        }, sParams => {
-          Func<string, double> param = name => sParams.First(sp => sp.Name == name).Value;
-
-          var eParams = new EvolutionParams {
-            NumGenerations = 1000,
-            GenerationSurvivorCount = 15,
-            RandomAliensPerGeneration = 60,
-            MaxOffspring = 1,
-            MutationRate = 1,
-            MaxMutationTimesVariance = 0.003,
-          };
-
-          var tqqqZlemaSlope = tqqq.ZLEMA((int)param("ZLEMAPeriod"), bar => param("ZLEMAOpenOrClose") == 0 ? bar.Open : bar.Close).Derivative();
-
-          var inputNames = List.Create("O1", "L1", "H1", "C1", "O0", "ZLEMASlope");
-          var outputNames = List.Create("BuySignal", "StopLimit");
-          var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputNames.Count, outputNames.Count)), g => {
-            var s = tqqq.Clone();
-            var zlemaSlope = tqqqZlemaSlope.Clone();
-
-            var net = new WardNet(inputNames, outputNames, g);
-            var account = new Account { Equity = 10000, MarginFactor = 1 };
-            var backtester = new Backtester(s, account);
-            backtester.StartRun();
-            backtester.UpdateAccountValue(account.Equity);
-            double accountPadding = 20.0;
-
-            DataSeries.Walk(s, zlemaSlope, pos => {
-              if (pos == 0)
-                return;
-              var normal = s[1].Close;
-              var normalizedPrices = List.Create(s[1].Open, s[1].Low, s[1].High, s[1].Close, s[0].Open).Select(x => x / normal).ToList();
-              var inputs = normalizedPrices.Concat(List.Create(zlemaSlope[0].Val));
-              var shouldBuy = net.Propagate(inputs)[0] >= 0;
-              var stopLimit = net.Propagate(inputs)[1] * normal;
-              var size = (int)((account.BuyingPower - accountPadding) / s[0].Open);
-              if (size > 0)
-              {
-                if (shouldBuy)
-                  account.EnterLong(symbol, size, new ExitOnSessionClose(Math.Max(0, stopLimit)), s.FromHere());
-                else
-                  account.EnterShort(symbol, size, new ExitOnSessionClose(Math.Min(100000, stopLimit)), s.FromHere());
-              }
-              backtester.UpdateAccountValue(account.Equity);
-            });
-            var report = backtester.StopRun();
-            return goal(report);
-          });
-          var genomeName = bestGenome.Save();
-          return new OptimizerReport {
-            StrategyParams = sParams,
-            GenomeName = genomeName
-          };
-        });
-
-      results.ToList();
+      var bars = Data.Get("TQQQ").From("02/12/2010").To("02/12/2012");
+      var oParams = new List<OptimizerParameter> {
+        new OptimizerParameter("ZLEMAPeriod", 3, 1, 1),
+        new OptimizerParameter("ZLEMAOpenOrClose", 0, 0, 1),
+      };
+      var eParams = new EvolutionParams {
+        NumGenerations = 1000,
+        GenerationSurvivorCount = 15,
+        RandomAliensPerGeneration = 60,
+        MaxOffspring = 1,
+        MutationRate = 1,
+        MaxMutationTimesVariance = 0.002,
+      };
+      var reports = Optimizer.FullOptimize(oParams, eParams, sParams => new OnePerDayStrategy1(sParams, bars), report => report.CPC);
     }
 
     private void GoButton_Click(object sender, RoutedEventArgs e)

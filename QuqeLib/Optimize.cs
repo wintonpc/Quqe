@@ -85,6 +85,26 @@ namespace Quqe
 
   public static class Optimizer
   {
+    public static List<OptimizerReport> FullOptimize(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
+      Func<IEnumerable<StrategyParameter>, Strategy> makeStrat, Func<BacktestReport, double> goal)
+    {
+      return Optimizer.OptimizeStrategyParameters(oParams, sParams => {
+        Strategy strat = makeStrat(sParams);
+
+        var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(strat.InputNames, strat.OutputNames)), g => {
+          var report = strat.Backtest(new WardNet(strat.InputNames, strat.OutputNames, g));
+          return goal(report);
+        });
+
+        var genomeName = bestGenome.Save();
+
+        return new OptimizerReport {
+          StrategyParams = sParams,
+          GenomeName = genomeName
+        };
+      });
+    }
+
     public static Genome Evolve(EvolutionParams eParams, Genome seed, Func<Genome, double> fitnessFunc)
     {
       var population = new List<Genome>();
@@ -109,11 +129,14 @@ namespace Quqe
         var averageFitness = population.Average(g => g.Fitness).Value;
         Func<double, int> numOffspring = fitness => (int)Math.Max(0, (fitness - averageFitness) / (maxFitness - averageFitness) * eParams.MaxOffspring);
 
+        int numAliens = eParams.RandomAliensPerGeneration;
         var z = gen % 100;
         if (40 <= z && z < 45)
         {
           Trace.WriteLine("Radiation burst!");
           maxMutation = 0.4;  // radiation burst
+          Trace.WriteLine("Alien invasion!");
+          numAliens = 200;  // alien invasion
         }
 
         // asexual reproduction
@@ -121,12 +144,11 @@ namespace Quqe
           population.AddRange(List.Repeat(eParams.MaxOffspring /*numOffspring(g.Fitness.Value)*/, () => Breed(g, g, eParams, maxMutation)));
         updateFitness();
 
-        int numAliens = eParams.RandomAliensPerGeneration;
-        if (90 <= z && z < 95)
-        {
-          Trace.WriteLine("Alien invasion!");
-          numAliens = 200;  // alien invasion
-        }
+        //if (90 <= z && z < 95)
+        //{
+        //  Trace.WriteLine("Alien invasion!");
+        //  numAliens = 200;  // alien invasion
+        //}
 
         // add random aliens
         population.AddRange(List.Repeat(numAliens, () => MakeRandomGenome(seed.Size)));

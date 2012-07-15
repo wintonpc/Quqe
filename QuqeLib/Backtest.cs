@@ -9,7 +9,7 @@ namespace Quqe
   {
     Account Account;
     DataSeries<Bar> Bars;
-    public Backtester(DataSeries<Bar> bars, Account account)
+    Backtester(DataSeries<Bar> bars, Account account)
     {
       Bars = bars;
       Account = account;
@@ -17,9 +17,16 @@ namespace Quqe
 
     List<TradeRecord> Trades;
     List<double> AccountValues;
-    public void StartRun()
+    public static Backtester Start(DataSeries<Bar> bars, Account account)
     {
-      AccountValues = new List<double>();
+      var b = new Backtester(bars, account);
+      b.StartInternal();
+      return b;
+    }
+
+    void StartInternal()
+    {
+      AccountValues = new List<double>() { Account.AccountValue };
       Trades = new List<TradeRecord>();
       Account.Traded += Trades.Add;
     }
@@ -29,7 +36,7 @@ namespace Quqe
       AccountValues.Add(value);
     }
 
-    public BacktestReport StopRun()
+    public BacktestReport Stop()
     {
       var accountValue = new DataSeries<Value>(Bars.Symbol, AccountValues.Select(x => (Value)x));
 
@@ -105,7 +112,7 @@ namespace Quqe
     public DataSeries<Bar> InputSet;
     public DataSeries<Value> AccountValue;
     public List<TradeRecord> Trades;
-    public double ProfitFactor { get { return (AccountValue.Last() - AccountValue.First()) / AccountValue.First(); } }
+    public double ProfitFactor { get { return 1 + (AccountValue.Last() - AccountValue.First()) / AccountValue.First(); } }
     public double MaxDrawdownPercent;
     //public List<double> ProfitFactorHistory;
     public int NumWinningTrades { get { return Trades.Where(x => x.IsWin).Count(); } }
