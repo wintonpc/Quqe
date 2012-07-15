@@ -20,12 +20,19 @@ namespace Quqe
 
     DataSeries<Bar> Bars;
     DataSeries<Value> ZLEMASlope;
+    bool UseZLEMAOpen;
 
     public OnePerDayStrategy1(IEnumerable<StrategyParameter> sParams, DataSeries<Bar> bars)
     {
       Func<string, double> param = name => sParams.First(sp => sp.Name == name).Value;
       Bars = bars;
-      ZLEMASlope = bars.ZLEMA((int)param("ZLEMAPeriod"), bar => (int)param("ZLEMAOpenOrClose") == 0 ? bar.Open : bar.Close).Derivative();
+      Func<Bar, double> getValue;
+      UseZLEMAOpen = (int)param("ZLEMAOpenOrClose") == 0;
+      if (UseZLEMAOpen)
+        getValue = bar => bar.Open;
+      else
+        getValue = bar => bar.Close;
+      ZLEMASlope = bars.ZLEMA((int)param("ZLEMAPeriod"), getValue).Derivative();
     }
 
     public override BacktestReport Backtest(NeuralNet net)
@@ -43,9 +50,9 @@ namespace Quqe
           return;
         var normal = s[1].Close;
         var normalizedPrices = List.Create(s[1].Open, s[1].Low, s[1].High, s[1].Close, s[0].Open).Select(x => x / normal).ToList();
-        var inputs = normalizedPrices.Concat(List.Create(zlemaSlope[0].Val));
+        var inputs = normalizedPrices.Concat(List.Create(zlemaSlope[UseZLEMAOpen ? 0 : 1].Val));
         var shouldBuy = net.Propagate(inputs)[0] >= 0;
-        var stopLimit = net.Propagate(inputs)[1] * normal;
+        var stopLimit = (1 + net.Propagate(inputs)[1]) * normal;
         var size = (int)((account.BuyingPower - accountPadding) / s[0].Open);
         if (size > 0)
         {

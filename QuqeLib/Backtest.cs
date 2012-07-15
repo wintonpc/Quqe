@@ -83,7 +83,9 @@ namespace Quqe
   public class TradeRecord
   {
     public readonly string Symbol;
+    public readonly PositionDirection PositionDirection;
     public readonly double Entry;
+    public readonly double StopLimit;
     public readonly double Exit;
     public readonly DateTime EntryTime;
     public readonly DateTime ExitTime;
@@ -94,10 +96,12 @@ namespace Quqe
     public double PercentLoss { get { return -Profit / (Entry * Size); } }
     public bool IsWin { get { return Profit > 0; } }
 
-    public TradeRecord(string symbol, double entry, double exit, DateTime entryTime, DateTime exitTime, int size, double profit)
+    public TradeRecord(string symbol, PositionDirection direction, double entry, double stopLimit, double exit, DateTime entryTime, DateTime exitTime, int size, double profit)
     {
       Symbol = symbol;
+      PositionDirection = direction;
       Entry = entry;
+      StopLimit = stopLimit;
       Exit = exit;
       EntryTime = entryTime;
       ExitTime = exitTime;

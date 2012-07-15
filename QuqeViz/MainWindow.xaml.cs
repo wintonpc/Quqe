@@ -6,6 +6,7 @@ using PCW;
 using System;
 using StockCharts;
 using System.Windows.Media;
+using System.IO;
 
 namespace QuqeViz
 {
@@ -19,63 +20,87 @@ namespace QuqeViz
       InitializeComponent();
     }
 
-    //public static void Go()
-    //{
-    //  var tqqq = Data.Get("TQQQ").From("02/12/2010").To("02/12/2012");
-    //  Func<BacktestReport, double> goal = r => r.CPC;
-
-    //  var results = Optimizer.OptimizeStrategyParameters(
-    //    new List<OptimizerParameter> {
-    //      new OptimizerParameter("ZLEMAPeriod", 3, 1, 1),
-    //      new OptimizerParameter("ZLEMAOpenOrClose", 0, 0, 1),
-    //    }, sParams => {
-    //      var eParams = new EvolutionParams {
-    //        NumGenerations = 1000,
-    //        GenerationSurvivorCount = 15,
-    //        RandomAliensPerGeneration = 60,
-    //        MaxOffspring = 1,
-    //        MutationRate = 1,
-    //        MaxMutationTimesVariance = 0.002,
-    //      };
-
-    //      Strategy strat = new OnePerDayStrategy1(sParams, tqqq);
-
-    //      var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(strat.InputNames, strat.OutputNames)), g => {
-    //        var report = strat.Backtest(new WardNet(strat.InputNames, strat.OutputNames, g));
-    //        return goal(report);
-    //      });
-
-    //      var genomeName = bestGenome.Save();
-    //      return new OptimizerReport {
-    //        StrategyParams = sParams,
-    //        GenomeName = genomeName
-    //      };
-    //    });
-
-    //  results.ToList();
-
-    //  foreach (var r in results)
-    //  {
-
-    //  }
-    //}
-
     public static void Go()
     {
       var bars = Data.Get("TQQQ").From("02/12/2010").To("02/12/2012");
       var oParams = new List<OptimizerParameter> {
-        new OptimizerParameter("ZLEMAPeriod", 3, 1, 1),
-        new OptimizerParameter("ZLEMAOpenOrClose", 0, 0, 1),
+        new OptimizerParameter("ZLEMAPeriod", 5, 5, 1),
+        new OptimizerParameter("ZLEMAOpenOrClose", 1, 1, 1),
       };
       var eParams = new EvolutionParams {
-        NumGenerations = 1000,
+        NumGenerations = 250,
         GenerationSurvivorCount = 15,
         RandomAliensPerGeneration = 60,
         MaxOffspring = 1,
         MutationRate = 1,
         MaxMutationTimesVariance = 0.002,
       };
-      var reports = Optimizer.FullOptimize(oParams, eParams, sParams => new OnePerDayStrategy1(sParams, bars), report => report.CPC);
+
+      Func<IEnumerable<StrategyParameter>, Strategy> makeStrat = sParams => new OnePerDayStrategy1(sParams, bars);
+      Func<Strategy, Genome, NeuralNet> makeNet = (strat, genome) => new WardNet(strat.InputNames, strat.OutputNames, genome);
+
+      var reports = Optimizer.FullOptimize(oParams, eParams, makeStrat, makeNet, report => report.CPC);
+
+      WriteReports(reports, makeStrat, makeNet);
+    }
+
+    static void WriteReports(IEnumerable<OptimizerReport> reports, Func<IEnumerable<StrategyParameter>, Strategy> makeStrat, Func<Strategy, Genome, NeuralNet> makeNet)
+    {
+      var dirName = "Reports";
+      if (!Directory.Exists(dirName))
+        Directory.CreateDirectory(dirName);
+
+      var now = DateTime.Now;
+
+      var fn = Path.Combine(dirName, string.Format("{0:yyyy-MM-dd-hh-mm-ss}.csv", now));
+
+      using (var op = new StreamWriter(fn))
+      {
+        Action<IEnumerable<object>> writeRow = list => op.WriteLine(list.Join(","));
+
+        var header = new List<string>();
+        foreach (var sp in reports.First().StrategyParams)
+          header.Add(sp.Name);
+        header.Add("Genome");
+        header.AddRange(List.Create("ProfitFactor", "CPC", "MaxDrawdownPercent", "NumWinningTrades", "NumLosingTrades",
+          "AverageWin", "AverageLoss", "WinningTradeFraction", "AverageWinLossRatio"));
+        writeRow(header);
+
+        foreach (var optimizerReport in reports)
+        {
+          var strat = makeStrat(optimizerReport.StrategyParams);
+          var r = strat.Backtest(makeNet(strat, Genome.Load(optimizerReport.GenomeName)));
+
+          var row = optimizerReport.StrategyParams.Select(sp => sp.Value).Cast<object>().ToList();
+          row.Add(optimizerReport.GenomeName);
+          row.AddRange(List.Create<object>(r.ProfitFactor, r.CPC, r.MaxDrawdownPercent, r.NumWinningTrades, r.NumLosingTrades,
+            r.AverageWin, r.AverageLoss, r.WinningTradeFraction, r.AverageWinLossRatio));
+          writeRow(row);
+
+          WriteTrades(r.Trades, now, optimizerReport.GenomeName);
+        }
+      }
+    }
+
+    static void WriteTrades(List<TradeRecord> trades, DateTime now, string genomeName)
+    {
+      var dirName = "Trades";
+      if (!Directory.Exists(dirName))
+        Directory.CreateDirectory(dirName);
+
+      var fn = Path.Combine(dirName, string.Format("{0:yyyy-MM-dd-hh-mm-ss} {1}.csv", now, genomeName));
+
+      using (var op = new StreamWriter(fn))
+      {
+        Action<IEnumerable<object>> writeRow = list => op.WriteLine(list.Join(","));
+
+        writeRow(List.Create("Symbol", "Size", "EntryTime", "ExitTime", "Position", "Entry", "StopLimit", "Exit",
+          "Profit", "Loss", "PercentProfit", "PercentLoss"));
+
+        foreach (var t in trades)
+          writeRow(List.Create<object>(t.Symbol, t.Size, t.EntryTime, t.ExitTime, t.PositionDirection, t.Entry, t.StopLimit, t.Exit,
+            t.Profit, t.Loss, t.PercentProfit, t.PercentLoss));
+      }
     }
 
     private void GoButton_Click(object sender, RoutedEventArgs e)

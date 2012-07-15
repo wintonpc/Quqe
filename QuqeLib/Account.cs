@@ -9,23 +9,26 @@ namespace Quqe
   public abstract class ExitCriteria
   {
     public abstract double GetExit(PositionDirection pd, double entry, IEnumerable<Bar> dailyBarsFromNow, out DateTime exitTime);
+    public abstract double StopLimit { get; }
   }
 
   public class ExitOnSessionClose : ExitCriteria
   {
-    readonly double StopLimit;
+    readonly double _StopLimit;
+    public override double StopLimit { get { return _StopLimit; } }
+
     public ExitOnSessionClose(double stopLimit)
     {
-      StopLimit = stopLimit;
+      _StopLimit = stopLimit;
     }
 
     public override double GetExit(PositionDirection pd, double entry, IEnumerable<Bar> dailyBarsFromNow, out DateTime exitTime)
     {
       var todayBar = dailyBarsFromNow.First();
       exitTime = todayBar.Timestamp.AddHours(16);
-      if ((pd == PositionDirection.Long && StopLimit < entry && todayBar.Low <= StopLimit)
-        || (pd == PositionDirection.Short && StopLimit > entry && todayBar.High >= StopLimit))
-        return StopLimit;
+      if ((pd == PositionDirection.Long && _StopLimit < entry && todayBar.Low <= _StopLimit)
+        || (pd == PositionDirection.Short && _StopLimit > entry && todayBar.High >= _StopLimit))
+        return _StopLimit;
       else
         return todayBar.Close;
     }
@@ -69,7 +72,7 @@ namespace Quqe
       DateTime exitTime;
       var exit = exitCriteria.GetExit(PositionDirection.Long, entry, barsFromNow, out exitTime);
       p.Close(numShares, exit);
-      FireTraded(new TradeRecord(symbol, entry, exit, todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore));
+      FireTraded(new TradeRecord(symbol, PositionDirection.Long, entry, exitCriteria.StopLimit, exit, todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore));
     }
 
     public void EnterShort(string symbol, int numShares, ExitCriteria exitCriteria, IEnumerable<Bar> barsFromNow)
@@ -82,7 +85,7 @@ namespace Quqe
       DateTime exitTime;
       var exit = exitCriteria.GetExit(PositionDirection.Short, entry, barsFromNow, out exitTime);
       p.Close(-numShares, exit);
-      FireTraded(new TradeRecord(symbol, entry, exit, todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore));
+      FireTraded(new TradeRecord(symbol, PositionDirection.Short, entry, exitCriteria.StopLimit, exit, todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore));
     }
 
     void FireTraded(TradeRecord record)

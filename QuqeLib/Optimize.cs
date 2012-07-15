@@ -67,7 +67,7 @@ namespace Quqe
       if (!Directory.Exists(GenomesDir))
         Directory.CreateDirectory(GenomesDir);
 
-      var nums = Directory.EnumerateFiles(GenomesDir).Select(f => int.Parse(Regex.Replace(f, @"([^\.])+\.txt$", m => m.Groups[1].Value)));
+      var nums = Directory.EnumerateFiles(GenomesDir).Select(f => int.Parse(Path.GetFileNameWithoutExtension(f)));
       var lastGenomeNumber = nums.Any() ? nums.Max() : 0;
       var number = (lastGenomeNumber+1).ToString("D6");
       var name = number;
@@ -86,13 +86,13 @@ namespace Quqe
   public static class Optimizer
   {
     public static List<OptimizerReport> FullOptimize(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
-      Func<IEnumerable<StrategyParameter>, Strategy> makeStrat, Func<BacktestReport, double> goal)
+      Func<IEnumerable<StrategyParameter>, Strategy> makeStrat, Func<Strategy, Genome, NeuralNet> makeNet, Func<BacktestReport, double> goal)
     {
       return Optimizer.OptimizeStrategyParameters(oParams, sParams => {
         Strategy strat = makeStrat(sParams);
 
         var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(strat.InputNames, strat.OutputNames)), g => {
-          var report = strat.Backtest(new WardNet(strat.InputNames, strat.OutputNames, g));
+          var report = strat.Backtest(makeNet(strat, g));
           return goal(report);
         });
 
