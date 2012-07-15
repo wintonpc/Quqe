@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using PCW;
 
 namespace Quqe
 {
@@ -21,6 +22,16 @@ namespace Quqe
         else
           return (double)s[0];
       });
+    }
+
+    public static DataSeries<Value> NeuralNet(this DataSeries<Bar> bars, NeuralNet net,
+      IEnumerable<DataSeries<Value>> inputs)
+    {
+      Value[] result = new Value[bars.Length];
+      DataSeries.Walk(inputs.Cast<DataSeries>().Concat(List.Create<DataSeries>(bars)), pos => {
+        result[pos] = net.Propagate(inputs.Select(x => x[0].Val))[0];
+      });
+      return new DataSeries<Value>(bars.Symbol, result);
     }
   }
 
@@ -59,6 +70,11 @@ namespace Quqe
         else
           return (s[0] - s[1]) / s[1];
       });
+    }
+
+    public static double Variance(this DataSeries<Value> x, DataSeries<Value> y)
+    {
+      return x.ZipElements<Value, Value>(y, (xs, ys, vs) => Math.Pow(xs[0] - ys[0], 2)).Sum(a => a.Val);
     }
   }
 }

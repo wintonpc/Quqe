@@ -5,6 +5,7 @@ using System.Text;
 using System.IO;
 using System.Diagnostics;
 using PCW;
+using System.Threading;
 
 namespace Quqe
 {
@@ -49,6 +50,8 @@ namespace Quqe
 
     public override double Min { get { return Low; } }
     public override double Max { get { return High; } }
+    public bool IsGreen { get { return Close >= Open; } }
+    public bool IsRed { get { return !IsGreen; } }
   }
 
   public class Value : DataSeriesElement
@@ -76,7 +79,11 @@ namespace Quqe
   {
     public readonly string Symbol;
     public abstract int Length { get; }
-    Stack<Frame> Frames = new Stack<Frame>();
+    object Lock = new object();
+
+    [ThreadStatic]
+    static Dictionary<DataSeries, Stack<Frame>> ThreadFrames = new Dictionary<DataSeries, Stack<Frame>>();
+    Stack<Frame> Frames { get { return ThreadFrames.GetDefault(this, k => new Stack<Frame>()); } }
 
     protected bool IsFramed { get { return Frames.Any(); } }
     public int Pos { get { return IsFramed ? Frames.Peek().Pos : 0; } }

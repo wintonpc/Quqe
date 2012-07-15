@@ -36,13 +36,21 @@ namespace Quqe
     }
   }
 
-  public class OptimizerReport
+  public static class StrategyParameterHelpers
+  {
+    public static T Get<T>(this IEnumerable<StrategyParameter> sParams, string name)
+    {
+      return (T)(object)sParams.First(sp => sp.Name == name).Value;
+    }
+  }
+
+  public class StrategyOptimizerReport
   {
     public List<StrategyParameter> StrategyParams;
     public string GenomeName;
   }
 
-  public delegate OptimizerReport OptimizeKernelFunc(List<StrategyParameter> sParams);
+  public delegate StrategyOptimizerReport OptimizeKernelFunc(List<StrategyParameter> sParams);
 
   public class EvolutionParams
   {
@@ -85,20 +93,17 @@ namespace Quqe
 
   public static class Optimizer
   {
-    public static List<OptimizerReport> FullOptimize(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
-      Func<IEnumerable<StrategyParameter>, Strategy> makeStrat, Func<Strategy, Genome, NeuralNet> makeNet, Func<BacktestReport, double> goal)
+    public static List<StrategyOptimizerReport> OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
+      Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs, DataSeries<Bar> bars, DataSeries<Value> idealSignal)
     {
       return Optimizer.OptimizeStrategyParameters(oParams, sParams => {
-        Strategy strat = makeStrat(sParams);
+        var inputs = cookInputs(sParams);
 
-        var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(strat.InputNames, strat.OutputNames)), g => {
-          var report = strat.Backtest(makeNet(strat, g));
-          return goal(report);
-        });
+        var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)),
+          g => bars.NeuralNet(new WardNet(inputs.Count, g), inputs).Variance(idealSignal));
 
         var genomeName = bestGenome.Save();
-
-        return new OptimizerReport {
+        return new StrategyOptimizerReport {
           StrategyParams = sParams,
           GenomeName = genomeName
         };
@@ -213,7 +218,7 @@ namespace Quqe
       return new Genome { Genes = List.Repeat(length, () => RandomDouble(GeneMin, GeneMax)) };
     }
 
-    public static List<OptimizerReport> OptimizeStrategyParameters(IEnumerable<OptimizerParameter> oParams, OptimizeKernelFunc optimizeKernel)
+    public static List<StrategyOptimizerReport> OptimizeStrategyParameters(IEnumerable<OptimizerParameter> oParams, OptimizeKernelFunc optimizeKernel)
     {
       return CrossProd(oParams.Select(op => Range(op.Low, op.High, op.Granularity).ToArray()).ToList())
         .Select(sParamValues => oParams.Select(sp => sp.Name).Zip(sParamValues, (n, v) => new StrategyParameter(n, v)))

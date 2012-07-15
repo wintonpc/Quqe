@@ -5,11 +5,11 @@ using System.Text;
 
 namespace Quqe
 {
-  public class Backtester
+  public class BacktestHelper
   {
     Account Account;
     DataSeries<Bar> Bars;
-    Backtester(DataSeries<Bar> bars, Account account)
+    BacktestHelper(DataSeries<Bar> bars, Account account)
     {
       Bars = bars;
       Account = account;
@@ -17,9 +17,9 @@ namespace Quqe
 
     List<TradeRecord> Trades;
     List<double> AccountValues;
-    public static Backtester Start(DataSeries<Bar> bars, Account account)
+    public static BacktestHelper Start(DataSeries<Bar> bars, Account account)
     {
-      var b = new Backtester(bars, account);
+      var b = new BacktestHelper(bars, account);
       b.StartInternal();
       return b;
     }

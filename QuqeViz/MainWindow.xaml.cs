@@ -23,10 +23,12 @@ namespace QuqeViz
     public static void Go()
     {
       var bars = Data.Get("TQQQ").From("02/12/2010").To("02/12/2012");
+
       var oParams = new List<OptimizerParameter> {
         new OptimizerParameter("ZLEMAPeriod", 5, 5, 1),
         new OptimizerParameter("ZLEMAOpenOrClose", 1, 1, 1),
       };
+
       var eParams = new EvolutionParams {
         NumGenerations = 250,
         GenerationSurvivorCount = 15,
@@ -36,15 +38,63 @@ namespace QuqeViz
         MaxMutationTimesVariance = 0.002,
       };
 
-      Func<IEnumerable<StrategyParameter>, Strategy> makeStrat = sParams => new OnePerDayStrategy1(sParams, bars);
-      Func<Strategy, Genome, NeuralNet> makeNet = (strat, genome) => new WardNet(strat.InputNames, strat.OutputNames, genome);
+      Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs = sParams => {
+        Func<Bar, double> zlemaComponent;
+        if (sParams.Get<int>("ZLEMAOpenOrClose") == 0)
+          zlemaComponent = bar => bar.Open;
+        else
+          zlemaComponent = bar => bar.Close;
 
-      var reports = Optimizer.FullOptimize(oParams, eParams, makeStrat, makeNet, report => report.CPC);
+        return List.Create(
+          bars.MapElements<Value>((s, v) => s[1].Open / s[2].Close),
+          bars.MapElements<Value>((s, v) => s[1].Low / s[2].Close),
+          bars.MapElements<Value>((s, v) => s[1].High / s[2].Close),
+          bars.MapElements<Value>((s, v) => s[1].Close / s[2].Close),
+          bars.MapElements<Value>((s, v) => s[0].Open / s[2].Close),
+          bars.ZLEMA(sParams.Get<int>("ZLEMAPeriod"), zlemaComponent).Derivative());
+      };
 
-      WriteReports(reports, makeStrat, makeNet);
+      Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal = (g, ins) =>
+        bars.NeuralNet(new WardNet(ins.Count(), g), ins);
+
+      var buyReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
+        bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1));
+
+      WriteReport(buyReports, (sParams, genome) => {
+
+        double accountPadding = 20.0;
+
+        var account = new Account { Equity = 10000, MarginFactor = 1 };
+        var helper = BacktestHelper.Start(bars, account);
+
+        var buySignal = makeSignal(genome, cookInputs(sParams));
+
+        DataSeries.Walk(bars, signal, pos => {
+          if (pos == 0)
+            return;
+          var normal = s[1].Close;
+          var normalizedPrices = List.Create(s[1].Open, s[1].Low, s[1].High, s[1].Close, s[0].Open).Select(x => x / normal).ToList();
+          var inputs = normalizedPrices.Concat(List.Create(zlemaSlope[UseZLEMAOpen ? 0 : 1].Val));
+          var shouldBuy = net.Propagate(inputs)[0] >= 0;
+          var stopLimit = (1 + net.Propagate(inputs)[1]) * normal;
+          var size = (int)((account.BuyingPower - accountPadding) / s[0].Open);
+          if (size > 0)
+          {
+            if (shouldBuy)
+              account.EnterLong(Bars.Symbol, size, new ExitOnSessionClose(Math.Max(0, stopLimit)), s.FromHere());
+            else
+              account.EnterShort(Bars.Symbol, size, new ExitOnSessionClose(Math.Min(100000, stopLimit)), s.FromHere());
+          }
+          helper.UpdateAccountValue(account.Equity);
+        });
+        return helper.Stop();
+      });
+
+      var stopLimitReport = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
+        bars.MapElements<Value>((s, v) => s[0].IsGreen ? s[0].Low - 0.01 : s[0].High + 0.01));
     }
 
-    static void WriteReports(IEnumerable<OptimizerReport> reports, Func<IEnumerable<StrategyParameter>, Strategy> makeStrat, Func<Strategy, Genome, NeuralNet> makeNet)
+    static void WriteReport(IEnumerable<StrategyOptimizerReport> reports, Func<IEnumerable<StrategyParameter>, Genome, BacktestReport> backtest)
     {
       var dirName = "Reports";
       if (!Directory.Exists(dirName))
@@ -68,8 +118,7 @@ namespace QuqeViz
 
         foreach (var optimizerReport in reports)
         {
-          var strat = makeStrat(optimizerReport.StrategyParams);
-          var r = strat.Backtest(makeNet(strat, Genome.Load(optimizerReport.GenomeName)));
+          var r = backtest(optimizerReport.StrategyParams, Genome.Load(optimizerReport.GenomeName));
 
           var row = optimizerReport.StrategyParams.Select(sp => sp.Value).Cast<object>().ToList();
           row.Add(optimizerReport.GenomeName);

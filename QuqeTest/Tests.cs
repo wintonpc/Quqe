@@ -74,7 +74,7 @@ namespace QuqeTest
     [TestMethod]
     public void Drawdown()
     {
-      var dd = Backtester.CalcMaxDrawdownPercent(new DataSeries<Value>("Foo", List.Create(1.0, 2, 3, 4, 7, 5, 4, 5, 2, 10, 12, 11, 15).Select(x => new Value(DateTime.MinValue, x))));
+      var dd = BacktestHelper.CalcMaxDrawdownPercent(new DataSeries<Value>("Foo", List.Create(1.0, 2, 3, 4, 7, 5, 4, 5, 2, 10, 12, 11, 15).Select(x => new Value(DateTime.MinValue, x))));
       Assert.IsTrue(dd == (7 - 2) / 7.0);
     }
 

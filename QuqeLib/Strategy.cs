@@ -10,6 +10,7 @@ namespace Quqe
   {
     public abstract IEnumerable<string> InputNames { get; }
     public abstract IEnumerable<string> OutputNames { get; }
+    public abstract double FitnessTest(NeuralNet net); // needs to be threadsafe, returns fitness
     public abstract BacktestReport Backtest(NeuralNet net); // needs to be threadsafe
   }
 
@@ -21,11 +22,14 @@ namespace Quqe
     DataSeries<Bar> Bars;
     DataSeries<Value> ZLEMASlope;
     bool UseZLEMAOpen;
+    Func<BacktestReport, double> FitnessFunc;
 
-    public OnePerDayStrategy1(IEnumerable<StrategyParameter> sParams, DataSeries<Bar> bars)
+    public OnePerDayStrategy1(IEnumerable<StrategyParameter> sParams, DataSeries<Bar> bars,
+      Func<BacktestReport, double> fitness)
     {
       Func<string, double> param = name => sParams.First(sp => sp.Name == name).Value;
       Bars = bars;
+      FitnessFunc = fitness;
       Func<Bar, double> getValue;
       UseZLEMAOpen = (int)param("ZLEMAOpenOrClose") == 0;
       if (UseZLEMAOpen)
@@ -43,7 +47,7 @@ namespace Quqe
       double accountPadding = 20.0;
 
       var account = new Account { Equity = 10000, MarginFactor = 1 };
-      var backtester = Backtester.Start(s, account);
+      var backtester = BacktestHelper.Start(s, account);
 
       DataSeries.Walk(s, zlemaSlope, pos => {
         if (pos == 0)
@@ -64,6 +68,11 @@ namespace Quqe
         backtester.UpdateAccountValue(account.Equity);
       });
       return backtester.Stop();
+    }
+
+    public override double FitnessTest(NeuralNet net)
+    {
+      return FitnessFunc(Backtest(net));
     }
   }
 }
