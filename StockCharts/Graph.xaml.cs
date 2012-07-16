@@ -29,7 +29,6 @@ namespace StockCharts
       this.DataContext = this;
       Loaded += delegate { RedrawNeeded(); };
       SizeChanged += delegate { RedrawNeeded(); };
-      MouseMove += new MouseEventHandler(Graph_MouseMove);
       Plots.CollectionChanged += delegate { RedrawNeeded(); };
     }
 
@@ -44,11 +43,6 @@ namespace StockCharts
     void RedrawNeeded()
     {
       ParentChart.RedrawGraphs();
-    }
-
-    void Graph_MouseMove(object sender, MouseEventArgs e)
-    {
-
     }
 
     public string Title { get; set; }

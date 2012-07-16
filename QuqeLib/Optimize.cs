@@ -61,9 +61,9 @@ namespace Quqe
       return sb.ToString();
     }
 
-    public string Save()
+    public string Save(string prefix)
     {
-      var fn = FileHelper.NextNumberedFilename(StrategyDir);
+      var fn = FileHelper.NextNumberedFilename(StrategyDir, prefix);
       File.WriteAllText(fn, this.ToString());
       return Path.GetFileNameWithoutExtension(fn);
     }
@@ -75,7 +75,7 @@ namespace Quqe
         Func<string[]> nextLine = () => {
           var line = ip.ReadLine();
           if (line == null) return null;
-          return line.Split(':', ' ');
+          return line.Split(new[] { ':', ' ' }, StringSplitOptions.RemoveEmptyEntries);
         };
         var r = new StrategyOptimizerReport();
         r.GenomeName = nextLine()[1];
@@ -92,16 +92,16 @@ namespace Quqe
 
   static class FileHelper
   {
-    public static string NextNumberedFilename(string dir)
+    public static string NextNumberedFilename(string dir, string prefix)
     {
       if (!Directory.Exists(dir))
         Directory.CreateDirectory(dir);
 
-      var nums = Directory.EnumerateFiles(dir).Select(f => int.Parse(Path.GetFileNameWithoutExtension(f)));
+      var nums = Directory.EnumerateFiles(dir).Select(f => int.Parse(Regex.Replace(Path.GetFileNameWithoutExtension(f), @"^[^\-]+\-", "")));
       var lastNum = nums.Any() ? nums.Max() : 0;
       var number = (lastNum + 1).ToString("D6");
       var name = number;
-      return Path.Combine(dir, name + ".txt");
+      return Path.Combine(dir, prefix + "-" + name + ".txt");
     }
   }
 
@@ -127,7 +127,7 @@ namespace Quqe
     static string GenomesDir = "Genomes";
     public string Save()
     {
-      var fn = FileHelper.NextNumberedFilename(GenomesDir);
+      var fn = FileHelper.NextNumberedFilename(GenomesDir, "Genome");
       File.WriteAllText(fn, Genes.Join("\t"));
       return Path.GetFileNameWithoutExtension(fn);
     }

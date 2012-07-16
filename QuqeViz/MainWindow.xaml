@@ -1,9 +1,28 @@
 ﻿<Window x:Class="QuqeViz.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MainWindow" Height="350" Width="525">
+        Title="MainWindow" Height="350" Width="737">
   <StackPanel>
-    <Button x:Name="GoButton" Click="GoButton_Click">Go</Button>
     <Button x:Name="DemoButton" Click="DemoButton_Click">Demo</Button>
+    <Button x:Name="OptimizeButton" Click="OptimizeButton_Click">Optimize</Button>
+    <StackPanel Orientation="Horizontal">
+      <Button x:Name="BacktestButton" Width="124" Click="BacktestButton_Click">Backtest</Button>
+      <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
+      <TextBox x:Name="SymbolBox">TQQQ</TextBox>
+      <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Buy/Sell:</TextBlock>
+      <TextBox x:Name="BuySellBox" Width="121">BuySell-000005</TextBox>
+      <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">StopLimit:</TextBlock>
+      <TextBox x:Name="StopLimitBox" Width="131">StopLimit-000006</TextBox>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal">
+      <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Teaching Start:</TextBlock>
+      <TextBox x:Name="TeachStartBox">02/12/2010</TextBox>
+      <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">End:</TextBlock>
+      <TextBox x:Name="TeachEndBox">02/12/2012</TextBox>
+      <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Validation Start:</TextBlock>
+      <TextBox x:Name="ValidationStartBox">02/13/2012</TextBox>
+      <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">End:</TextBlock>
+      <TextBox x:Name="ValidationEndBox">06/30/2012</TextBox>
+    </StackPanel>
   </StackPanel>
 </Window>

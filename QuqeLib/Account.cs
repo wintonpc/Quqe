@@ -72,7 +72,8 @@ namespace Quqe
       DateTime exitTime;
       var exit = exitCriteria.GetExit(PositionDirection.Long, entry, barsFromNow, out exitTime);
       p.Close(numShares, exit);
-      FireTraded(new TradeRecord(symbol, PositionDirection.Long, entry, exitCriteria.StopLimit, exit, todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore));
+      FireTraded(new TradeRecord(symbol, PositionDirection.Long, entry, exitCriteria.StopLimit, exit,
+        todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore, valueBefore, AccountValue));
     }
 
     public void EnterShort(string symbol, int numShares, ExitCriteria exitCriteria, IEnumerable<Bar> barsFromNow)
@@ -85,7 +86,8 @@ namespace Quqe
       DateTime exitTime;
       var exit = exitCriteria.GetExit(PositionDirection.Short, entry, barsFromNow, out exitTime);
       p.Close(-numShares, exit);
-      FireTraded(new TradeRecord(symbol, PositionDirection.Short, entry, exitCriteria.StopLimit, exit, todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore));
+      FireTraded(new TradeRecord(symbol, PositionDirection.Short, entry, exitCriteria.StopLimit, exit,
+        todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore, valueBefore, AccountValue));
     }
 
     void FireTraded(TradeRecord record)
