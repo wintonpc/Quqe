@@ -52,6 +52,8 @@ namespace Quqe
     public override double Max { get { return High; } }
     public bool IsGreen { get { return Close >= Open; } }
     public bool IsRed { get { return !IsGreen; } }
+    public double WaxTop { get { return Math.Max(Open, Close); } }
+    public double WaxBottom { get { return Math.Min(Open, Close); } }
   }
 
   public class Value : DataSeriesElement

@@ -40,6 +40,11 @@ namespace StockCharts
       return g;
     }
 
+    public void ClearGraphs()
+    {
+      Presentation.Graphs.Clear();
+    }
+
     public void RestructureGraphsGrid()
     {
       GraphsGrid.Children.Clear();
@@ -104,13 +109,13 @@ namespace StockCharts
     void parent_MouseMove(object sender, MouseEventArgs e)
     {
       foreach (var g in Graphs)
-        g.ShowCrosshairLine(e.GetPosition(g));
+        g.OnHoverStarted(e.GetPosition(g));
     }
 
     void parent_MouseLeave(object sender, MouseEventArgs e)
     {
       foreach (var g in Graphs)
-        g.HideCrosshairLine();
+        g.OnHoverEnded();
     }
 
     public string Title { get; set; }

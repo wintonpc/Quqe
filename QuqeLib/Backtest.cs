@@ -120,7 +120,8 @@ namespace Quqe
     public DataSeries<Bar> InputSet;
     //public DataSeries<Value> AccountValue;
     public List<TradeRecord> Trades;
-    public double ProfitFactor { get { return 1 + (Trades.Last().AccountValueAfterTrade - Trades.First().AccountValueBeforeTrade) / Trades.First().AccountValueBeforeTrade; } }
+    public double TotalReturn { get { return 1 + (Trades.Last().AccountValueAfterTrade - Trades.First().AccountValueBeforeTrade) / Trades.First().AccountValueBeforeTrade; } }
+    public double ProfitFactor { get { return Trades.Where(t => t.IsWin).Sum(t => t.Profit) / (Trades.Where(t => !t.IsWin).Sum(t => t.Loss) + Trades.Count * 9.90) /* 9.90 = hack! */; } }
     public double MaxDrawdownPercent;
     //public List<double> ProfitFactorHistory;
     public int NumWinningTrades { get { return Trades.Where(x => x.IsWin).Count(); } }
@@ -144,6 +145,7 @@ namespace Quqe
       sb.AppendLine("CPC: " + CPC);
       sb.AppendLine("Profit Factor: " + ProfitFactor);
       sb.AppendLine("Max Drawdown %: " + MaxDrawdownPercent * 100);
+      sb.AppendLine("Total Return: " + TotalReturn);
       sb.AppendLine("");
       sb.AppendLine("NumWinningTrades: " + NumWinningTrades);
       sb.AppendLine("NumLosingTrades: " + NumLosingTrades);

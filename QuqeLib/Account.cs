@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using PCW;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -26,11 +27,21 @@ namespace Quqe
     {
       var todayBar = dailyBarsFromNow.First();
       exitTime = todayBar.Timestamp.AddHours(16);
-      if ((pd == PositionDirection.Long && _StopLimit < entry && todayBar.Low <= _StopLimit)
-        || (pd == PositionDirection.Short && _StopLimit > entry && todayBar.High >= _StopLimit))
-        return _StopLimit;
-      else
-        return todayBar.Close;
+
+      if (pd == PositionDirection.Long)
+      {
+        Debug.Assert(_StopLimit < entry);
+        if (todayBar.Low <= _StopLimit)
+          return _StopLimit;
+      }
+      else if (pd == PositionDirection.Short)
+      {
+        Debug.Assert(_StopLimit > entry);
+        if (todayBar.High >= _StopLimit)
+          return _StopLimit;
+      }
+
+      return todayBar.Close;
     }
   }
 

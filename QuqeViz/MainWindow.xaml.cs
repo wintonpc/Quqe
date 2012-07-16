@@ -58,7 +58,7 @@ namespace QuqeViz
         };
 
         var eParams = new EvolutionParams {
-          NumGenerations = 100,
+          NumGenerations = 250,
           GenerationSurvivorCount = 15,
           RandomAliensPerGeneration = 60,
           MaxOffspring = 1,
@@ -70,7 +70,7 @@ namespace QuqeViz
           bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1));
 
         var bestStopLimit = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
-          bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Low / s[2].Close - 1) - 0.01 : (s[0].High / s[2].Close - 1) + 0.01));
+          bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Low / s[2].Close - 1) - 0.03 : (s[0].High / s[2].Close - 1) + 0.03));
 
         Trace.WriteLine("-- Buy Signal --------------");
         Trace.WriteLine(bestBuy.ToString());
@@ -121,6 +121,34 @@ namespace QuqeViz
 
           var shouldBuy = buySignal[0] >= 0;
           var stopLimit = (1 + stopLimitSignal[0]) * bars[2].Close;
+
+          // correct bad stop limits
+          //double maxLossPercent = Math.Abs((bars[1].Open - bars[1].Close) / Math.Min(bars[1].Open, bars[1].Close)) * 3;
+          double maxLossPercent = 0.08;
+          var liberalLongStop = bars[0].Open * (1 - maxLossPercent);
+          var liberalShortStop = bars[0].Open * (1 + maxLossPercent);
+          if (shouldBuy && (stopLimit >= bars[0].Open || stopLimit < liberalLongStop))
+            stopLimit = liberalLongStop;
+          else if (!shouldBuy && (stopLimit <= bars[0].Open || stopLimit > liberalShortStop))
+            stopLimit = liberalShortStop;
+
+          // special stops for gaps 2
+          double minGapPct = 0.03;
+          //double harshness = 6;
+          double stopGapFraction = 0.8;
+          if (shouldBuy && bars[1].IsGreen && bars[1].WaxTop * (1 + minGapPct) < bars[0].Open) // buying gap up
+          {
+            //var gapPct = (bars[0].Open - bars[1].WaxTop) / bars[1].WaxTop;
+            //var stopGapFraction = Math.Pow(Math.Exp(-gapPct), harshness);
+            stopLimit = bars[0].Open - (bars[0].Open - bars[1].WaxTop) * stopGapFraction;
+          }
+          if (!shouldBuy && bars[1].IsRed && bars[1].WaxBottom * (1 - minGapPct) > bars[0].Open) // selling gap down
+          {
+            //var gapPct = (bars[1].WaxBottom - bars[0].Open) / bars[0].Open;
+            //var stopGapFraction = Math.Pow(Math.Exp(-gapPct), harshness);
+            stopLimit = bars[0].Open + (bars[1].WaxBottom - bars[0].Open) * stopGapFraction;
+          }
+
           var size = (int)((account.BuyingPower - accountPadding) / bars[0].Open);
 
           if (size > 0)
@@ -146,14 +174,22 @@ namespace QuqeViz
         DataSeries = bars,
         Type = PlotType.Candlestick
       });
-      var g2 = w.Chart.AddGraph();
-      g2.Title = "Initial Value: " + initialValue + ", Margin: " + marginFactor + "x";
-      g2.Plots.Add(new Plot {
-        Title = "Account Value",
-        DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Green
+      g1.Plots.Add(new Plot {
+        DataSeries = backtestReport.Trades.ToDataSeries(t => t.StopLimit),
+        Type = PlotType.Dash,
+        Color = Brushes.Blue
       });
+      foreach (var t in backtestReport.Trades)
+        g1.Trades.Add(t);
+
+      //var g2 = w.Chart.AddGraph();
+      //g2.Title = "Initial Value: " + initialValue + ", Margin: " + marginFactor + "x";
+      //g2.Plots.Add(new Plot {
+      //  Title = "Account Value",
+      //  DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Green
+      //});
       var g3 = w.Chart.AddGraph();
       g3.Plots.Add(new Plot {
         Title = "Profit % per trade",
@@ -161,6 +197,20 @@ namespace QuqeViz
         Type = PlotType.Bar,
         Color = Brushes.Blue
       });
+      //var g4 = w.Chart.AddGraph();
+      //g4.Plots.Add(new Plot {
+      //  Title = "Wrong-sided stoplimits",
+      //  DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => {
+      //    if ((t.PositionDirection == PositionDirection.Long && t.StopLimit > t.Entry)
+      //      || (t.PositionDirection == PositionDirection.Short && t.StopLimit < t.Entry))
+      //      return new Value(t.EntryTime.Date, 1);
+      //    else
+      //      return new Value(t.EntryTime.Date, 0);
+      //  })),
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Red
+      //});
+
       w.Show();
 
       return backtestReport;

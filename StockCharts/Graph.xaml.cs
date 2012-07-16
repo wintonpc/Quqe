@@ -25,11 +25,13 @@ namespace StockCharts
     {
       ParentChart = parentChart;
       Plots = new ObservableCollection<Plot>();
+      Trades = new ObservableCollection<TradeRecord>();
       InitializeComponent();
       this.DataContext = this;
       Loaded += delegate { RedrawNeeded(); };
       SizeChanged += delegate { RedrawNeeded(); };
       Plots.CollectionChanged += delegate { RedrawNeeded(); };
+      Trades.CollectionChanged += delegate { RedrawNeeded(); };
     }
 
     StockChartPresentation ParentChart;
@@ -47,6 +49,7 @@ namespace StockCharts
 
     public string Title { get; set; }
     public ObservableCollection<Plot> Plots { get; set; }
+    public ObservableCollection<TradeRecord> Trades { get; set; }
     public bool DrawTimeAxis { get; set; }
 
     Rect ViewRegion;
@@ -113,21 +116,33 @@ namespace StockCharts
             path.Data = geom;
             GraphCanvas.Children.Add(path);
           }
-          else if (p.Type == PlotType.Bar)
+          else if (p.Type == PlotType.Bar || p.Type == PlotType.Dash)
           {
             var vs = ((DataSeries<Value>)p.DataSeries).ToArray();
             for (int i = pb.ClipLeft; i <= pb.ClipRight; i++)
             {
               int k = i - pb.Left;
 
-              var p1 = PointToCanvas(i - SlotOffset, 0, ViewRegion);
-              var p2 = PointToCanvas(i - SlotOffset, vs[k].Val, ViewRegion);
-              AddRectangle(
-                p1.X - Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
-                p1.Y,
-                p2.X + Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
-                p2.Y,
-                p.Color);
+              var p1 = PointToCanvas(i - SlotOffset, vs[k].Val, ViewRegion);
+              if (p.Type == PlotType.Bar)
+              {
+                var p2 = PointToCanvas(i - SlotOffset, 0, ViewRegion);
+                AddRectangle(
+                  p2.X - Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
+                  p2.Y,
+                  p1.X + Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
+                  p1.Y,
+                  p.Color);
+              }
+              else if (p.Type == PlotType.Dash)
+              {
+                AddRectangle(
+                  p1.X - Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
+                  p1.Y,
+                  p1.X + Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
+                  p1.Y + 1,
+                  p.Color);
+              }
             }
           }
           else if (p.Type == PlotType.Candlestick)
@@ -139,8 +154,8 @@ namespace StockCharts
               var bar = bars[k];
               var brush = bar.Close < bar.Open ?
                 //new SolidColorBrush(Color.FromRgb(255, 15, 35)) :
-                Brushes.Red :
-                new SolidColorBrush(Color.FromRgb(25, 210, 0));
+                CandleRed :
+                CandleGreen;
               //Brushes.Red : Brushes.Green;
               AddLine(i - SlotOffset, bar.High, i - SlotOffset, bar.Low, brush, LineStyle.Solid, 1, ViewRegion);
               var p1 = PointToCanvas(i - SlotOffset, bar.Open, ViewRegion);
@@ -158,7 +173,6 @@ namespace StockCharts
         AddVerticalAxis(axisInfo);
       }
 
-
       // time axis
       if (DrawTimeAxis)
         AddTimeAxis();
@@ -171,25 +185,99 @@ namespace StockCharts
       }
       foreach (var p in Plots.Where(x => x.Type != PlotType.Candlestick))
       {
-        AddText(p.Title, 16, yOffset, "normal");
+        AddText(p.Title, 16, yOffset, "normal", Brushes.Black, Brushes.GhostWhite);
         double thickness = p.Type == PlotType.ValueLine ? 2 : 6;
         AddLine(2, yOffset + 9, 14, yOffset + 9, p.Color, LineStyle.Solid, thickness);
         yOffset += 16;
       }
     }
 
+    Brush CandleRed = Brushes.Red;
+    Brush CandleGreen = new SolidColorBrush(Color.FromRgb(25, 210, 0));
+
+
+    public void OnHoverStarted(Point canvasPoint)
+    {
+      OnHoverEnded();
+
+      var slotNumber = GetSlotNumber(canvasPoint);
+      if (slotNumber < 0 || slotNumber >= ParentChart.SlotsInView) // stray point?
+        return;
+
+      DrawCrosshairs(canvasPoint, slotNumber);
+      DrawEntryAndExit(canvasPoint, slotNumber);
+    }
+
+
+    Path EntryArrow;
+    Path ExitArrow;
+    private void DrawEntryAndExit(Point canvasPoint, int slotNumber)
+    {
+      if (!(0 <= canvasPoint.Y && canvasPoint.Y <= AvailableHeight))
+        return;
+
+      var barsPlot = Plots.FirstOrDefault(p => p.Type == PlotType.Candlestick);
+      if (barsPlot == null)
+        return;
+
+      var pb = PlotBoundaries[barsPlot];
+
+      var bar = ((DataSeries<Bar>)barsPlot.DataSeries)[SlotOffset + slotNumber - pb.Left];
+      var trade = Trades.FirstOrDefault(t => t.EntryTime.Date == bar.Timestamp);
+      if (trade == null)
+        return;
+
+      var p1 = PointToCanvas(0, trade.Entry, ViewRegion);
+      var xBase = slotNumber * ParentChart.SlotPxWidth;
+
+      var entryColor = trade.PositionDirection == PositionDirection.Long ? CandleGreen : CandleRed;
+      EntryArrow = AddPolygon(Brushes.Black, 1, entryColor,
+        new Point(xBase, p1.Y),
+        new Point(xBase - 8, p1.Y - 8),
+        new Point(xBase - 8, p1.Y + 8));
+
+      var p2 = PointToCanvas(0, trade.Exit, ViewRegion);
+      xBase += ParentChart.SlotPxWidth;
+      var exitColor = trade.PositionDirection == PositionDirection.Short ? CandleGreen : CandleRed;
+      ExitArrow = AddPolygon(Brushes.Black, 1, exitColor,
+        new Point(xBase, p2.Y),
+        new Point(xBase + 8, p2.Y - 8),
+        new Point(xBase + 8, p2.Y + 8));
+    }
+
+    private void HideEntryAndExit()
+    {
+      if (EntryArrow != null)
+      {
+        GraphCanvas.Children.Remove(EntryArrow);
+        EntryArrow = null;
+      }
+      if (ExitArrow != null)
+      {
+        GraphCanvas.Children.Remove(ExitArrow);
+        ExitArrow = null;
+      }
+    }
+
+    public void OnHoverEnded()
+    {
+      HideCrosshairs();
+      HideEntryAndExit();
+    }
+
+    int GetSlotNumber(Point canvasPoint)
+    {
+      var p = PointFromCanvas(canvasPoint.X, canvasPoint.Y, ViewRegion);
+      return (int)Math.Round(p.X);
+    }
+
     Line CrosshairLineV;
     Line CrosshairLineH;
-    public void ShowCrosshairLine(Point canvasPoint)
+    public void DrawCrosshairs(Point canvasPoint, int slotNumber)
     {
       //var lineColor = new SolidColorBrush(Color.FromRgb(173, 40, 230));
       var lineColor = Brushes.LightBlue;
 
-      HideCrosshairLine();
-      var p = PointFromCanvas(canvasPoint.X, canvasPoint.Y, ViewRegion);
-      var slotNumber = (int)Math.Round(p.X);
-      if (slotNumber < 0 || slotNumber >= ParentChart.SlotsInView) // stray point?
-        return;
       var snappedPoint = PointToCanvas(slotNumber, 0, ViewRegion);
       CrosshairLineV = new Line {
         X1 = snappedPoint.X,
@@ -238,7 +326,7 @@ namespace StockCharts
       }
     }
 
-    public void HideCrosshairLine()
+    public void HideCrosshairs()
     {
       if (CrosshairLineV != null)
       {
@@ -383,10 +471,20 @@ namespace StockCharts
     }
 
     void AddText(string text, double x, double y, string fontWeight, double fontSize = 12)
+    { AddText(text, x, y, fontWeight, Brushes.Black, null, fontSize); }
+
+    void AddText(string text, double x, double y, string fontWeight, Brush brush, Brush outlineColor, double fontSize = 12)
     {
+      if (outlineColor != null)
+      {
+        for (int xo = -1; xo <= 1; xo++)
+          for (int yo = -1; yo <= 1; yo++)
+            AddText(text, x + xo, y + yo, fontWeight, outlineColor, null, fontSize);
+      }
+
       var block = new TextBlock {
         Text = text,
-        Foreground = Brushes.Black,
+        Foreground = brush,
         FontWeight = (FontWeight)new FontWeightConverter().ConvertFrom(fontWeight),
         FontSize = fontSize
       };
@@ -451,6 +549,26 @@ namespace StockCharts
       GraphCanvas.Children.Add(path);
     }
 
+    Path AddPolygon(Brush stroke, double strokeThickness, Brush fill, params Point[] points)
+    {
+      var path = new Path();
+      path.Stroke = stroke;
+      path.Fill = fill;
+      path.StrokeThickness = strokeThickness;
+
+      var geom = new StreamGeometry();
+      using (var ctx = geom.Open())
+      {
+        ctx.BeginFigure(points.First(), true, true);
+        foreach (var p in points.Skip(1))
+          ctx.LineTo(p, true, false);
+      }
+      geom.Freeze();
+      path.Data = geom;
+      GraphCanvas.Children.Add(path);
+      return path;
+    }
+
 
     int InternalPadding = 0;
 
@@ -469,7 +587,7 @@ namespace StockCharts
 
   public enum PeriodType { OneDay }
 
-  public enum PlotType { Candlestick, ValueLine, Bar }
+  public enum PlotType { Candlestick, ValueLine, Bar, Dash }
 
   public enum LineStyle { Solid, Dashed }
 

@@ -9,9 +9,9 @@
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
       <TextBox x:Name="SymbolBox">TQQQ</TextBox>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Buy/Sell:</TextBlock>
-      <TextBox x:Name="BuySellBox" Width="121">BuySell-000005</TextBox>
+      <TextBox x:Name="BuySellBox" Width="121">BuySell-000011</TextBox>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">StopLimit:</TextBlock>
-      <TextBox x:Name="StopLimitBox" Width="131">StopLimit-000006</TextBox>
+      <TextBox x:Name="StopLimitBox" Width="131">StopLimit-000012</TextBox>
     </StackPanel>
     <StackPanel Orientation="Horizontal">
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Initial Value:</TextBlock>
