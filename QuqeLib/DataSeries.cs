@@ -63,6 +63,8 @@ namespace Quqe
       Val = value;
     }
 
+    public Value() : this(0) { }
+
     Value(double value)
     {
       Val = value;
@@ -79,11 +81,18 @@ namespace Quqe
   {
     public readonly string Symbol;
     public abstract int Length { get; }
-    object Lock = new object();
 
     [ThreadStatic]
-    static Dictionary<DataSeries, Stack<Frame>> ThreadFrames = new Dictionary<DataSeries, Stack<Frame>>();
-    Stack<Frame> Frames { get { return ThreadFrames.GetDefault(this, k => new Stack<Frame>()); } }
+    static Dictionary<DataSeries, Stack<Frame>> ThreadFrames;
+    Stack<Frame> Frames
+    {
+      get
+      {
+        if (ThreadFrames == null)
+          ThreadFrames = new Dictionary<DataSeries, Stack<Frame>>();
+        return ThreadFrames.GetDefault(this, k => new Stack<Frame>());
+      }
+    }
 
     protected bool IsFramed { get { return Frames.Any(); } }
     public int Pos { get { return IsFramed ? Frames.Peek().Pos : 0; } }
@@ -158,6 +167,8 @@ namespace Quqe
     }
   }
 
+  public class LookedBackTooFarException : Exception { }
+
   public class DataSeries<T> : DataSeries, IEnumerable<T>
     where T : DataSeriesElement
   {
@@ -190,19 +201,27 @@ namespace Quqe
             throw new ArgumentException("Offset cannot be negative. Can\'t look forward.");
           var k = Pos - offset;
           if (k < 0)
-            throw new ArgumentException("Offset is too large. DataSeries doesn't go back that far.");
+            throw new LookedBackTooFarException();
           return _Elements[k];
         }
       }
     }
 
     public DataSeries<TNewElement> MapElements<TNewElement>(Func<DataSeries<T>, DataSeries<TNewElement>, TNewElement> map)
-      where TNewElement : DataSeriesElement
+      where TNewElement : DataSeriesElement, new()
     {
       TNewElement[] newInternalArray = new TNewElement[_Elements.Length];
       var result = new DataSeries<TNewElement>(Symbol, newInternalArray);
       Walk(this, result, pos => {
-        var v = map(this, result);
+        TNewElement v;
+        try
+        {
+          v = map(this, result);
+        }
+        catch (LookedBackTooFarException)
+        {
+          v = new TNewElement();
+        }
         v.SetTimestamp(this[0].Timestamp);
         newInternalArray[pos] = v;
       });

@@ -133,15 +133,22 @@ namespace Quqe
     }
     public double CPC { get { return ProfitFactor * WinningTradeFraction * AverageWinLossRatio; } }
 
-    //public override string ToString()
-    //{
-    //  var sb = new StringBuilder();
-    //  sb.AppendLine("---------------");
-    //  sb.AppendLine("Profit Factor: " + ProfitFactor);
-    //  sb.AppendLine("Max Drawdown %: " + MaxDrawdownPercent);
-    //  foreach (var kv in Parameters)
-    //    sb.AppendLine(kv.Key + ": " + kv.Value);
-    //  return sb.ToString();
-    //}
+    public override string ToString()
+    {
+      var sb = new StringBuilder();
+      sb.AppendLine("---------------");
+      sb.AppendLine("CPC: " + CPC);
+      sb.AppendLine("Profit Factor: " + ProfitFactor);
+      sb.AppendLine("Max Drawdown %: " + MaxDrawdownPercent * 100);
+      sb.AppendLine("");
+      sb.AppendLine("NumWinningTrades: " + NumWinningTrades);
+      sb.AppendLine("NumLosingTrades: " + NumLosingTrades);
+      sb.AppendLine("WinningTradeFraction: " + WinningTradeFraction);
+      sb.AppendLine("");
+      sb.AppendLine("AverageWin: " + AverageWin);
+      sb.AppendLine("AverageLoss: " + AverageLoss);
+      sb.AppendLine("AverageWinLossRatio: " + AverageWinLossRatio);
+      return sb.ToString();
+    }
   }
 }

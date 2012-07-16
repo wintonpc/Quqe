@@ -7,6 +7,7 @@ using System;
 using StockCharts;
 using System.Windows.Media;
 using System.IO;
+using System.Diagnostics;
 
 namespace QuqeViz
 {
@@ -30,7 +31,7 @@ namespace QuqeViz
       };
 
       var eParams = new EvolutionParams {
-        NumGenerations = 250,
+        NumGenerations = 200,
         GenerationSurvivorCount = 15,
         RandomAliensPerGeneration = 60,
         MaxOffspring = 1,
@@ -57,41 +58,54 @@ namespace QuqeViz
       Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal = (g, ins) =>
         bars.NeuralNet(new WardNet(ins.Count(), g), ins);
 
-      var buyReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
+      var bestBuy = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
         bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1));
 
-      WriteReport(buyReports, (sParams, genome) => {
+      var bestStopLimit = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
+        bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Low / s[2].Close - 1) - 0.01 : (s[0].High / s[2].Close - 1) + 0.01));
 
-        double accountPadding = 20.0;
+      Trace.WriteLine("-- Buy Signal --------------");
+      Trace.WriteLine(bestBuy.ToString());
+      Trace.WriteLine("----------------------------");
+      Trace.WriteLine("(Saved as " + bestBuy.Save() + ")");
 
-        var account = new Account { Equity = 10000, MarginFactor = 1 };
-        var helper = BacktestHelper.Start(bars, account);
+      Trace.WriteLine("-- StopLimit Signal --------------");
+      Trace.WriteLine(bestStopLimit.ToString());
+      Trace.WriteLine("----------------------------");
+      Trace.WriteLine("(Saved as " + bestStopLimit.Save() + ")");
 
-        var buySignal = makeSignal(genome, cookInputs(sParams));
+      var buySignal = makeSignal(Genome.Load(bestBuy.GenomeName), cookInputs(bestBuy.StrategyParams));
+      var stopLimitSignal = makeSignal(Genome.Load(bestStopLimit.GenomeName), cookInputs(bestStopLimit.StrategyParams));
 
-        DataSeries.Walk(bars, signal, pos => {
-          if (pos == 0)
-            return;
-          var normal = s[1].Close;
-          var normalizedPrices = List.Create(s[1].Open, s[1].Low, s[1].High, s[1].Close, s[0].Open).Select(x => x / normal).ToList();
-          var inputs = normalizedPrices.Concat(List.Create(zlemaSlope[UseZLEMAOpen ? 0 : 1].Val));
-          var shouldBuy = net.Propagate(inputs)[0] >= 0;
-          var stopLimit = (1 + net.Propagate(inputs)[1]) * normal;
-          var size = (int)((account.BuyingPower - accountPadding) / s[0].Open);
-          if (size > 0)
-          {
-            if (shouldBuy)
-              account.EnterLong(Bars.Symbol, size, new ExitOnSessionClose(Math.Max(0, stopLimit)), s.FromHere());
-            else
-              account.EnterShort(Bars.Symbol, size, new ExitOnSessionClose(Math.Min(100000, stopLimit)), s.FromHere());
-          }
-          helper.UpdateAccountValue(account.Equity);
-        });
-        return helper.Stop();
+      double accountPadding = 20.0;
+      var account = new Account { Equity = 10000, MarginFactor = 1 };
+      var helper = BacktestHelper.Start(bars, account);
+
+      var streams = List.Create<DataSeries>(bars, buySignal, stopLimitSignal);
+
+      DataSeries.Walk(bars, buySignal, stopLimitSignal, pos => {
+        if (pos < 2)
+          return;
+
+        var shouldBuy = buySignal[0] >= 0;
+        var stopLimit = (1 + stopLimitSignal[0]) * bars[2].Close;
+        var size = (int)((account.BuyingPower - accountPadding) / bars[0].Open);
+
+        if (size > 0)
+        {
+          if (shouldBuy)
+            account.EnterLong(bars.Symbol, size, new ExitOnSessionClose(Math.Max(0, stopLimit)), bars.FromHere());
+          else
+            account.EnterShort(bars.Symbol, size, new ExitOnSessionClose(Math.Min(100000, stopLimit)), bars.FromHere());
+        }
+
+        helper.UpdateAccountValue(account.Equity);
       });
+      var backtestReport = helper.Stop();
 
-      var stopLimitReport = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
-        bars.MapElements<Value>((s, v) => s[0].IsGreen ? s[0].Low - 0.01 : s[0].High + 0.01));
+      Trace.WriteLine(backtestReport.ToString());
+
+      WriteTrades(backtestReport.Trades, DateTime.Now, bestBuy.GenomeName + ", " + bestStopLimit.GenomeName);
     }
 
     static void WriteReport(IEnumerable<StrategyOptimizerReport> reports, Func<IEnumerable<StrategyParameter>, Genome, BacktestReport> backtest)
@@ -102,7 +116,7 @@ namespace QuqeViz
 
       var now = DateTime.Now;
 
-      var fn = Path.Combine(dirName, string.Format("{0:yyyy-MM-dd-hh-mm-ss}.csv", now));
+      var fn = Path.Combine(dirName, string.Format("{0:yyyy-MM-dd-HH-mm-ss}.csv", now));
 
       using (var op = new StreamWriter(fn))
       {

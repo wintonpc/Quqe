@@ -40,7 +40,7 @@ namespace Quqe
   {
     public static T Get<T>(this IEnumerable<StrategyParameter> sParams, string name)
     {
-      return (T)(object)sParams.First(sp => sp.Name == name).Value;
+      return (T)Convert.ChangeType(sParams.First(sp => sp.Name == name).Value, typeof(T));
     }
   }
 
@@ -48,6 +48,61 @@ namespace Quqe
   {
     public List<StrategyParameter> StrategyParams;
     public string GenomeName;
+    public double GenomeFitness;
+
+    static readonly string StrategyDir = "Strategies";
+    public override string ToString()
+    {
+      var sb = new StringBuilder();
+      sb.AppendLine("Genome : " + GenomeName);
+      sb.AppendLine("Fitness: " + GenomeFitness);
+      foreach (var sp in StrategyParams)
+        sb.AppendLine(sp.Name + ": " + sp.Value);
+      return sb.ToString();
+    }
+
+    public string Save()
+    {
+      var fn = FileHelper.NextNumberedFilename(StrategyDir);
+      File.WriteAllText(fn, this.ToString());
+      return Path.GetFileNameWithoutExtension(fn);
+    }
+
+    public static StrategyOptimizerReport Load(string name)
+    {
+      using (var ip = new StreamReader(Path.Combine(StrategyDir, name + ".txt")))
+      {
+        Func<string[]> nextLine = () => {
+          var line = ip.ReadLine();
+          if (line == null) return null;
+          return line.Split(':', ' ');
+        };
+        var r = new StrategyOptimizerReport();
+        r.GenomeName = nextLine()[1];
+        r.GenomeFitness = double.Parse(nextLine()[1]);
+
+        r.StrategyParams = new List<StrategyParameter>();
+        string[] lin;
+        while ((lin = nextLine()) != null)
+          r.StrategyParams.Add(new StrategyParameter(lin[0], double.Parse(lin[1])));
+        return r;
+      }
+    }
+  }
+
+  static class FileHelper
+  {
+    public static string NextNumberedFilename(string dir)
+    {
+      if (!Directory.Exists(dir))
+        Directory.CreateDirectory(dir);
+
+      var nums = Directory.EnumerateFiles(dir).Select(f => int.Parse(Path.GetFileNameWithoutExtension(f)));
+      var lastNum = nums.Any() ? nums.Max() : 0;
+      var number = (lastNum + 1).ToString("D6");
+      var name = number;
+      return Path.Combine(dir, name + ".txt");
+    }
   }
 
   public delegate StrategyOptimizerReport OptimizeKernelFunc(List<StrategyParameter> sParams);
@@ -72,17 +127,9 @@ namespace Quqe
     static string GenomesDir = "Genomes";
     public string Save()
     {
-      if (!Directory.Exists(GenomesDir))
-        Directory.CreateDirectory(GenomesDir);
-
-      var nums = Directory.EnumerateFiles(GenomesDir).Select(f => int.Parse(Path.GetFileNameWithoutExtension(f)));
-      var lastGenomeNumber = nums.Any() ? nums.Max() : 0;
-      var number = (lastGenomeNumber+1).ToString("D6");
-      var name = number;
-      var fn = Path.Combine(GenomesDir, name + ".txt");
-
+      var fn = FileHelper.NextNumberedFilename(GenomesDir);
       File.WriteAllText(fn, Genes.Join("\t"));
-      return name;
+      return Path.GetFileNameWithoutExtension(fn);
     }
 
     public static Genome Load(string name)
@@ -93,21 +140,24 @@ namespace Quqe
 
   public static class Optimizer
   {
-    public static List<StrategyOptimizerReport> OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
-      Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs, DataSeries<Bar> bars, DataSeries<Value> idealSignal)
+    public static StrategyOptimizerReport OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
+      Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs,
+      Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal,
+      DataSeries<Bar> bars, DataSeries<Value> idealSignal)
     {
       return Optimizer.OptimizeStrategyParameters(oParams, sParams => {
         var inputs = cookInputs(sParams);
 
         var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)),
-          g => bars.NeuralNet(new WardNet(inputs.Count, g), inputs).Variance(idealSignal));
+          g => -1 * makeSignal(g, inputs).Variance(idealSignal));
 
         var genomeName = bestGenome.Save();
         return new StrategyOptimizerReport {
           StrategyParams = sParams,
-          GenomeName = genomeName
+          GenomeName = genomeName,
+          GenomeFitness = bestGenome.Fitness.Value
         };
-      });
+      }).OrderByDescending(x => x.GenomeFitness).First();
     }
 
     public static Genome Evolve(EvolutionParams eParams, Genome seed, Func<Genome, double> fitnessFunc)
