@@ -86,10 +86,17 @@ namespace QuqeViz
 
     private void BacktestButton_Click(object sender, RoutedEventArgs e)
     {
-      BacktestStrat1(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text, BuySellBox.Text, StopLimitBox.Text);
+      BacktestStrat1(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text, BuySellBox.Text, StopLimitBox.Text,
+        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
     }
 
-    static BacktestReport BacktestStrat1(string symbol, string startDate, string endDate, string buySellName, string stopLimitName)
+    private void ValidateButton_Click(object sender, RoutedEventArgs e)
+    {
+      BacktestStrat1(SymbolBox.Text, ValidationStartBox.Text, ValidationEndBox.Text, BuySellBox.Text, StopLimitBox.Text,
+        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), true);
+    }
+
+    static BacktestReport BacktestStrat1(string symbol, string startDate, string endDate, string buySellName, string stopLimitName, double initialValue, int marginFactor, bool isValidation)
     {
       var bars = Data.Get(symbol).From(startDate).To(endDate);
 
@@ -102,8 +109,8 @@ namespace QuqeViz
         var buySignal = makeSignal(Genome.Load(buySellReport.GenomeName), cookInputs(buySellReport.StrategyParams));
         var stopLimitSignal = makeSignal(Genome.Load(stopLimitReport.GenomeName), cookInputs(stopLimitReport.StrategyParams));
 
-        double accountPadding = 20.0;
-        var account = new Account { Equity = 10000, MarginFactor = 1 };
+        double accountPadding = 50.0;
+        var account = new Account { Equity = initialValue, MarginFactor = marginFactor };
         var helper = BacktestHelper.Start(bars, account);
 
         var streams = List.Create<DataSeries>(bars, buySignal, stopLimitSignal);
@@ -131,9 +138,8 @@ namespace QuqeViz
         WriteTrades(backtestReport.Trades, DateTime.Now, buySellReport.GenomeName + ", " + stopLimitReport.GenomeName);
       });
 
-      var accountValue = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade)));
-
       var w = new ChartWindow();
+      w.Chart.Title = isValidation ? "Validation" : "Backtest";
       var g1 = w.Chart.AddGraph();
       g1.Title = "TQQQ";
       g1.Plots.Add(new Plot {
@@ -141,11 +147,19 @@ namespace QuqeViz
         Type = PlotType.Candlestick
       });
       var g2 = w.Chart.AddGraph();
+      g2.Title = "Initial Value: " + initialValue + ", Margin: " + marginFactor + "x";
       g2.Plots.Add(new Plot {
         Title = "Account Value",
-        DataSeries = accountValue,
+        DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
         Type = PlotType.ValueLine,
         Color = Brushes.Green
+      });
+      var g3 = w.Chart.AddGraph();
+      g3.Plots.Add(new Plot {
+        Title = "Profit % per trade",
+        DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.PercentProfit * 100))),
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
       });
       w.Show();
 

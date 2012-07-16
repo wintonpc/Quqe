@@ -113,6 +113,23 @@ namespace StockCharts
             path.Data = geom;
             GraphCanvas.Children.Add(path);
           }
+          else if (p.Type == PlotType.Bar)
+          {
+            var vs = ((DataSeries<Value>)p.DataSeries).ToArray();
+            for (int i = pb.ClipLeft; i <= pb.ClipRight; i++)
+            {
+              int k = i - pb.Left;
+
+              var p1 = PointToCanvas(i - SlotOffset, 0, ViewRegion);
+              var p2 = PointToCanvas(i - SlotOffset, vs[k].Val, ViewRegion);
+              AddRectangle(
+                p1.X - Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
+                p1.Y,
+                p2.X + Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
+                p2.Y,
+                p.Color);
+            }
+          }
           else if (p.Type == PlotType.Candlestick)
           {
             var bars = ((DataSeries<Bar>)p.DataSeries).ToArray();
@@ -146,13 +163,18 @@ namespace StockCharts
       if (DrawTimeAxis)
         AddTimeAxis();
 
-      AddText(Title, 0, 0, "bold");
       double yOffset = 0;
-      foreach (var p in Plots.Where(x => x.Type == PlotType.ValueLine))
+      if (!string.IsNullOrEmpty(Title))
       {
+        AddText(Title, 2, 0, "bold");
         yOffset += 16;
+      }
+      foreach (var p in Plots.Where(x => x.Type != PlotType.Candlestick))
+      {
         AddText(p.Title, 16, yOffset, "normal");
-        AddLine(2, yOffset + 9, 14, yOffset + 9, p.Color, LineStyle.Solid, 2);
+        double thickness = p.Type == PlotType.ValueLine ? 2 : 6;
+        AddLine(2, yOffset + 9, 14, yOffset + 9, p.Color, LineStyle.Solid, thickness);
+        yOffset += 16;
       }
     }
 
@@ -290,9 +312,21 @@ namespace StockCharts
       var error = range % roundDelta;
       var roundFirst = RoundToPowerOfTen(minVal + error / 2, p, Math.Ceiling);
 
+      double zeroOffset = 0;
+      if (roundFirst < 0 && maxVal > 0)
+        zeroOffset = Math.Round(roundFirst / roundDelta) * roundDelta - roundFirst;
+
+      var first = roundFirst + zeroOffset;
+      var last = maxVal + zeroOffset;
+
+      if (first < minVal)
+        first += roundDelta;
+      if (last > maxVal)
+        last -= roundDelta;
+
       return new AxisInfo {
-        First = roundFirst,
-        Last = maxVal,
+        First = first,
+        Last = last,
         Delta = roundDelta,
         RoundingPower = p
       };
@@ -318,15 +352,31 @@ namespace StockCharts
         AddLine(tickOffset, p.Y, edgeOffset, p.Y, axisColor);
 
         var textY = p.Y - 7.5;
-        AddText(n.ToString("N" + (int)Math.Max(0, -axis.RoundingPower)), textOffset, textY, "normal", 10);
+        var weight = n == 0 ? "bold" : "normal";
+        AddText(Humanize(n, axis.RoundingPower), textOffset, textY, weight, 10);
       }
+    }
+
+    static string Humanize(double n, int roundingPower)
+    {
+      if (n < 1000)
+        return n.ToString("N" + (int)Math.Max(0, -roundingPower));
+
+      var suffixes = new[] { "K", "M", "B", "T" };
+
+      for (int z = 1; z <= 4; z++)
+        if (n < Math.Pow(10, 3 * (z + 1)))
+          return (n / Math.Pow(10, 3 * z)).ToString("N" + Math.Max(0, 3 * z - roundingPower).ToString()) + suffixes[z - 1];
+
+      return n.ToString();
     }
 
     private void AddGridLines(AxisInfo axis)
     {
       for (double n = axis.First; n <= axis.Last; n += axis.Delta)
       {
-        var gridLineColor = new SolidColorBrush(Color.FromRgb(225, 225, 225));
+        byte lightness = (byte)(n == 0 ? 150 : 225);
+        var gridLineColor = new SolidColorBrush(Color.FromRgb(lightness, lightness, lightness));
         var p = PointToCanvas(0, n, ViewRegion);
         AddLine(0, p.Y, ParentChart.AvailableWidth, p.Y, gridLineColor);
       }
@@ -419,7 +469,7 @@ namespace StockCharts
 
   public enum PeriodType { OneDay }
 
-  public enum PlotType { Candlestick, ValueLine }
+  public enum PlotType { Candlestick, ValueLine, Bar }
 
   public enum LineStyle { Solid, Dashed }
 

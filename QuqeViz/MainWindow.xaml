@@ -6,7 +6,6 @@
     <Button x:Name="DemoButton" Click="DemoButton_Click">Demo</Button>
     <Button x:Name="OptimizeButton" Click="OptimizeButton_Click">Optimize</Button>
     <StackPanel Orientation="Horizontal">
-      <Button x:Name="BacktestButton" Width="124" Click="BacktestButton_Click">Backtest</Button>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
       <TextBox x:Name="SymbolBox">TQQQ</TextBox>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Buy/Sell:</TextBlock>
@@ -15,10 +14,20 @@
       <TextBox x:Name="StopLimitBox" Width="131">StopLimit-000006</TextBox>
     </StackPanel>
     <StackPanel Orientation="Horizontal">
+      <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Initial Value:</TextBlock>
+      <TextBox x:Name="InitialValueBox">10000</TextBox>
+      <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Margin Factor</TextBlock>
+      <TextBox x:Name="MarginFactorBox">1</TextBox>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal">
+      <Button x:Name="BacktestButton" Width="124" Click="BacktestButton_Click">Backtest</Button>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Teaching Start:</TextBlock>
       <TextBox x:Name="TeachStartBox">02/12/2010</TextBox>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">End:</TextBlock>
       <TextBox x:Name="TeachEndBox">02/12/2012</TextBox>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal">
+      <Button x:Name="ValidateButton" Width="124" Click="ValidateButton_Click" HorizontalAlignment="Left">Validate</Button>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Validation Start:</TextBlock>
       <TextBox x:Name="ValidationStartBox">02/13/2012</TextBox>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">End:</TextBlock>

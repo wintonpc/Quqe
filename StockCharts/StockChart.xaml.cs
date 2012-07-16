@@ -129,7 +129,7 @@ namespace StockCharts
     }
     public Dictionary<Plot, PlotInfo> PlotBoundaries { get; private set; }
     public double AvailableWidth { get { return Math.Max(0, Parent.GraphsGrid.ActualWidth - VerticalAxisWidth); } }
-    readonly double VerticalAxisWidth = 64;
+    readonly double VerticalAxisWidth = 32;
     public readonly double HorizontalAxisHeight = 16;
     List<DateTime> _Timestamps;
     public List<DateTime> Timestamps { get { return _Timestamps; } }
@@ -174,11 +174,6 @@ namespace StockCharts
       var plots = Graphs.SelectMany(g => g.Plots).OrderBy(p => p.DataSeries.Elements.ToArray().First().Timestamp).ToArray();
       if (plots.Length == 0)
         return 0;
-      //else if (plots.Length == 1)
-      //{
-      //  timestamps = plots.First().DataSeries.Elements.ToArray().Select(e => e.Timestamp).ToList();
-      //  return plots.First().DataSeries.Elements.ToArray().Count();
-      //}
       else
       {
         int count = 0;

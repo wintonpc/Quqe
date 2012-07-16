@@ -109,6 +109,7 @@ namespace Quqe
       ExitTime = exitTime;
       Size = size;
       Profit = profit;
+      AccountValueBeforeTrade = accountValueBeforeTrade;
       AccountValueAfterTrade = accountValueAfterTrade;
     }
   }
