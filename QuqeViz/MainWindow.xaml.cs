@@ -41,8 +41,8 @@ namespace QuqeViz
           bars.MapElements<Value>((s, v) => s[1].High / getNormal(s)),
           bars.MapElements<Value>((s, v) => s[1].Close / getNormal(s)),
           bars.MapElements<Value>((s, v) => s[0].Open / getNormal(s)),
-          bars.ZLEMA(sParams.Get<int>("SlowZLEMAPeriod"), bar => bar.Close).Derivative()/*,
-          bars.ZLEMA(sParams.Get<int>("FastZLEMAPeriod"), bar => bar.Close).Derivative()*/);
+          bars.ZLEMA(sParams.Get<int>("SlowZLEMAPeriod"), bar => bar.Close).Derivative(),
+          bars.ZLEMA(sParams.Get<int>("FastZLEMAPeriod"), bar => bar.Close).Derivative());
       };
 
       Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal = (g, ins) =>
@@ -58,12 +58,12 @@ namespace QuqeViz
       WithStrat1(bars, (cookInputs, makeSignal, getNormal) => {
 
         var oParams = new List<OptimizerParameter> {
-          new OptimizerParameter("SlowZLEMAPeriod", 5, 5, 1)/*,
-          new OptimizerParameter("FastZLEMAPeriod", 12, 27, 3)*/
+          new OptimizerParameter("SlowZLEMAPeriod", 3, 10, 1),
+          new OptimizerParameter("FastZLEMAPeriod", 11, 41, 3)
         };
 
         var eParams = new EvolutionParams {
-          NumGenerations = 500,
+          NumGenerations = 2500,
           GenerationSurvivorCount = 15,
           RandomAliensPerGeneration = 60,
           MaxOffspring = 1,

@@ -86,18 +86,18 @@ namespace Quqe
 
     [ThreadStatic]
     static Dictionary<DataSeries, Stack<Frame>> ThreadFrames;
-    Stack<Frame> Frames
+
+    protected bool IsFramed { get { return ThreadFrames != null && ThreadFrames.ContainsKey(this); } }
+    public int Pos
     {
       get
       {
-        if (ThreadFrames == null)
-          ThreadFrames = new Dictionary<DataSeries, Stack<Frame>>();
-        return ThreadFrames.GetDefault(this, k => new Stack<Frame>());
+        if (!IsFramed)
+          throw new InvalidOperationException("Pos can only be accessed when the DataSet is framed.");
+
+        return ThreadFrames[this].Peek().Pos;
       }
     }
-
-    protected bool IsFramed { get { return Frames.Any(); } }
-    public int Pos { get { return IsFramed ? Frames.Peek().Pos : 0; } }
 
     public abstract IEnumerable<DataSeriesElement> Elements { get; }
 
@@ -108,13 +108,35 @@ namespace Quqe
 
     void PushFrame(Frame f)
     {
-      Frames.Push(f);
+      if (ThreadFrames == null)
+        ThreadFrames = new Dictionary<DataSeries, Stack<Frame>>();
+
+      Stack<Frame> frames;
+      if (!ThreadFrames.TryGetValue(this, out frames))
+      {
+        frames = new Stack<Frame>();
+        ThreadFrames.Add(this, frames);
+      }
+
+      frames.Push(f);
     }
 
     void PopFrame(Frame f)
     {
-      Debug.Assert(Frames.Peek() == f);
-      Frames.Pop();
+      Debug.Assert(ThreadFrames != null);
+
+      var frames = ThreadFrames[this];
+
+      Debug.Assert(frames.Peek() == f);
+
+      frames.Pop();
+
+      if (!frames.Any())
+      {
+        ThreadFrames.Remove(this);
+        if (!ThreadFrames.Any())
+          ThreadFrames = null;
+      }
     }
 
     class Frame : IDisposable
