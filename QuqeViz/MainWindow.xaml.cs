@@ -58,15 +58,17 @@ namespace QuqeViz
       WithStrat1(bars, (cookInputs, makeSignal, getNormal) => {
 
         var oParams = new List<OptimizerParameter> {
-          new OptimizerParameter("SlowZLEMAPeriod", 3, 10, 1),
-          new OptimizerParameter("FastZLEMAPeriod", 11, 41, 3)
+          //new OptimizerParameter("FastZLEMAPeriod", 3, 3, 1),
+          //new OptimizerParameter("SlowZLEMAPeriod", 15, 15, 1),
+          new OptimizerParameter("FastZLEMAPeriod", 2, 8, 1),
+          new OptimizerParameter("SlowZLEMAPeriod", 10, 20, 1)
         };
 
         var eParams = new EvolutionParams {
-          NumGenerations = 2500,
+          NumGenerations = 300,
           GenerationSurvivorCount = 15,
           RandomAliensPerGeneration = 60,
-          MaxOffspring = 1,
+          MaxOffspring = 2,
           MutationRate = 1,
           MaxMutationTimesVariance = 0.002,
         };
@@ -74,8 +76,8 @@ namespace QuqeViz
         var buyReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
           bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1));
 
-        var stopLimitReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
-          bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Low / getNormal(s) - 1) - 0.03 : (s[0].High / getNormal(s) - 1) + 0.03));
+        //var stopLimitReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
+        //  bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Low / getNormal(s) - 1) - 0.03 : (s[0].High / getNormal(s) - 1) + 0.03));
 
         Trace.WriteLine("=== BEST ===");
         var bestBuy = buyReports.First();
@@ -84,11 +86,11 @@ namespace QuqeViz
         Trace.WriteLine("(Saved as " + bestBuy.Save("BuySell") + ")");
         Trace.WriteLine("----------------------------");
 
-        var bestStopLimit = stopLimitReports.First();
-        Trace.WriteLine("-- StopLimit Signal --------------");
-        Trace.WriteLine(bestStopLimit.ToString());
-        Trace.WriteLine("(Saved as " + bestStopLimit.Save("StopLimit") + ")");
-        Trace.WriteLine("----------------------------");
+        //var bestStopLimit = stopLimitReports.First();
+        //Trace.WriteLine("-- StopLimit Signal --------------");
+        //Trace.WriteLine(bestStopLimit.ToString());
+        //Trace.WriteLine("(Saved as " + bestStopLimit.Save("StopLimit") + ")");
+        //Trace.WriteLine("----------------------------");
 
         Trace.WriteLine("=== ALL ===");
         Action<IEnumerable<StrategyOptimizerReport>> printReports = list => {
@@ -98,8 +100,8 @@ namespace QuqeViz
 
         Trace.WriteLine("-- Buy Signal --------------");
         printReports(buyReports);
-        Trace.WriteLine("-- StopLimit Signal --------------");
-        printReports(stopLimitReports);
+        //Trace.WriteLine("-- StopLimit Signal --------------");
+        //printReports(stopLimitReports);
       });
     }
 
@@ -126,20 +128,18 @@ namespace QuqeViz
         var stopLimitReport = StrategyOptimizerReport.Load(stopLimitName);
 
         var buySignal = makeSignal(Genome.Load(buySellReport.GenomeName), cookInputs(buySellReport.StrategyParams));
-        var stopLimitSignal = makeSignal(Genome.Load(stopLimitReport.GenomeName), cookInputs(stopLimitReport.StrategyParams));
+        //var stopLimitSignal = makeSignal(Genome.Load(stopLimitReport.GenomeName), cookInputs(stopLimitReport.StrategyParams));
 
         double accountPadding = 50.0;
         var account = new Account { Equity = initialValue, MarginFactor = marginFactor };
         var helper = BacktestHelper.Start(bars, account);
 
-        var streams = List.Create<DataSeries>(bars, buySignal, stopLimitSignal);
-
-        DataSeries.Walk(bars, buySignal, stopLimitSignal, pos => {
+        DataSeries.Walk(bars, buySignal, /*stopLimitSignal, */pos => {
           if (pos < 3)
             return;
 
           var shouldBuy = buySignal[0] >= 0;
-          var stopLimit = (1 + stopLimitSignal[0]) * getNormal(bars);
+          double stopLimit = 0;// (1 + stopLimitSignal[0]) * getNormal(bars);
 
           // correct bad stop limits
           //double maxLossPercent = Math.Abs((bars[1].Open - bars[1].Close) / Math.Min(bars[1].Open, bars[1].Close)) * 3;
@@ -152,16 +152,16 @@ namespace QuqeViz
             stopLimit = liberalShortStop;
 
           // special stops for gaps 2
-          double minGapPct = 0.03;
+          double minGapPct = 0.015;
           //double harshness = 6;
-          double stopGapFraction = 0.8;
-          if (shouldBuy && bars[1].IsGreen && bars[1].WaxTop * (1 + minGapPct) < bars[0].Open) // buying gap up
+          double stopGapFraction = 0.5;
+          if (shouldBuy && /*bars[1].IsGreen &&*/ bars[1].WaxTop * (1 + minGapPct) < bars[0].Open) // buying gap up
           {
             //var gapPct = (bars[0].Open - bars[1].WaxTop) / bars[1].WaxTop;
             //var stopGapFraction = Math.Pow(Math.Exp(-gapPct), harshness);
             stopLimit = bars[0].Open - (bars[0].Open - bars[1].WaxTop) * stopGapFraction;
           }
-          if (!shouldBuy && bars[1].IsRed && bars[1].WaxBottom * (1 - minGapPct) > bars[0].Open) // selling gap down
+          if (!shouldBuy && /*bars[1].IsRed &&*/ bars[1].WaxBottom * (1 - minGapPct) > bars[0].Open) // selling gap down
           {
             //var gapPct = (bars[1].WaxBottom - bars[0].Open) / bars[0].Open;
             //var stopGapFraction = Math.Pow(Math.Exp(-gapPct), harshness);

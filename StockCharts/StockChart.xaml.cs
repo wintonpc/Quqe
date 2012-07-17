@@ -63,7 +63,7 @@ namespace StockCharts
         {
           GraphsGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
           var splitter = new GridSplitter {
-            Height = 3,
+            Height = 5,
             Background = Brushes.DarkGray,
             HorizontalAlignment = HorizontalAlignment.Stretch
           };

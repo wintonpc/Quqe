@@ -169,9 +169,13 @@ namespace Quqe
       Action updateFitness = () => {
         var unmeasured = population.Where(g => g.Fitness == null).ToList();
         //Trace.WriteLine("Calculating fitness for " + unmeasured.Count + " individuals");
-        Parallel.ForEach(unmeasured, g => { g.Fitness = fitnessFunc(g); });
-        //foreach (var g in unmeasured)
-        //  g.Fitness = fitnessFunc(g);
+        if (ParallelStrategies)
+        {
+          foreach (var g in unmeasured)
+            g.Fitness = fitnessFunc(g);
+        }
+        else
+          Parallel.ForEach(unmeasured, g => { g.Fitness = fitnessFunc(g); });
       };
 
       updateFitness();
@@ -182,9 +186,10 @@ namespace Quqe
       {
         var maxFitness = population.Max(g => g.Fitness).Value;
         var averageFitness = population.Average(g => g.Fitness).Value;
-        Func<double, int> numOffspring = fitness => (int)Math.Max(0, (fitness - averageFitness) / (maxFitness - averageFitness) * eParams.MaxOffspring);
+        //Func<double, int> numOffspring = fitness => (int)Math.Max(0, (fitness - averageFitness) / (maxFitness - averageFitness) * eParams.MaxOffspring);
+        int maxOffspring = (gen < eParams.NumGenerations) ? eParams.MaxOffspring : eParams.MaxOffspring * 4;
+        int numAliens = (gen < eParams.NumGenerations) ? eParams.RandomAliensPerGeneration : eParams.RandomAliensPerGeneration / 4;
 
-        int numAliens = eParams.RandomAliensPerGeneration;
         var z = gen % 100;
         if (40 <= z && z < 45)
         {
@@ -217,7 +222,7 @@ namespace Quqe
         // kill off the unfit
         population = population.OrderByDescending(g => g.Fitness).Take(eParams.GenerationSurvivorCount).ToList();
         var variance = Variance(population.Select(g => g.Fitness.Value));
-        maxMutation = eParams.MaxMutationTimesVariance / variance;
+        maxMutation = Math.Max(0.005, Math.Min(1, eParams.MaxMutationTimesVariance / variance));
         Trace.WriteLine("Gen " + gen + ", fittest: " + population.First().Fitness.Value.ToString("N6") + "   Variance: " + variance.ToString("N6") + "   MaxMutation: " + maxMutation.ToString("N6"));
       }
       return population.First();
@@ -232,12 +237,13 @@ namespace Quqe
     static Genome Breed(Genome a, Genome b, EvolutionParams eParams, double maxMutation)
     {
       var c = new Genome { Genes = new List<double>() };
+      var m = RandomDouble(0, maxMutation);
       for (int i = 0; i < a.Size; i++)
       {
         var p = Random.Next(2);
         var gene = p == 0 ? a.Genes[i] : b.Genes[i];
         if (WithProb(eParams.MutationRate))
-          gene += RandomDouble(-maxMutation, maxMutation);
+          gene += RandomDouble(-m, m);
         c.Genes.Add(Clip(GeneMin, GeneMax, gene));
       }
       return c;
@@ -268,12 +274,43 @@ namespace Quqe
       return new Genome { Genes = List.Repeat(length, () => RandomDouble(GeneMin, GeneMax)) };
     }
 
+    //public static List<StrategyOptimizerReport> OptimizeStrategyParameters(IEnumerable<OptimizerParameter> oParams, OptimizeKernelFunc optimizeKernel)
+    //{
+    //  return CrossProd(oParams.Select(op => Range(op.Low, op.High, op.Granularity).ToArray()).ToList())
+    //    .Select(sParamValues => oParams.Select(sp => sp.Name).Zip(sParamValues, (n, v) => new StrategyParameter(n, v)))
+    //    .Select(sParams => optimizeKernel(sParams.ToList()))
+    //    .ToList();
+    //}
+
+    static bool ParallelStrategies;
+
     public static List<StrategyOptimizerReport> OptimizeStrategyParameters(IEnumerable<OptimizerParameter> oParams, OptimizeKernelFunc optimizeKernel)
     {
-      return CrossProd(oParams.Select(op => Range(op.Low, op.High, op.Granularity).ToArray()).ToList())
-        .Select(sParamValues => oParams.Select(sp => sp.Name).Zip(sParamValues, (n, v) => new StrategyParameter(n, v)))
-        .Select(sParams => optimizeKernel(sParams.ToList()))
-        .ToList();
+      var sParamsList = CrossProd(oParams.Select(op => Range(op.Low, op.High, op.Granularity).ToArray()).ToList())
+        .Select(sParamValues => oParams.Select(sp => sp.Name).Zip(sParamValues, (n, v) => new StrategyParameter(n, v))).ToList();
+
+      if (sParamsList.Count > 1)
+      {
+        Trace.WriteLine("Parallellizing strategies.");
+        ParallelStrategies = true;
+      }
+      else
+      {
+        Trace.WriteLine("Parallellizing fitness calculation.");
+        ParallelStrategies = false;
+      }
+
+      if (ParallelStrategies)
+      {
+        List<StrategyOptimizerReport> reports = new List<StrategyOptimizerReport>();
+        Parallel.ForEach(sParamsList, sParams => {
+          var rpt = optimizeKernel(sParams.ToList());
+          lock (reports) { reports.Add(rpt); }
+        });
+        return reports;
+      }
+      else
+        return sParamsList.Select(sParams => optimizeKernel(sParams.ToList())).ToList();
     }
 
     static IEnumerable<double> Range(double low, double high, double step)
