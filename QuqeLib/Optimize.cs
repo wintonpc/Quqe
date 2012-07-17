@@ -140,7 +140,7 @@ namespace Quqe
 
   public static class Optimizer
   {
-    public static StrategyOptimizerReport OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
+    public static IEnumerable<StrategyOptimizerReport> OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
       Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs,
       Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal,
       DataSeries<Bar> bars, DataSeries<Value> idealSignal)
@@ -157,7 +157,7 @@ namespace Quqe
           GenomeName = genomeName,
           GenomeFitness = bestGenome.Fitness.Value
         };
-      }).OrderByDescending(x => x.GenomeFitness).First();
+      }).OrderByDescending(x => x.GenomeFitness);
     }
 
     public static Genome Evolve(EvolutionParams eParams, Genome seed, Func<Genome, double> fitnessFunc)

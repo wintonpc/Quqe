@@ -22,43 +22,48 @@ namespace QuqeViz
     }
 
     static void WithStrat1(DataSeries<Bar> bars,
-      Action<Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>>, Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>>> f)
+      Action<
+      Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>>,
+      Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>>,
+      Func<DataSeries<Bar>, double>
+      > f)
     {
-      Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs = sParams => {
-        Func<Bar, double> zlemaComponent;
-        if (sParams.Get<int>("ZLEMAOpenOrClose") == 0)
-          zlemaComponent = bar => bar.Open;
-        else
-          zlemaComponent = bar => bar.Close;
+      Func<DataSeries<Bar>, double> getNormal = bs => bs[3].Close;
 
+      Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs = sParams => {
         return List.Create(
-          bars.MapElements<Value>((s, v) => s[1].Open / s[2].Close),
-          bars.MapElements<Value>((s, v) => s[1].Low / s[2].Close),
-          bars.MapElements<Value>((s, v) => s[1].High / s[2].Close),
-          bars.MapElements<Value>((s, v) => s[1].Close / s[2].Close),
-          bars.MapElements<Value>((s, v) => s[0].Open / s[2].Close),
-          bars.ZLEMA(sParams.Get<int>("ZLEMAPeriod"), zlemaComponent).Derivative());
+          bars.MapElements<Value>((s, v) => s[2].Open / getNormal(s)),
+          bars.MapElements<Value>((s, v) => s[2].Low / getNormal(s)),
+          bars.MapElements<Value>((s, v) => s[2].High / getNormal(s)),
+          bars.MapElements<Value>((s, v) => s[2].Close / getNormal(s)),
+          bars.MapElements<Value>((s, v) => s[1].Open / getNormal(s)),
+          bars.MapElements<Value>((s, v) => s[1].Low / getNormal(s)),
+          bars.MapElements<Value>((s, v) => s[1].High / getNormal(s)),
+          bars.MapElements<Value>((s, v) => s[1].Close / getNormal(s)),
+          bars.MapElements<Value>((s, v) => s[0].Open / getNormal(s)),
+          bars.ZLEMA(sParams.Get<int>("SlowZLEMAPeriod"), bar => bar.Close).Derivative()/*,
+          bars.ZLEMA(sParams.Get<int>("FastZLEMAPeriod"), bar => bar.Close).Derivative()*/);
       };
 
       Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal = (g, ins) =>
         bars.NeuralNet(new WardNet(ins.Count(), g), ins);
 
-      f(cookInputs, makeSignal);
+      f(cookInputs, makeSignal, getNormal);
     }
 
     public static void OptimizeStrat1(string symbol, string startDate, string endDate)
     {
       var bars = Data.Get(symbol).From(startDate).To(endDate);
 
-      WithStrat1(bars, (cookInputs, makeSignal) => {
+      WithStrat1(bars, (cookInputs, makeSignal, getNormal) => {
 
         var oParams = new List<OptimizerParameter> {
-          new OptimizerParameter("ZLEMAPeriod", 5, 5, 1),
-          new OptimizerParameter("ZLEMAOpenOrClose", 1, 1, 1),
+          new OptimizerParameter("SlowZLEMAPeriod", 5, 5, 1)/*,
+          new OptimizerParameter("FastZLEMAPeriod", 12, 27, 3)*/
         };
 
         var eParams = new EvolutionParams {
-          NumGenerations = 250,
+          NumGenerations = 500,
           GenerationSurvivorCount = 15,
           RandomAliensPerGeneration = 60,
           MaxOffspring = 1,
@@ -66,21 +71,35 @@ namespace QuqeViz
           MaxMutationTimesVariance = 0.002,
         };
 
-        var bestBuy = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
+        var buyReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
           bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1));
 
-        var bestStopLimit = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
-          bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Low / s[2].Close - 1) - 0.03 : (s[0].High / s[2].Close - 1) + 0.03));
+        var stopLimitReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
+          bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Low / getNormal(s) - 1) - 0.03 : (s[0].High / getNormal(s) - 1) + 0.03));
 
+        Trace.WriteLine("=== BEST ===");
+        var bestBuy = buyReports.First();
         Trace.WriteLine("-- Buy Signal --------------");
         Trace.WriteLine(bestBuy.ToString());
         Trace.WriteLine("(Saved as " + bestBuy.Save("BuySell") + ")");
         Trace.WriteLine("----------------------------");
 
+        var bestStopLimit = stopLimitReports.First();
         Trace.WriteLine("-- StopLimit Signal --------------");
         Trace.WriteLine(bestStopLimit.ToString());
         Trace.WriteLine("(Saved as " + bestStopLimit.Save("StopLimit") + ")");
         Trace.WriteLine("----------------------------");
+
+        Trace.WriteLine("=== ALL ===");
+        Action<IEnumerable<StrategyOptimizerReport>> printReports = list => {
+          foreach (var r in list)
+            Trace.WriteLine(r.ToString() + "\r\n");
+        };
+
+        Trace.WriteLine("-- Buy Signal --------------");
+        printReports(buyReports);
+        Trace.WriteLine("-- StopLimit Signal --------------");
+        printReports(stopLimitReports);
       });
     }
 
@@ -101,7 +120,7 @@ namespace QuqeViz
       var bars = Data.Get(symbol).From(startDate).To(endDate);
 
       BacktestReport backtestReport = null;
-      WithStrat1(bars, (cookInputs, makeSignal) => {
+      WithStrat1(bars, (cookInputs, makeSignal, getNormal) => {
 
         var buySellReport = StrategyOptimizerReport.Load(buySellName);
         var stopLimitReport = StrategyOptimizerReport.Load(stopLimitName);
@@ -116,20 +135,20 @@ namespace QuqeViz
         var streams = List.Create<DataSeries>(bars, buySignal, stopLimitSignal);
 
         DataSeries.Walk(bars, buySignal, stopLimitSignal, pos => {
-          if (pos < 2)
+          if (pos < 3)
             return;
 
           var shouldBuy = buySignal[0] >= 0;
-          var stopLimit = (1 + stopLimitSignal[0]) * bars[2].Close;
+          var stopLimit = (1 + stopLimitSignal[0]) * getNormal(bars);
 
           // correct bad stop limits
           //double maxLossPercent = Math.Abs((bars[1].Open - bars[1].Close) / Math.Min(bars[1].Open, bars[1].Close)) * 3;
           double maxLossPercent = 0.08;
           var liberalLongStop = bars[0].Open * (1 - maxLossPercent);
           var liberalShortStop = bars[0].Open * (1 + maxLossPercent);
-          if (shouldBuy && (stopLimit >= bars[0].Open || stopLimit < liberalLongStop))
+          if (shouldBuy/* && (stopLimit >= bars[0].Open || stopLimit < liberalLongStop)*/)
             stopLimit = liberalLongStop;
-          else if (!shouldBuy && (stopLimit <= bars[0].Open || stopLimit > liberalShortStop))
+          else if (!shouldBuy/* && (stopLimit <= bars[0].Open || stopLimit > liberalShortStop)*/)
             stopLimit = liberalShortStop;
 
           // special stops for gaps 2
@@ -181,15 +200,6 @@ namespace QuqeViz
       });
       foreach (var t in backtestReport.Trades)
         g1.Trades.Add(t);
-
-      //var g2 = w.Chart.AddGraph();
-      //g2.Title = "Initial Value: " + initialValue + ", Margin: " + marginFactor + "x";
-      //g2.Plots.Add(new Plot {
-      //  Title = "Account Value",
-      //  DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Green
-      //});
       var g3 = w.Chart.AddGraph();
       g3.Plots.Add(new Plot {
         Title = "Profit % per trade",
@@ -197,6 +207,16 @@ namespace QuqeViz
         Type = PlotType.Bar,
         Color = Brushes.Blue
       });
+
+      var g2 = w.Chart.AddGraph();
+      g2.Title = "Initial Value: " + initialValue + ", Margin: " + marginFactor + "x";
+      g2.Plots.Add(new Plot {
+        Title = "Account Value",
+        DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Green
+      });
+
       //var g4 = w.Chart.AddGraph();
       //g4.Plots.Add(new Plot {
       //  Title = "Wrong-sided stoplimits",
