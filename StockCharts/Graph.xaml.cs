@@ -463,7 +463,7 @@ namespace StockCharts
     {
       for (double n = axis.First; n <= axis.Last; n += axis.Delta)
       {
-        byte lightness = (byte)(n == 0 ? 150 : 225);
+        byte lightness = (byte)(n == 0 ? 150 : 240);
         var gridLineColor = new SolidColorBrush(Color.FromRgb(lightness, lightness, lightness));
         var p = PointToCanvas(0, n, ViewRegion);
         AddLine(0, p.Y, ParentChart.AvailableWidth, p.Y, gridLineColor);

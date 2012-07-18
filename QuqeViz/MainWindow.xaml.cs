@@ -121,7 +121,7 @@ namespace QuqeViz
     {
       var bars = Data.Get(symbol).From(startDate).To(endDate);
 
-      int donchianPeriod = 5;
+      int donchianPeriod = 3;
       double donchianBloat = 0.5;
 
       BacktestReport backtestReport = null;
@@ -148,43 +148,53 @@ namespace QuqeViz
           var shouldBuy = buySignal[0] >= 0;
           double stopLimit = 0;// (1 + stopLimitSignal[0]) * getNormal(bars);
 
-          // correct bad stop limits
+          // hard stop limits
           //double maxLossPercent = Math.Abs((bars[1].Open - bars[1].Close) / Math.Min(bars[1].Open, bars[1].Close)) * 3;
           double maxLossPercent = 0.08;
-          var liberalLongStop = bars[0].Open * (1 - maxLossPercent);
-          var liberalShortStop = bars[0].Open * (1 + maxLossPercent);
-          if (shouldBuy/* && (stopLimit >= bars[0].Open || stopLimit < liberalLongStop)*/)
-            stopLimit = liberalLongStop;
-          else if (!shouldBuy/* && (stopLimit <= bars[0].Open || stopLimit > liberalShortStop)*/)
-            stopLimit = liberalShortStop;
+          var hardLongStop = bars[0].Open * (1 - maxLossPercent);
+          var hardShortStop = bars[0].Open * (1 + maxLossPercent);
+          //if (shouldBuy/* && (stopLimit >= bars[0].Open || stopLimit < liberalLongStop)*/)
+          //  stopLimit = liberalLongStop;
+          //else if (!shouldBuy/* && (stopLimit <= bars[0].Open || stopLimit > liberalShortStop)*/)
+          //  stopLimit = liberalShortStop;
 
           // donchian stops
+          var rangePct = (dMax[1] - dMin[1]) / dAvg[1];
+          var bloat = Math.Max(0.02, -Math.Log10(rangePct * 8) / 2 + .4);
+          //var bloat = Math.Max(0.02, -5 * (rangePct - 0.19));
           if (shouldBuy && bars[0].Open < dAvg[1])
-            stopLimit = List.Create<double>(dMin[1], dAvg[1] - (dAvg[1] - bars[0].Open) * (1 + donchianBloat)).Min();
+            stopLimit = List.Create<double>(dMin[1], dAvg[1] - (dAvg[1] - bars[0].Open) * (1 + bloat)).Min();
           if (!shouldBuy && bars[0].Open > dAvg[1])
-            stopLimit = List.Create<double>(dMax[1], dAvg[1] + (bars[0].Open - dAvg[1]) * (1 + donchianBloat)).Max();
+            stopLimit = List.Create<double>(dMax[1], dAvg[1] + (bars[0].Open - dAvg[1]) * (1 + bloat)).Max();
 
           if (shouldBuy && bars[0].Open >= dAvg[1])
-            stopLimit = dMax[1] - (dMax[1] - dAvg[1]) * (1 + donchianBloat);
+            stopLimit = dMax[1] - (dMax[1] - dAvg[1]) * (1 + bloat);
           if (!shouldBuy && bars[0].Open <= dAvg[1])
-            stopLimit = dMin[1] + (dAvg[1] - dMin[1]) * (1 + donchianBloat);
+            stopLimit = dMin[1] + (dAvg[1] - dMin[1]) * (1 + bloat);
 
-          // special stops for gaps 2
-          double minGapPct = 0.015;
-          //double harshness = 6;
-          double stopGapFraction = 0.5;
-          if (shouldBuy && /*bars[1].IsGreen &&*/ bars[1].WaxTop * (1 + minGapPct) < bars[0].Open) // buying gap up
-          {
-            //var gapPct = (bars[0].Open - bars[1].WaxTop) / bars[1].WaxTop;
-            //var stopGapFraction = Math.Pow(Math.Exp(-gapPct), harshness);
-            stopLimit = bars[0].Open - (bars[0].Open - bars[1].WaxTop) * stopGapFraction;
-          }
-          if (!shouldBuy && /*bars[1].IsRed &&*/ bars[1].WaxBottom * (1 - minGapPct) > bars[0].Open) // selling gap down
-          {
-            //var gapPct = (bars[1].WaxBottom - bars[0].Open) / bars[0].Open;
-            //var stopGapFraction = Math.Pow(Math.Exp(-gapPct), harshness);
-            stopLimit = bars[0].Open + (bars[1].WaxBottom - bars[0].Open) * stopGapFraction;
-          }
+          // hard stopping
+          if (shouldBuy)
+            stopLimit = Math.Max(hardLongStop, stopLimit);
+          else
+            stopLimit = Math.Min(hardShortStop, stopLimit);
+
+
+          //// special stops for gaps 2
+          //double minGapPct = 0.015;
+          ////double harshness = 6;
+          //double stopGapFraction = 0.5;
+          //if (shouldBuy && /*bars[1].IsGreen &&*/ bars[1].WaxTop * (1 + minGapPct) < bars[0].Open) // buying gap up
+          //{
+          //  //var gapPct = (bars[0].Open - bars[1].WaxTop) / bars[1].WaxTop;
+          //  //var stopGapFraction = Math.Pow(Math.Exp(-gapPct), harshness);
+          //  stopLimit = bars[0].Open - (bars[0].Open - bars[1].WaxTop) * stopGapFraction;
+          //}
+          //if (!shouldBuy && /*bars[1].IsRed &&*/ bars[1].WaxBottom * (1 - minGapPct) > bars[0].Open) // selling gap down
+          //{
+          //  //var gapPct = (bars[1].WaxBottom - bars[0].Open) / bars[0].Open;
+          //  //var stopGapFraction = Math.Pow(Math.Exp(-gapPct), harshness);
+          //  stopLimit = bars[0].Open + (bars[1].WaxBottom - bars[0].Open) * stopGapFraction;
+          //}
 
           var size = (int)((account.BuyingPower - accountPadding) / bars[0].Open);
 
@@ -211,50 +221,52 @@ namespace QuqeViz
         DataSeries = bars,
         Type = PlotType.Candlestick
       });
-      g1.Plots.Add(new Plot {
-        DataSeries = bars.DonchianMin(donchianPeriod, donchianBloat),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Orange
-      });
-      g1.Plots.Add(new Plot {
-        DataSeries = bars.DonchianMax(donchianPeriod, donchianBloat),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Orange
-      });
-      g1.Plots.Add(new Plot {
-        DataSeries = bars.DonchianAvg(donchianPeriod),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Gray
-      });
+      //g1.Plots.Add(new Plot {
+      //  DataSeries = bars.DonchianMin(donchianPeriod, donchianBloat),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Orange
+      //});
+      //g1.Plots.Add(new Plot {
+      //  DataSeries = bars.DonchianMax(donchianPeriod, donchianBloat),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Orange
+      //});
+      //g1.Plots.Add(new Plot {
+      //  DataSeries = bars.DonchianAvg(donchianPeriod),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Gray
+      //});
       g1.Plots.Add(new Plot {
         DataSeries = backtestReport.Trades.ToDataSeries(t => t.StopLimit),
         Type = PlotType.Dash,
         Color = Brushes.Blue
       });
-      //g1.Plots.Add(new Plot {
-      //  DataSeries = bars.ZLEMA(3, bar => bar.Close),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Purple
-      //});
       foreach (var t in backtestReport.Trades)
         g1.Trades.Add(t);
-      var g3 = w.Chart.AddGraph();
-      g3.Plots.Add(new Plot {
+      var g2 = w.Chart.AddGraph();
+      g2.Plots.Add(new Plot {
         Title = "Profit % per trade",
         DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.PercentProfit * 100))),
         Type = PlotType.Bar,
         Color = Brushes.Blue
       });
+      //var g3 = w.Chart.AddGraph();
+      //g3.Plots.Add(new Plot {
+      //  Title = "Stopped gains",
+      //  DataSeries = backtestReport.Trades.ToDataSeries(t => t.IsStoppedGain ? 1.0 : 0.0),
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Red
+      //});
 
-      var g2 = w.Chart.AddGraph();
-      g2.Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x");
-      g2.Plots.Add(new Plot {
-        Title = "Account Value",
-        DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Green,
-        LineThickness = 3
-      });
+      //var g2 = w.Chart.AddGraph();
+      //g2.Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x");
+      //g2.Plots.Add(new Plot {
+      //  Title = "Account Value",
+      //  DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Green,
+      //  LineThickness = 3
+      //});
 
       //var g4 = w.Chart.AddGraph();
       //g4.Plots.Add(new Plot {

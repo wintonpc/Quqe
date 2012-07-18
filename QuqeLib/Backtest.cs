@@ -98,6 +98,14 @@ namespace Quqe
     public double PercentProfit { get { return Profit / (Entry * Size); } }
     public double PercentLoss { get { return -Profit / (Entry * Size); } }
     public bool IsWin { get { return Profit > 0; } }
+    public bool IsStoppedGain
+    {
+      get
+      {
+        return (PositionDirection == PositionDirection.Long && UnstoppedExitPrice > Entry && Exit < UnstoppedExitPrice)
+          || (PositionDirection == PositionDirection.Short && UnstoppedExitPrice < Entry && Exit > UnstoppedExitPrice);
+      }
+    }
 
     public TradeRecord(string symbol, PositionDirection direction, double entry, double stopLimit, double exit, double unstoppedExitPrice, DateTime entryTime, DateTime exitTime, int size, double profit, double accountValueBeforeTrade, double accountValueAfterTrade)
     {
@@ -130,21 +138,13 @@ namespace Quqe
     public int NumLosingTrades { get { return Trades.Where(x => !x.IsWin).Count(); } }
     public double AverageWin { get { return Trades.Where(x => x.IsWin).Average(x => x.Profit); } }
     public double AverageLoss { get { return Trades.Where(x => !x.IsWin).Average(x => x.Loss); } }
-    public int StoppedGains
-    {
-      get
-      {
-        return Trades.Count(t => {
-          return (t.PositionDirection == PositionDirection.Long && t.UnstoppedExitPrice > t.Entry && t.Exit < t.UnstoppedExitPrice)
-            || (t.PositionDirection == PositionDirection.Short && t.UnstoppedExitPrice < t.Entry && t.Exit > t.UnstoppedExitPrice);
-        });
-      }
-    }
+    public int StoppedGains { get { return Trades.Count(t => t.IsStoppedGain); } }
     public int StoppedLosses { get { return Trades.Count(t => !t.IsWin && t.Exit == t.StopLimit); } }
     public int UnstoppedLosses { get { return Trades.Count(t => !t.IsWin && t.Exit != t.StopLimit); } }
     public double StoppedGainsPct { get { return (double)StoppedGains / Trades.Count; } }
     public double StoppedLossesPct { get { return (double)StoppedLosses / Trades.Count; } }
     public double UnstoppedLossesPct { get { return (double)UnstoppedLosses / Trades.Count; } }
+    public double MaxPercentLoss { get { return Trades.Max(t => t.PercentLoss); } }
 
     public double WinningTradeFraction
     {
@@ -176,6 +176,7 @@ namespace Quqe
       sb.AppendLine("StoppedGains: " + StoppedGains + "  ( " + (StoppedGainsPct * 100).ToString("N1") + "% )");
       sb.AppendLine("StoppedLosses: " + StoppedLosses + "  ( " + (StoppedLossesPct * 100).ToString("N1") + "% )");
       sb.AppendLine("UnstoppedLosses: " + UnstoppedLosses + "  ( " + (UnstoppedLossesPct * 100).ToString("N1") + "% )");
+      sb.AppendLine("MaxPercentLoss: " + (MaxPercentLoss * 100).ToString("N1") + "%");
       return sb.ToString();
     }
   }
