@@ -121,6 +121,9 @@ namespace QuqeViz
     {
       var bars = Data.Get(symbol).From(startDate).To(endDate);
 
+      int donchianPeriod = 5;
+      double donchianBloat = 0.5;
+
       BacktestReport backtestReport = null;
       WithStrat1(bars, (cookInputs, makeSignal, getNormal) => {
 
@@ -134,8 +137,12 @@ namespace QuqeViz
         var account = new Account { Equity = initialValue, MarginFactor = marginFactor };
         var helper = BacktestHelper.Start(bars, account);
 
-        DataSeries.Walk(bars, buySignal, /*stopLimitSignal, */pos => {
-          if (pos < 3)
+        var dMin = bars.DonchianMin(donchianPeriod, donchianBloat);
+        var dMax = bars.DonchianMax(donchianPeriod, donchianBloat);
+        var dAvg = bars.DonchianAvg(donchianPeriod);
+
+        DataSeries.Walk(bars, buySignal, dMin, dMax, dAvg, /*stopLimitSignal, */pos => {
+          if (pos < Math.Max(donchianPeriod, 3))
             return;
 
           var shouldBuy = buySignal[0] >= 0;
@@ -150,6 +157,17 @@ namespace QuqeViz
             stopLimit = liberalLongStop;
           else if (!shouldBuy/* && (stopLimit <= bars[0].Open || stopLimit > liberalShortStop)*/)
             stopLimit = liberalShortStop;
+
+          // donchian stops
+          if (shouldBuy && bars[0].Open < dAvg[1])
+            stopLimit = List.Create<double>(dMin[1], dAvg[1] - (dAvg[1] - bars[0].Open) * (1 + donchianBloat)).Min();
+          if (!shouldBuy && bars[0].Open > dAvg[1])
+            stopLimit = List.Create<double>(dMax[1], dAvg[1] + (bars[0].Open - dAvg[1]) * (1 + donchianBloat)).Max();
+
+          if (shouldBuy && bars[0].Open >= dAvg[1])
+            stopLimit = dMax[1] - (dMax[1] - dAvg[1]) * (1 + donchianBloat);
+          if (!shouldBuy && bars[0].Open <= dAvg[1])
+            stopLimit = dMin[1] + (dAvg[1] - dMin[1]) * (1 + donchianBloat);
 
           // special stops for gaps 2
           double minGapPct = 0.015;
@@ -194,10 +212,30 @@ namespace QuqeViz
         Type = PlotType.Candlestick
       });
       g1.Plots.Add(new Plot {
+        DataSeries = bars.DonchianMin(donchianPeriod, donchianBloat),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Orange
+      });
+      g1.Plots.Add(new Plot {
+        DataSeries = bars.DonchianMax(donchianPeriod, donchianBloat),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Orange
+      });
+      g1.Plots.Add(new Plot {
+        DataSeries = bars.DonchianAvg(donchianPeriod),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Gray
+      });
+      g1.Plots.Add(new Plot {
         DataSeries = backtestReport.Trades.ToDataSeries(t => t.StopLimit),
         Type = PlotType.Dash,
         Color = Brushes.Blue
       });
+      //g1.Plots.Add(new Plot {
+      //  DataSeries = bars.ZLEMA(3, bar => bar.Close),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Purple
+      //});
       foreach (var t in backtestReport.Trades)
         g1.Trades.Add(t);
       var g3 = w.Chart.AddGraph();
@@ -209,12 +247,13 @@ namespace QuqeViz
       });
 
       var g2 = w.Chart.AddGraph();
-      g2.Title = "Initial Value: " + initialValue + ", Margin: " + marginFactor + "x";
+      g2.Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x");
       g2.Plots.Add(new Plot {
         Title = "Account Value",
         DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
         Type = PlotType.ValueLine,
-        Color = Brushes.Green
+        Color = Brushes.Green,
+        LineThickness = 3
       });
 
       //var g4 = w.Chart.AddGraph();

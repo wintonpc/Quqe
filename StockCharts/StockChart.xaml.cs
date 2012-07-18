@@ -64,11 +64,16 @@ namespace StockCharts
           GraphsGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
           var splitter = new GridSplitter {
             Height = 5,
-            Background = Brushes.DarkGray,
             HorizontalAlignment = HorizontalAlignment.Stretch
           };
           splitter.SetValue(Grid.RowProperty, rowIndex);
           g.SetValue(Grid.ColumnProperty, 0);
+          //var onMouseOver = new EventTrigger {  Property = GridSplitter.IsMouseOverProperty, Value = true };
+          //onMouseOver.Setters.Add(new Setter { Property = GridSplitter.BackgroundProperty, Value = Brushes.Black });
+          //splitter.Triggers.Add(onMouseOver);
+          //var onMouseOut = new Trigger { Property = GridSplitter.IsMouseOverProperty, Value = false };
+          //onMouseOut.Setters.Add(new Setter { Property = GridSplitter.BackgroundProperty, Value = Brushes.DarkGray });
+          //splitter.Triggers.Add(onMouseOut);
           GraphsGrid.Children.Add(splitter);
           rowIndex++;
         }

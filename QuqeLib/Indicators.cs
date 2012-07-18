@@ -24,6 +24,37 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<Value> DonchianMin(this DataSeries<Bar> bars, int period, double bloatPct = 0)
+    {
+      return bars.MapElements<Value>((s, v) => {
+        var lookBack = Math.Min(s.Pos + 1, period);
+        var m = s.BackBars(lookBack).Min(b => b.Min);
+        var avg = (m + s.BackBars(lookBack).Max(b => b.Max)) / 2;
+        return avg - (avg - m) * (1 + bloatPct);
+      });
+    }
+
+    public static DataSeries<Value> DonchianMax(this DataSeries<Bar> bars, int period, double bloatPct = 0)
+    {
+      return bars.MapElements<Value>((s, v) => {
+        var lookBack = Math.Min(s.Pos + 1, period);
+        var m = s.BackBars(lookBack).Max(b => b.Max);
+        var avg = (m + s.BackBars(lookBack).Min(b => b.Min)) / 2;
+        return avg + (m - avg) * (1 + bloatPct);
+      });
+    }
+
+    public static DataSeries<Value> DonchianAvg(this DataSeries<Bar> bars, int period)
+    {
+      return bars.DonchianMin(period).ZipElements<Value, Value>(bars.DonchianMax(period), (min, max, v) => (min[0] + max[0]) / 2);
+    }
+
+    static IEnumerable<Bar> BackBars(this DataSeries<Bar> bars, int count)
+    {
+      for (int i = 0; i < count; i++)
+        yield return bars[i];
+    }
+
     public static DataSeries<Value> NeuralNet(this DataSeries<Bar> bars, NeuralNet net,
       IEnumerable<DataSeries<Value>> inputs)
     {

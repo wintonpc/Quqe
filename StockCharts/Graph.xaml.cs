@@ -95,7 +95,7 @@ namespace StockCharts
           {
             var path = new Path();
             path.Stroke = p.Color;
-            path.StrokeThickness = 1;
+            path.StrokeThickness = Math.Max(1, p.LineThickness);
             SetLineStyle(path, p.LineStyle);
 
             var geom = new StreamGeometry();
@@ -183,7 +183,7 @@ namespace StockCharts
         AddText(Title, 2, 0, "bold");
         yOffset += 16;
       }
-      foreach (var p in Plots.Where(x => x.Type != PlotType.Candlestick))
+      foreach (var p in Plots.Where(x => x.Type != PlotType.Candlestick && !string.IsNullOrEmpty(x.Title)))
       {
         AddText(p.Title, 16, yOffset, "normal", Brushes.Black, Brushes.GhostWhite);
         double thickness = p.Type == PlotType.ValueLine ? 2 : 6;
@@ -276,7 +276,7 @@ namespace StockCharts
     public void DrawCrosshairs(Point canvasPoint, int slotNumber)
     {
       //var lineColor = new SolidColorBrush(Color.FromRgb(173, 40, 230));
-      var lineColor = Brushes.LightBlue;
+      var lineColor = new SolidColorBrush(Color.FromRgb(80, 175, 185));
 
       var snappedPoint = PointToCanvas(slotNumber, 0, ViewRegion);
       CrosshairLineV = new Line {
@@ -391,7 +391,7 @@ namespace StockCharts
     AxisInfo CalcAxisInfo(double minVal, double maxVal)
     {
       var range = maxVal - minVal;
-      var targetAxisPxSpacing = 50;
+      var targetAxisPxSpacing = (int)(7 * Math.Pow(Math.Log10(GraphCanvas.ActualHeight + 1), 1.8) - 5);
       int numTicks = (int)(AvailableHeight / targetAxisPxSpacing);
       var rawDelta = range / numTicks;
 
@@ -597,6 +597,7 @@ namespace StockCharts
     public PlotType Type { get; set; }
     public Brush Color { get; set; }
     public LineStyle LineStyle { get; set; }
+    public double LineThickness { get; set; }
     public DataSeries DataSeries { get; set; }
   }
 }
