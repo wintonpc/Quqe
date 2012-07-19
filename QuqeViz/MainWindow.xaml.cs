@@ -60,8 +60,8 @@ namespace QuqeViz
         var oParams = new List<OptimizerParameter> {
           //new OptimizerParameter("FastZLEMAPeriod", 3, 3, 1),
           //new OptimizerParameter("SlowZLEMAPeriod", 15, 15, 1),
-          new OptimizerParameter("FastZLEMAPeriod", 2, 8, 1),
-          new OptimizerParameter("SlowZLEMAPeriod", 10, 20, 1)
+          new OptimizerParameter("FastZLEMAPeriod", 3, 3, 1),
+          new OptimizerParameter("SlowZLEMAPeriod", 17, 17, 1)
         };
 
         var eParams = new EvolutionParams {
@@ -196,7 +196,7 @@ namespace QuqeViz
           //  stopLimit = bars[0].Open + (bars[1].WaxBottom - bars[0].Open) * stopGapFraction;
           //}
 
-          var size = (int)((account.BuyingPower - accountPadding) / bars[0].Open);
+          var size = (long)((account.BuyingPower - accountPadding) / bars[0].Open);
 
           if (size > 0)
           {
@@ -241,8 +241,7 @@ namespace QuqeViz
         Type = PlotType.Dash,
         Color = Brushes.Blue
       });
-      foreach (var t in backtestReport.Trades)
-        g1.Trades.Add(t);
+      g1.AddTrades(backtestReport.Trades);
       var g2 = w.Chart.AddGraph();
       g2.Plots.Add(new Plot {
         Title = "Profit % per trade",
@@ -258,15 +257,15 @@ namespace QuqeViz
       //  Color = Brushes.Red
       //});
 
-      //var g2 = w.Chart.AddGraph();
-      //g2.Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x");
-      //g2.Plots.Add(new Plot {
-      //  Title = "Account Value",
-      //  DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Green,
-      //  LineThickness = 3
-      //});
+      var g3 = w.Chart.AddGraph();
+      g3.Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x");
+      g3.Plots.Add(new Plot {
+        Title = "Account Value",
+        DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Green,
+        LineThickness = 3
+      });
 
       //var g4 = w.Chart.AddGraph();
       //g4.Plots.Add(new Plot {

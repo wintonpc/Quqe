@@ -5,7 +5,6 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -16,6 +15,7 @@ using System.ComponentModel;
 using System.Windows.Controls.Primitives;
 using System.Diagnostics;
 using Quqe;
+using PCW;
 
 namespace StockCharts
 {
@@ -81,7 +81,7 @@ namespace StockCharts
 
       GraphsGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(18) });
       if (TimeAxisGraph == null)
-      TimeAxisGraph = new Graph(Presentation) { DrawTimeAxis = true };
+        TimeAxisGraph = new Graph(Presentation) { DrawTimeAxis = true };
       TimeAxisGraph.SetValue(Grid.RowProperty, rowIndex);
       TimeAxisGraph.SetValue(Grid.ColumnProperty, 0);
       GraphsGrid.Children.Add(TimeAxisGraph);
@@ -180,6 +180,23 @@ namespace StockCharts
 
     int CalcTotalSlots(out List<DateTime> timestamps)
     {
+      var plots = Graphs.SelectMany(g => g.Plots).OrderBy(p => p.DataSeries.Elements.ToArray().First().Timestamp).ToArray();
+
+      var z = List.Mesh(plots, p => p.DataSeries.Elements, dse => dse.Timestamp, dt => dt.AddDays(1), (ps, dses) => new { Plots = ps, Elements = dses.ToList() })
+        .Where(x => x.Plots.Any()).Select(x => new { Plots = x.Plots, Elements = x.Elements, Timestamp = x.Elements.First().Timestamp }).ToList();
+
+      timestamps = z.Select(x => x.Timestamp).ToList();
+
+      foreach (var p in plots)
+      {
+        var left = z.FindIndex(x => x.Plots.Contains(p));
+        PlotBoundaries[p] = new PlotInfo { Left = left, Right = left + p.DataSeries.Length - 1 };
+      }
+      return z.Count;
+    }
+
+    int CalcTotalSlots2(out List<DateTime> timestamps)
+    {
       timestamps = new List<DateTime>();
       var plots = Graphs.SelectMany(g => g.Plots).OrderBy(p => p.DataSeries.Elements.ToArray().First().Timestamp).ToArray();
       if (plots.Length == 0)
@@ -191,10 +208,15 @@ namespace StockCharts
         {
           PlotBoundaries[plots[i]] = new PlotInfo { Left = count, Right = count + plots[i].DataSeries.Elements.ToArray().Count() - 1 };
 
-          DateTime nextFirst = plots[i + 1].DataSeries.Elements.ToArray().First().Timestamp;
+          //DateTime nextFirst = plots[i + 1].DataSeries.Elements.ToArray().First().Timestamp;
+          DateTime? nextFirst = null;
+          var nextExtender = plots.Skip(i).FirstOrDefault(p =>
+            p.DataSeries.Elements.Last().Timestamp > plots[i].DataSeries.Elements.Last().Timestamp);
+          if (nextExtender != null)
+            nextFirst = nextExtender.DataSeries.Elements.First().Timestamp;
           foreach (var el in plots[i].DataSeries.Elements.ToArray())
           {
-            if (el.Timestamp == nextFirst)
+            if (nextFirst.HasValue && el.Timestamp == nextFirst.Value)
               break;
             else
             {

@@ -31,7 +31,6 @@ namespace StockCharts
       Loaded += delegate { RedrawNeeded(); };
       SizeChanged += delegate { RedrawNeeded(); };
       Plots.CollectionChanged += delegate { RedrawNeeded(); };
-      Trades.CollectionChanged += delegate { RedrawNeeded(); };
     }
 
     StockChartPresentation ParentChart;
@@ -45,6 +44,13 @@ namespace StockCharts
     void RedrawNeeded()
     {
       ParentChart.RedrawGraphs();
+    }
+
+    public void AddTrades(IEnumerable<TradeRecord> trades)
+    {
+      foreach (var t in trades)
+        Trades.Add(t);
+      RedrawNeeded();
     }
 
     public string Title { get; set; }

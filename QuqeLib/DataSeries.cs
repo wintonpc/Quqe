@@ -312,7 +312,7 @@ namespace Quqe
   {
     public static DataSeries<Bar> Load(string symbol)
     {
-      return new DataSeries<Bar>(symbol, Data.LoadNinjaBars(@"c:\users\wintonpc\git\Backtester\Share\" + symbol + ".txt"));
+      return new DataSeries<Bar>(symbol, Data.LoadNinjaBars(@"c:\users\wintonpc\git\Quqe\Share\" + symbol + ".txt"));
     }
 
     public static List<Bar> LoadNinjaBars(string fn)

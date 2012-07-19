@@ -90,7 +90,7 @@ namespace Quqe
     public readonly double UnstoppedExitPrice;
     public readonly DateTime EntryTime;
     public readonly DateTime ExitTime;
-    public readonly int Size;
+    public readonly long Size;
     public readonly double Profit;
     public readonly double AccountValueBeforeTrade;
     public readonly double AccountValueAfterTrade;
@@ -107,7 +107,7 @@ namespace Quqe
       }
     }
 
-    public TradeRecord(string symbol, PositionDirection direction, double entry, double stopLimit, double exit, double unstoppedExitPrice, DateTime entryTime, DateTime exitTime, int size, double profit, double accountValueBeforeTrade, double accountValueAfterTrade)
+    public TradeRecord(string symbol, PositionDirection direction, double entry, double stopLimit, double exit, double unstoppedExitPrice, DateTime entryTime, DateTime exitTime, long size, double profit, double accountValueBeforeTrade, double accountValueAfterTrade)
     {
       Symbol = symbol;
       PositionDirection = direction;
@@ -145,6 +145,13 @@ namespace Quqe
     public double StoppedLossesPct { get { return (double)StoppedLosses / Trades.Count; } }
     public double UnstoppedLossesPct { get { return (double)UnstoppedLosses / Trades.Count; } }
     public double MaxPercentLoss { get { return Trades.Max(t => t.PercentLoss); } }
+    public int MaxLossesWithin10Days
+    {
+      get
+      {
+        return Trades.ToDataSeries(t => t.IsWin ? 0 : 10).SMA(10).Select(x => (int)x.Val).Max();
+      }
+    }
 
     public double WinningTradeFraction
     {
@@ -177,6 +184,7 @@ namespace Quqe
       sb.AppendLine("StoppedLosses: " + StoppedLosses + "  ( " + (StoppedLossesPct * 100).ToString("N1") + "% )");
       sb.AppendLine("UnstoppedLosses: " + UnstoppedLosses + "  ( " + (UnstoppedLossesPct * 100).ToString("N1") + "% )");
       sb.AppendLine("MaxPercentLoss: " + (MaxPercentLoss * 100).ToString("N1") + "%");
+      sb.AppendLine("MaxLossesWithin10Days: " + MaxLossesWithin10Days);
       return sb.ToString();
     }
   }

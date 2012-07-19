@@ -109,5 +109,33 @@ namespace QuqeTest
 
       Assert.IsTrue(List.Equal(expectedEquity, actualEquity.Select(x => Math.Round(x, 2))));
     }
+
+    [TestMethod]
+    public void Mesh1()
+    {
+      var a = new ListHolder<double> { List = List.Create(1.0, 2, 4, 5, 6, 7, 8, 9) };
+      var b = new ListHolder<double> { List = List.Create(1.1, 2.1, 3.1) };
+      var c = new ListHolder<double> { List = List.Create(3.2, 4.2, 5.2, 6.2) };
+      var d = new ListHolder<double> { List = List.Create(4.3, 5.3) };
+      var e = new ListHolder<double> { List = List.Create(8.4, 9.4) };
+      //var a = List.Create(1.0, 2, 3, 4, 5, 6, 7, 8, 9);
+      //var b = List.Create(1.1, 2.1, 3.1);
+      //var c = List.Create(3.2, 4.2, 5.2, 6.2);
+      //var d = List.Create(4.3, 5.3);
+      //var e = List.Create(8.4, 9.4);
+
+      var m = List.Mesh(List.Create(a, b, c, d, e), x => x.List, n => (int)n, i => i + 1, (dummy, xs) => new List<double>(xs)).ToList();
+      var m2 = List.Mesh(List.Create(b, e), x => x.List, n => (int)n, i => i + 1, (dummy, xs) => new List<double>(xs)).ToList();
+    }
+
+    class ListHolder<T> : IEquatable<ListHolder<T>>
+    {
+      public IEnumerable<T> List;
+
+      public bool Equals(ListHolder<T> other)
+      {
+        return this == other;
+      }
+    }
   }
 }

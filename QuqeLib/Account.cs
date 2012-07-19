@@ -50,7 +50,7 @@ namespace Quqe
   public class Account
   {
     List<Position> Positions = new List<Position>();
-    public Func<int, double> Commission = numShares => 4.95;
+    public Func<long, double> Commission = numShares => 4.95;
 
     double _Equity;
     public double Equity
@@ -73,7 +73,7 @@ namespace Quqe
 
     public event Action<TradeRecord> Traded;
 
-    public void EnterLong(string symbol, int numShares, ExitCriteria exitCriteria, IEnumerable<Bar> barsFromNow)
+    public void EnterLong(string symbol, long numShares, ExitCriteria exitCriteria, IEnumerable<Bar> barsFromNow)
     {
       var p = GetPosition(symbol);
       var todayBar = barsFromNow.First();
@@ -87,7 +87,7 @@ namespace Quqe
         todayBar.Timestamp.AddHours(9.5), exitTime, numShares, AccountValue - valueBefore, valueBefore, AccountValue));
     }
 
-    public void EnterShort(string symbol, int numShares, ExitCriteria exitCriteria, IEnumerable<Bar> barsFromNow)
+    public void EnterShort(string symbol, long numShares, ExitCriteria exitCriteria, IEnumerable<Bar> barsFromNow)
     {
       var p = GetPosition(symbol);
       var todayBar = barsFromNow.First();
@@ -128,7 +128,7 @@ namespace Quqe
     {
       readonly Account Account;
       public readonly string Symbol;
-      public int NumShares { get; private set; }
+      public long NumShares { get; private set; }
       public double AveragePrice { get; private set; }
 
       public Position(Account account, string symbol)
@@ -137,7 +137,7 @@ namespace Quqe
         Symbol = symbol;
       }
 
-      public void Open(int size, double price)
+      public void Open(long size, double price)
       {
         Account.Equity = Account.Equity - Account.Commission(Math.Abs(size));
         double formerValue = NumShares * AveragePrice;
@@ -151,7 +151,7 @@ namespace Quqe
         Account.AmountBorrowed = Account.AmountBorrowed + sizeValue;
       }
 
-      public void Close(int size, double price)
+      public void Close(long size, double price)
       {
         Account.Equity = Account.Equity - Account.Commission(Math.Abs(size));
         NumShares -= size;

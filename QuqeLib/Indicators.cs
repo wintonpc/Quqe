@@ -8,6 +8,23 @@ namespace Quqe
 {
   public static class Indicators
   {
+    public static DataSeries<Value> SMA(this DataSeries<Value> values, int period)
+    {
+      return values.MapElements<Value>((s, v) => {
+        if (s.Pos == 0)
+          return s[0];
+        else
+        {
+          int windowSize = Math.Min(s.Pos, period);
+          var last = v[1] * windowSize;
+          if (s.Pos >= period)
+            return (last + s[0] - s[period]) / windowSize;
+          else
+            return (last + s[0]) / (windowSize + 1);
+        }
+      });
+    }
+
     public static DataSeries<Value> ZLEMA(this DataSeries<Bar> bars, int period, Func<Bar, double> barValue)
     {
       var k = 2.0 / (period + 1);
@@ -49,7 +66,8 @@ namespace Quqe
       return bars.DonchianMin(period).ZipElements<Value, Value>(bars.DonchianMax(period), (min, max, v) => (min[0] + max[0]) / 2);
     }
 
-    static IEnumerable<Bar> BackBars(this DataSeries<Bar> bars, int count)
+    static IEnumerable<T> BackBars<T>(this DataSeries<T> bars, int count)
+      where T : DataSeriesElement
     {
       for (int i = 0; i < count; i++)
         yield return bars[i];
