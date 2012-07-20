@@ -111,6 +111,54 @@ namespace QuqeTest
     }
 
     [TestMethod]
+    public void Accounting2()
+    {
+      var a = new Account { Equity = 10000, MarginFactor = 4 };
+      Assert.IsTrue(a.BuyingPower == 40000);
+      var com = 5;
+      a.Commission = size => com;
+      var bars = new DataSeries<Bar>("ABCD", List.Create(
+        new Bar(DateTime.Parse("12/10/2010"), 21.63, 21.50, 23.01, 22.90, 10000), // long profit
+        new Bar(DateTime.Parse("12/13/2010"), 23.90, 23.10, 23.95, 23.15, 10000))); // short profit
+      var actions = new Queue<Action<DataSeries<Bar>>>(List.Create<Action<DataSeries<Bar>>>(
+        s => a.EnterLong("ABCD", (int)Math.Floor((a.BuyingPower - com * 4) / s[0].Open), new ExitOnSessionClose(21.00), s.FromHere()),  // new Equity: 12336.96
+        s => a.EnterShort("ABCD", (int)Math.Floor((a.BuyingPower - com * 4) / s[0].Open), new ExitOnSessionClose(24.00), s.FromHere())  // new Equity: 13874.21
+        ));
+
+      var expectedEquity = List.Create<double>(12336.96, 13874.21);
+      var actualEquity = new List<double>();
+      DataSeries.Walk(bars, pos => {
+        actions.Dequeue()(bars);
+        actualEquity.Add(a.Equity);
+      });
+
+      Assert.IsTrue(List.Equal(expectedEquity, actualEquity.Select(x => Math.Round(x, 2))));
+    }
+
+    [TestMethod]
+    public void Accounting3()
+    {
+      var a = new Account { Equity = 10000, MarginFactor = 4 };
+      var com = 5;
+      a.Commission = size => com;
+      var bars = new DataSeries<Bar>("ABCD", List.Create(
+        new Bar(DateTime.Parse("12/10/2010"), 21.63, 21.50, 23.01, 22.90, 10000), // long profit
+        new Bar(DateTime.Parse("12/13/2010"), 23.90, 23.10, 23.95, 23.15, 10000))); // short profit
+
+      bool threw = false;
+      try
+      {
+        a.EnterLong("ABCD", 1850, new ExitOnSessionClose(20.00), bars.FromHere());
+      }
+      catch (InvalidOperationException)
+      {
+        threw = true;
+      }
+
+      Assert.IsTrue(threw);
+    }
+
+    [TestMethod]
     public void Mesh1()
     {
       var a = new ListHolder<double> { List = List.Create(1.0, 2, 4, 5, 6, 7, 8, 9) };
