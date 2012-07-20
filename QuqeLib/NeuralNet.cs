@@ -44,9 +44,17 @@ namespace Quqe
           for (int node = 0; node < w.ColCount(); node++)
             w[input, node] = genes.Dequeue();
       }
-      for (int layer = 0; layer < Weights.Count - 1 /* -1 to leave output layer alone */; layer++)
-        for (int node = 0; node < Weights[layer].ColCount(); node++)
-          ActivationFunctions[layer, node] = ActivationFunctionFromGene(genes.Dequeue());
+      if (genes.Any()) // it's an older genome with activation function genes
+      {
+        for (int layer = 0; layer < Weights.Count - 1 /* -1 to leave output layer alone */; layer++)
+          for (int node = 0; node < Weights[layer].ColCount(); node++)
+            ActivationFunctions[layer, node] = ActivationFunctionFromGene(genes.Dequeue());
+      }
+      else
+      {
+        ActivationFunctions[0, 0] = Math.Tanh;
+        ActivationFunctions[0, 1] = Gaussian;
+      }
     }
 
     public Genome ToGenome()
@@ -59,16 +67,16 @@ namespace Quqe
           for (int node = 0; node < w.ColCount(); node++)
             g.Add(w[input, node]);
       }
-      for (int layer = 0; layer < Weights.Count - 1 /* -1 to leave output layer alone */; layer++)
-        for (int node = 0; node < Weights[layer].ColCount(); node++)
-          g.Add(ActivationFunctionToGene(ActivationFunctions[layer, node]));
+      //for (int layer = 0; layer < Weights.Count - 1 /* -1 to leave output layer alone */; layer++)
+      //  for (int node = 0; node < Weights[layer].ColCount(); node++)
+      //    g.Add(ActivationFunctionToGene(ActivationFunctions[layer, node]));
       return new Genome { Genes = g };
     }
 
-    static double ActivationFunctionToGene(Func<double, double> f)
-    {
-      return f == Math.Tanh ? 0.5 : -0.5;
-    }
+    //static double ActivationFunctionToGene(Func<double, double> f)
+    //{
+    //  return f == Math.Tanh ? 0.5 : -0.5;
+    //}
 
     static Func<double, double> ActivationFunctionFromGene(double gene)
     {
@@ -131,50 +139,6 @@ namespace Quqe
           outValues[layerNum, nodeNum] = outValue;
         return outValue;
       }), layerNum + 1, inValues, outValues);
-    }
-
-    public void Anneal(int iterations, Func<int, double> schedule, Func<NeuralNet, double> computeCost)
-    {
-      //var acceptCount = 0;
-      //var rejectCount = 0;
-      for (int i = 0; i < iterations; i++)
-      {
-        //var temperature = schedule(i);
-        var currentCost = computeCost(this);
-        var current = Weights.ToList();
-        RandomizeWeights();
-        var nextCost = computeCost(this);
-
-        if (i % 100 == 0)
-        {
-          //Console.WriteLine(string.Format("{0} / {1}  Temp = {2:N2}  Accept rate = {3}  ( {4} / {5} )  Cost = {6:N4}",
-          //  i, iterations, temperature, rejectCount == 0 ? "always" : ((double)acceptCount / (double)rejectCount).ToString("N3"),
-          //  acceptCount, rejectCount, currentCost));
-          Console.WriteLine(string.Format("{0} / {1}  Cost = {2:N4}",
-            i, iterations, currentCost));
-          //acceptCount = 0;
-          //rejectCount = 0;
-        }
-
-        if (nextCost < currentCost)
-          continue;
-        else
-          Weights = current;
-        //else
-        //{
-        //  bool takeItAnyway = Random.NextDouble() < Math.Exp((currentCost - nextCost) / temperature);
-        //  if (takeItAnyway)
-        //  {
-        //    acceptCount++;
-        //    continue;
-        //  }
-        //  else
-        //  {
-        //    rejectCount++;
-        //    Weights = current;
-        //  }
-        //}
-      }
     }
 
     //public void GradientlyDescend(double learningRate, double threshold, List<Example> examples, Action afterEpoch)

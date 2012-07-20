@@ -1,0 +1,245 @@
+8% stops backtest:
+
+CPC: 47.5045351670759
+Profit Factor: 16.4074834434719
+Max Drawdown %: 5.92541322928549
+Total Return: 12293.95613
+
+NumWinningTrades: 411
+NumLosingTrades: 88
+WinningTradeFraction: 0.823647294589178
+
+AverageWin: 318498.448978101
+AverageLoss: 90605.6957954556
+AverageWinLossRatio: 3.51521442644311
+
+StoppedGains: 0  ( 0.0% )
+StoppedLosses: 0  ( 0.0% )
+UnstoppedLosses: 88  ( 17.6% )
+
+
+====================================
+
+8% stops + gap stops (0.015/0.5) backtest:
+
+CPC: 19.8065043846592
+Profit Factor: 9.3072059396223
+Max Drawdown %: 5.16481946990038
+Total Return: 4888.08082449999
+
+NumWinningTrades: 385
+NumLosingTrades: 114
+WinningTradeFraction: 0.771543086172345
+
+AverageWin: 142203.156285714
+AverageLoss: 51556.2010964916
+AverageWinLossRatio: 2.7582163398651
+
+StoppedGains: 26  ( 5.2% )
+StoppedLosses: 54  ( 10.8% )
+UnstoppedLosses: 60  ( 12.0% )
+
+
+=====================================
+
+donchian 5/0.5 stops backtest:
+
+CPC: 45.7343887262089
+Profit Factor: 15.9186231282872
+Max Drawdown %: 5.92549934629443
+Total Return: 11045.485046625
+
+NumWinningTrades: 409
+NumLosingTrades: 90
+WinningTradeFraction: 0.819639278557114
+
+AverageWin: 288124.03982885
+AverageLoss: 82198.6869305567
+AverageWinLossRatio: 3.50521462796923
+
+StoppedGains: 2  ( 0.4% )
+StoppedLosses: 3  ( 0.6% )
+UnstoppedLosses: 87  ( 17.4% )
+
+
+==========================================
+
+donchian 5, bloat = -Math.Log10(rangePct * 5) / 4 + .4
+
+CPC: 45.7237664815594
+Profit Factor: 15.9167684806033
+Max Drawdown %: 5.92549100584867
+Total Return: 11031.8353765026
+
+NumWinningTrades: 409
+NumLosingTrades: 90
+WinningTradeFraction: 0.819639278557114
+
+AverageWin: 287770.184474327
+AverageLoss: 82107.2409441537
+AverageWinLossRatio: 3.50480884712784
+
+StoppedGains: 2  ( 0.4% )
+StoppedLosses: 3  ( 0.6% )
+UnstoppedLosses: 87  ( 17.4% )
+MaxPercentLoss: 5.7%
+
+=======================================
+
+
+donchian 5, bloat = -Math.Log10(rangePct * 5) / 3 + .4
+
+CPC: 45.6983599544144
+Profit Factor: 15.9123329151414
+Max Drawdown %: 5.92561336729947
+Total Return: 11001.9694899285
+
+NumWinningTrades: 409
+NumLosingTrades: 90
+WinningTradeFraction: 0.819639278557114
+
+AverageWin: 286996.377530562
+AverageLoss: 81909.150119057
+AverageWinLossRatio: 3.50383781437611
+
+StoppedGains: 2  ( 0.4% )
+StoppedLosses: 3  ( 0.6% )
+UnstoppedLosses: 87  ( 17.4% )
+MaxPercentLoss: 5.7%
+
+
+
+=======================================
+
+donchian 5, bloat = -Math.Log10(rangePct * 5) / 2 + .4;
+
+CPC: 45.7527228323777
+Profit Factor: 15.9214714107929
+Max Drawdown %: 5.92564781612892
+Total Return: 10379.6575616655
+
+NumWinningTrades: 409
+NumLosingTrades: 90
+WinningTradeFraction: 0.819639278557114
+
+AverageWin: 270750.179193153
+AverageLoss: 77224.9741482714
+AverageWinLossRatio: 3.50599248726603
+
+StoppedGains: 2  ( 0.4% )
+StoppedLosses: 3  ( 0.6% )
+UnstoppedLosses: 87  ( 17.4% )
+MaxPercentLoss: 5.7%
+
+
+========================================
+
+donchian 5, bloat = Math.Max(0, -Math.Log10(rangePct * 8) / 2 + .4);
+
+CPC: 46.5604609500986
+Profit Factor: 15.8850851320229
+Max Drawdown %: 5.92601485648784
+Total Return: 9106.24775007543
+
+NumWinningTrades: 407
+NumLosingTrades: 92
+WinningTradeFraction: 0.81563126252505
+
+AverageWin: 238732.759656019
+AverageLoss: 66432.1269483204
+AverageWinLossRatio: 3.59363414393967
+
+StoppedGains: 4  ( 0.8% )
+StoppedLosses: 6  ( 1.2% )
+UnstoppedLosses: 86  ( 17.2% )
+MaxPercentLoss: 5.7%
+
+=======================================
+
+donchian 5, bloat = Math.Max(0.02, -Math.Log10(rangePct * 8) / 2 + .35);
+
+CPC: 46.4951263982509
+Profit Factor: 15.8739972982235
+Max Drawdown %: 5.92589973483967
+Total Return: 9187.10686419148
+
+NumWinningTrades: 407
+NumLosingTrades: 92
+WinningTradeFraction: 0.81563126252505
+
+AverageWin: 240864.242628992
+AverageLoss: 67072.5881313578
+AverageWinLossRatio: 3.59109808253222
+
+StoppedGains: 4  ( 0.8% )
+StoppedLosses: 7  ( 1.4% )
+UnstoppedLosses: 85  ( 17.0% )
+MaxPercentLoss: 5.7%
+
+
+==========================================
+
+donchian 5, bloat = Math.Max(0.02, -Math.Log10(rangePct * 8) / 2 + .3);
+
+CPC: 38.0044078472582
+Profit Factor: 14.0487030855969
+Max Drawdown %: 5.92601218395988
+Total Return: 7168.07100352125
+
+NumWinningTrades: 403
+NumLosingTrades: 96
+WinningTradeFraction: 0.807615230460922
+
+AverageWin: 191458.922158809
+AverageLoss: 57158.7041123686
+AverageWinLossRatio: 3.34960221950481
+
+StoppedGains: 8  ( 1.6% )
+StoppedLosses: 12  ( 2.4% )
+UnstoppedLosses: 84  ( 16.8% )
+MaxPercentLoss: 5.7%
+
+
+======================================
+
+donchian 5, bloat = Math.Max(0.02, -Math.Log10(rangePct * 8) / 2 + .4), capped at 8% loss
+
+CPC: 46.5604609500986
+Profit Factor: 15.8850851320229
+Max Drawdown %: 5.92601485648784
+Total Return: 9106.24775007543
+
+NumWinningTrades: 407
+NumLosingTrades: 92
+WinningTradeFraction: 0.81563126252505
+
+AverageWin: 238732.759656019
+AverageLoss: 66432.1269483204
+AverageWinLossRatio: 3.59363414393967
+
+StoppedGains: 4  ( 0.8% )
+StoppedLosses: 6  ( 1.2% )
+UnstoppedLosses: 86  ( 17.2% )
+MaxPercentLoss: 5.7%
+
+========================================
+
+donchian 3, bloat = Math.Max(0.02, -Math.Log10(rangePct * 8) / 2 + .4), capped at 8% loss
+
+CPC: 43.5291330246197
+Profit Factor: 15.3074015329069
+Max Drawdown %: 6.49849949969428
+Total Return: 9292.17917993297
+
+NumWinningTrades: 408
+NumLosingTrades: 93
+WinningTradeFraction: 0.81437125748503
+
+AverageWin: 243628.559117646
+AverageLoss: 69770.5410824736
+AverageWinLossRatio: 3.49185423156832
+
+StoppedGains: 5  ( 1.0% )
+StoppedLosses: 9  ( 1.8% )
+UnstoppedLosses: 84  ( 16.8% )
+MaxPercentLoss: 5.7%

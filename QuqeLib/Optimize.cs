@@ -138,24 +138,37 @@ namespace Quqe
     }
   }
 
+  public enum OptimizationType { Genetic, Anneal }
+
   public static class Optimizer
   {
     public static IEnumerable<StrategyOptimizerReport> OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
       Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs,
       Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal,
-      DataSeries<Bar> bars, DataSeries<Value> idealSignal)
+      OptimizationType oType, DataSeries<Bar> bars, DataSeries<Value> idealSignal)
     {
       return Optimizer.OptimizeStrategyParameters(oParams, sParams => {
         var inputs = cookInputs(sParams);
 
-        var bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)),
-          g => -1 * makeSignal(g, inputs).Variance(idealSignal));
+        Genome bestGenome;
+        if (oType == OptimizationType.Genetic)
+        {
+          bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)),
+            g => -1 * makeSignal(g, inputs).Variance(idealSignal));
+        }
+        else
+        {
+          bestGenome = Optimizer.Anneal(Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)), g => {
+            var signal = makeSignal(g, inputs);
+            return signal.Variance(idealSignal)/* * Math.Pow(signal.Sign().Variance(idealSignal), 1)*/;
+          });
+        }
 
         var genomeName = bestGenome.Save();
         return new StrategyOptimizerReport {
           StrategyParams = sParams,
           GenomeName = genomeName,
-          GenomeFitness = bestGenome.Fitness.Value
+          GenomeFitness = bestGenome.Fitness ?? 0
         };
       }).OrderByDescending(x => x.GenomeFitness);
     }
@@ -249,6 +262,96 @@ namespace Quqe
       return c;
     }
 
+    static Genome MutateGenome(Genome genome, double temperature)
+    {
+      return new Genome {
+        Genes = genome.Genes.Select(g => Clip(GeneMin, GeneMax, g + RandomDouble(-temperature, temperature))).ToList()
+      };
+    }
+
+    public static Func<double, double> MakeSMA(int period)
+    {
+      Queue<double> q = new Queue<double>();
+      double avg = 0;
+      return n => {
+        if (q.Count < period)
+        {
+          avg = (avg * q.Count + n) / (q.Count + 1);
+          q.Enqueue(n);
+        }
+        else
+        {
+          avg = (avg * q.Count - q.Peek() + n) / q.Count;
+          q.Dequeue();
+          q.Enqueue(n);
+        }
+        return avg;
+      };
+    }
+
+    public static Genome Anneal(Genome seed, Func<Genome, double> costFunc)
+    {
+      int iterations = 25000;
+      Func<double, double> schedule = t => Math.Sqrt(Math.Exp(-11 * t));
+      var sma = MakeSMA(25);
+
+      var acceptCount = 0;
+      var rejectCount = 0;
+      double takeAnywayProbability = 0;
+      var currentGenome = seed;
+      var currentCost = costFunc(currentGenome);
+      var bestGenome = currentGenome;
+      var bestCost = currentCost;
+      double averageEscapeCostPremium = 0;
+      for (int i = 0; i < iterations /*|| averageEscapeCostPremium / bestCost > 0.0000005*/; i++)
+      {
+        var temperature = schedule((double)i / iterations);
+        var nextGenome = MutateGenome(currentGenome, temperature * GeneMagnitude);
+        var nextCost = costFunc(nextGenome);
+
+        if (i % 50 == 0)
+        {
+          //Console.WriteLine(string.Format("{0} / {1}  Temp = {2:N2}  Accept rate = {3}  ( {4} / {5} )  Cost = {6:N4}",
+          //  i, iterations, temperature, rejectCount == 0 ? "always" : ((double)acceptCount / (double)rejectCount).ToString("N3"),
+          //  acceptCount, rejectCount, currentCost));
+          Console.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
+            i, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
+          //acceptCount = 0;
+          //rejectCount = 0;
+        }
+
+        Action takeNext = () => {
+          currentGenome = nextGenome;
+          currentCost = nextCost;
+          if (currentCost < bestCost)
+          {
+            bestGenome = currentGenome;
+            bestCost = currentCost;
+          }
+          acceptCount++;
+        };
+
+        if (nextCost < currentCost)
+          takeNext();
+        else
+        {
+          var escapeCostPremium = (nextCost - currentCost);
+          averageEscapeCostPremium = sma(escapeCostPremium);
+          takeAnywayProbability = temperature * Math.Exp(-(escapeCostPremium / averageEscapeCostPremium) + 1);
+          bool takeItAnyway = WithProb(takeAnywayProbability);
+          if (takeItAnyway)
+            takeNext();
+          else
+            rejectCount++;
+        }
+      }
+
+      if (currentGenome != bestGenome)
+        Trace.WriteLine("Last genome was not best!!");
+
+      return bestGenome;
+    }
+
     static double Clip(double min, double max, double x)
     {
       return Math.Max(min, Math.Min(max, x));
@@ -256,8 +359,9 @@ namespace Quqe
 
     static Random Random = new Random();
 
-    const double GeneMin = -1;
-    const double GeneMax = 1;
+    static double GeneMin { get { return -GeneMagnitude; } }
+    static double GeneMax { get { return GeneMagnitude; } }
+    const double GeneMagnitude = 1;
 
     static double RandomDouble(double min, double max)
     {

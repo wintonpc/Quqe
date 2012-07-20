@@ -137,5 +137,19 @@ namespace QuqeTest
         return this == other;
       }
     }
+
+    [TestMethod]
+    public void MakeSMATest1()
+    {
+      var sma = Optimizer.MakeSMA(3);
+      var n = sma(1);
+      Assert.AreEqual(n, 1);
+      n = sma(3);
+      Assert.AreEqual(n, 2);
+      n = sma(8);
+      Assert.AreEqual(n, 4);
+      n = sma(4);
+      Assert.AreEqual(n, 5);
+    }
   }
 }

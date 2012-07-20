@@ -121,6 +121,11 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<Value> Sign(this DataSeries<Value> values)
+    {
+      return values.MapElements<Value>((s, v) => Math.Sign(s[0]));
+    }
+
     public static double Variance(this DataSeries<Value> x, DataSeries<Value> y)
     {
       return x.ZipElements<Value, Value>(y, (xs, ys, vs) => Math.Pow(xs[0] - ys[0], 2)).Sum(a => a.Val);

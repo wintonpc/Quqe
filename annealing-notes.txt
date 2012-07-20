@@ -1,0 +1,14 @@
+simulated annealing
+- consider tracking multiple basins (didn't bother)
+- try increasing gene range. some seem to be butting up against 1/-1 (no effect, always hits max of what you allow)
+
+look at activation functions for good genomes. are they the same? if so, hardcode and remove from genome.
+(yes, tanh/gaussian split)
+
+experiment with fitness function. try variance(doubles) * variance(sign)
+(no improvement)
+
+more Account tests
+- exceeding buying power
+- does buying power act appropriately when using margin?
+- does equity change appropriately after closing a leveraged position?

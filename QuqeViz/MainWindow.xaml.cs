@@ -73,8 +73,8 @@ namespace QuqeViz
           MaxMutationTimesVariance = 0.002,
         };
 
-        var buyReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
-          bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1));
+        var buyReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal,
+          OptimizationType.Anneal, bars, bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1));
 
         //var stopLimitReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
         //  bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Low / getNormal(s) - 1) - 0.03 : (s[0].High / getNormal(s) - 1) + 0.03));
