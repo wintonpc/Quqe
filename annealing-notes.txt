@@ -12,3 +12,183 @@ more Account tests
 - exceeding buying power
 - does buying power act appropriately when using margin?
 - does equity change appropriately after closing a leveraged position?
+everything looks fine
+
+can we do better than 80% accurate guessing if trained on a more recent dataseries...
+(unclear, seems to have little effect)
+
+teach jan-mar
+validate apr-june
+
+CPC: 70.5014650674537
+Profit Factor: 17.224212434654
+Max Drawdown %: 1.65373045024683
+Total Return: 3.67256899999999
+
+NumWinningTrades: 51
+NumLosingTrades: 9
+WinningTradeFraction: 0.85
+
+AverageWin: 543.967647058822
+AverageLoss: 112.962222222223
+AverageWinLossRatio: 4.81548287876906
+
+StoppedGains: 0  ( 0.0% )
+StoppedLosses: 0  ( 0.0% )
+UnstoppedLosses: 9  ( 15.0% )
+MaxPercentLoss: 1.7%
+MaxLossesWithin10Days: 5
+
+
+=====================================
+
+
+teach june11-mar
+validate apr-june
+
+CPC: 23.9950672907916
+Profit Factor: 10.3975696207327
+Max Drawdown %: 7.04747300794508
+Total Return: 3.30045973287943
+
+NumWinningTrades: 50
+NumLosingTrades: 10
+WinningTradeFraction: 0.833333333333333
+
+AverageWin: 495.906399999998
+AverageLoss: 179.07226712056
+AverageWinLossRatio: 2.76930877111268
+
+StoppedGains: 0  ( 0.0% )
+StoppedLosses: 1  ( 1.7% )
+UnstoppedLosses: 9  ( 15.0% )
+MaxPercentLoss: 3.1%
+MaxLossesWithin10Days: 5
+
+
+=======================================
+
+teach apr-may
+validate june
+
+CPC: 276.973347518401
+Profit Factor: 29.0465734265731
+Max Drawdown %: 0.268561244171009
+Total Return: 1.619419
+
+NumWinningTrades: 17
+NumLosingTrades: 1
+WinningTradeFraction: 0.944444444444444
+
+AverageWin: 366.499411764704
+AverageLoss: 36.3000000000011
+AverageWinLossRatio: 10.096402527953
+
+StoppedGains: 0  ( 0.0% )
+StoppedLosses: 0  ( 0.0% )
+UnstoppedLosses: 1  ( 5.6% )
+MaxPercentLoss: 0.3%
+MaxLossesWithin10Days: 1
+
+==================================
+
+
+teach mar-apr
+validate may
+
+
+
+====
+
+cheating ZLEMA close
+
+backtest:
+
+CPC: 44.5805201658098
+Profit Factor: 15.3268125576437
+Max Drawdown %: 7.59287122350469
+Total Return: 8684.53799954565
+
+NumWinningTrades: 406
+NumLosingTrades: 95
+WinningTradeFraction: 0.810379241516966
+
+AverageWin: 228795.846354679
+AverageLoss: 63744.5644688765
+AverageWinLossRatio: 3.58926048457652
+
+StoppedGains: 5  ( 1.0% )
+StoppedLosses: 8  ( 1.6% )
+UnstoppedLosses: 87  ( 17.4% )
+MaxPercentLoss: 7.3%
+MaxLossesWithin10Days: 5
+
+validation:
+
+CPC: 35.8191928173737
+Profit Factor: 12.256570163466
+Max Drawdown %: 6.95861186507462
+Total Return: 5.86318753173347
+
+NumWinningTrades: 87
+NumLosingTrades: 19
+WinningTradeFraction: 0.820754716981132
+
+AverageWin: 595.512183908047
+AverageLoss: 167.246562245544
+AverageWinLossRatio: 3.56068415345806
+
+StoppedGains: 0  ( 0.0% )
+StoppedLosses: 1  ( 0.9% )
+UnstoppedLosses: 18  ( 17.0% )
+MaxPercentLoss: 3.0%
+MaxLossesWithin10Days: 4
+
+
+========
+
+ZLEMA open
+
+backtest:
+
+CPC: 0.590049191063638
+Profit Factor: 1.11617969544894
+Max Drawdown %: 31.9649956477915
+Total Return: 2.45360195788826
+
+NumWinningTrades: 278
+NumLosingTrades: 223
+WinningTradeFraction: 0.554890219560878
+
+AverageWin: 330.939532374099
+AverageLoss: 347.377445834605
+AverageWinLossRatio: 0.95267996337237
+
+StoppedGains: 6  ( 1.2% )
+StoppedLosses: 65  ( 13.0% )
+UnstoppedLosses: 158  ( 31.5% )
+MaxPercentLoss: 8.1%
+MaxLossesWithin10Days: 9
+
+validate:
+
+CPC: 0.261838806785961
+Profit Factor: 0.692270563730617
+Max Drawdown %: 4.48959715115662
+Total Return: 0.724392345958315
+
+NumWinningTrades: 53
+NumLosingTrades: 53
+WinningTradeFraction: 0.5
+
+AverageWin: 161.525094339622
+AverageLoss: 213.52653849843
+AverageWinLossRatio: 0.756463788883128
+
+StoppedGains: 0  ( 0.0% )
+StoppedLosses: 19  ( 17.9% )
+UnstoppedLosses: 34  ( 32.1% )
+MaxPercentLoss: 8.1%
+MaxLossesWithin10Days: 10
+
+

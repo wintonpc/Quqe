@@ -57,7 +57,7 @@ namespace Quqe
       }
     }
 
-    public Genome ToGenome()
+    public new Genome ToGenome()
     {
       var g = new List<double>();
       for (int layer = 0; layer < Weights.Count; layer++)
@@ -95,6 +95,42 @@ namespace Quqe
     List<string> OutputNames;
     protected List<double[,]> Weights; // Weights[layer][input, node]
     protected Func<double, double>[,] ActivationFunctions; // ActivationFunctions[layer, node]
+
+    public NeuralNet(int numInputs, int numHidden)
+      : this(List.Repeat(numInputs, () => ""), List.Create(numHidden), List.Create(""))
+    {
+    }
+
+    public NeuralNet(int numInputs, int numHidden, Genome g)
+      : this(List.Repeat(numInputs, () => ""), List.Create(numHidden), List.Create(""))
+    {
+      FromGenome(g);
+    }
+
+    void FromGenome(Genome g)
+    {
+      var genes = new Queue<double>(g.Genes);
+      for (int layer = 0; layer < Weights.Count; layer++)
+      {
+        var w = Weights[layer];
+        for (int input = 0; input < w.RowCount(); input++)
+          for (int node = 0; node < w.ColCount(); node++)
+            w[input, node] = genes.Dequeue();
+      }
+    }
+
+    public Genome ToGenome()
+    {
+      var g = new List<double>();
+      for (int layer = 0; layer < Weights.Count; layer++)
+      {
+        var w = Weights[layer];
+        for (int input = 0; input < w.RowCount(); input++)
+          for (int node = 0; node < w.ColCount(); node++)
+            g.Add(w[input, node]);
+      }
+      return new Genome { Genes = g };
+    }
 
     public NeuralNet(IEnumerable<string> inputs, IEnumerable<int> hiddenLayers, IEnumerable<string> outputs)
     {

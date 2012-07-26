@@ -131,7 +131,9 @@ namespace Quqe
     //public DataSeries<Value> AccountValue;
     public List<TradeRecord> Trades;
     public double TotalReturn { get { return 1 + (Trades.Last().AccountValueAfterTrade - Trades.First().AccountValueBeforeTrade) / Trades.First().AccountValueBeforeTrade; } }
-    public double ProfitFactor { get { return Trades.Where(t => t.IsWin).Sum(t => t.Profit) / (Trades.Where(t => !t.IsWin).Sum(t => t.Loss) + Trades.Count * 9.90) /* 9.90 = hack! */; } }
+    public double ProfitFactor { get { return TotalProfit / TotalLoss; } }
+    public double TotalProfit { get { return Trades.Where(t => t.IsWin).Sum(t => t.Profit); } }
+    public double TotalLoss { get { return Trades.Where(t => !t.IsWin).Sum(t => t.Loss) + Trades.Count * 9.90; /* 9.90 = hack! */ } }
     public double MaxDrawdownPercent;
     //public List<double> ProfitFactorHistory;
     public int NumWinningTrades { get { return Trades.Where(x => x.IsWin).Count(); } }
@@ -168,7 +170,6 @@ namespace Quqe
       var sb = new StringBuilder();
       sb.AppendLine("---------------");
       sb.AppendLine("CPC: " + CPC);
-      sb.AppendLine("Profit Factor: " + ProfitFactor);
       sb.AppendLine("Max Drawdown %: " + MaxDrawdownPercent * 100);
       sb.AppendLine("Total Return: " + TotalReturn);
       sb.AppendLine("");
@@ -179,6 +180,10 @@ namespace Quqe
       sb.AppendLine("AverageWin: " + AverageWin);
       sb.AppendLine("AverageLoss: " + AverageLoss);
       sb.AppendLine("AverageWinLossRatio: " + AverageWinLossRatio);
+      sb.AppendLine("");
+      sb.AppendLine("Total Profit: " + TotalProfit);
+      sb.AppendLine("Total Loss: " + TotalLoss);
+      sb.AppendLine("Profit Factor: " + ProfitFactor);
       sb.AppendLine("");
       sb.AppendLine("StoppedGains: " + StoppedGains + "  ( " + (StoppedGainsPct * 100).ToString("N1") + "% )");
       sb.AppendLine("StoppedLosses: " + StoppedLosses + "  ( " + (StoppedLossesPct * 100).ToString("N1") + "% )");

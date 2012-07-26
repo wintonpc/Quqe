@@ -5,6 +5,7 @@ using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Quqe;
 using PCW;
+using System.Diagnostics;
 
 namespace QuqeTest
 {
@@ -64,12 +65,28 @@ namespace QuqeTest
       Assert.IsTrue(threw);
     }
 
-    //[TestMethod]
-    //public void SMA1()
-    //{
-    //  var sma = Indicators.SMA(3, new double[] { 1, 4, 6, 2, 4, 7, 2, 4 });
-    //  Assert.IsTrue(List.Equal(sma, new double[] { 1, 5.0 / 2.0, 11.0 / 3.0, 4, 4, 13.0 / 3.0, 13.0 / 3.0, 13.0 / 3.0 }));
-    //}
+    [TestMethod]
+    public void SMA1()
+    {
+      var ls = List.Create(1, 4, 6, 2, 4, 7, 2, 4);
+      //var sma = new DataSeries<Value>("", ls.Select(x => new Value(DateTime.MinValue, x))).SMA(3);
+      //Assert.IsTrue(List.Equal(sma.Select(x => x.Val), new double[] { 1, 5.0 / 2.0, 11.0 / 3.0, 4, 4, 13.0 / 3.0, 13.0 / 3.0, 13.0 / 3.0 }));
+      //Trace.WriteLine("in: " + ls.ToLisp());
+      //Trace.WriteLine("out: " + sma.Select(x => x.Val).ToLisp());
+
+
+      var zlema = new DataSeries<Value>("", ls.Select(x => new Value(DateTime.MinValue, x))).ZLEMA(3);
+      Trace.WriteLine("in: " + ls.ToLisp());
+      Trace.WriteLine("out: " + zlema.Select(x => x.Val).ToLisp());
+    }
+
+    [TestMethod]
+    public void Extrapolate1()
+    {
+      var ls = List.Create<double>(1, 2, 4, 9, 16);
+      var ds = new DataSeries<Value>("", ls.Select(x => new Value(DateTime.MinValue, x)));
+      var ex = ds.Extrapolate().Select(x => x.Val).ToLisp();
+    }
 
     [TestMethod]
     public void Drawdown()

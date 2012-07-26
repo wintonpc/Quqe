@@ -3,13 +3,18 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MainWindow" Height="350" Width="737">
   <StackPanel>
+    <Button x:Name="TQQQButton" Click="TQQQButton_Click">TQQQ</Button>
     <Button x:Name="DemoButton" Click="DemoButton_Click">Demo</Button>
-    <Button x:Name="OptimizeButton" Click="OptimizeButton_Click">Optimize</Button>
+    <Button x:Name="OptimizeButton" Click="OptimizeButton_Click">Optimize BuySell</Button>
+    <Button x:Name="OptimizeMidpointButton" Click="OptimizeMidpointButton_Click">Optimize Midpoint</Button>
+    <Button x:Name="ShowMidpoint" Click="ShowMidpoint_Click">Show Midpoint</Button>
+    <Button x:Name="ShowMidFit" Click="ShowMidFit_Click">Show MidFit</Button>
+    <Button x:Name="ContributionsButton" Click="ContributionsButton_Click">Contributions</Button>
     <StackPanel Orientation="Horizontal">
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
       <TextBox x:Name="SymbolBox">TQQQ</TextBox>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Buy/Sell:</TextBlock>
-      <TextBox x:Name="BuySellBox" Width="121">BuySell-001035</TextBox>
+      <TextBox x:Name="BuySellBox" Width="121">Midpoint-001055</TextBox>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">StopLimit:</TextBlock>
       <TextBox x:Name="StopLimitBox" Width="131">StopLimit-000030</TextBox>
     </StackPanel>

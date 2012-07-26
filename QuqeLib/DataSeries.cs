@@ -38,6 +38,18 @@ namespace Quqe
     public readonly double Close;
     public readonly long Volume;
 
+    public Bar() : base() { throw new NotImplementedException("Don't call this"); }
+
+    public Bar(double open, double low, double high, double close, long volume)
+      : base()
+    {
+      Open = open;
+      Low = low;
+      High = high;
+      Close = close;
+      Volume = volume;
+    }
+
     public Bar(DateTime timestamp, double open, double low, double high, double close, long volume)
       : base(timestamp)
     {
@@ -50,6 +62,7 @@ namespace Quqe
 
     public override double Min { get { return Low; } }
     public override double Max { get { return High; } }
+    public double Midpoint { get { return (Open + Close) / 2.0; } }
     public bool IsGreen { get { return Close >= Open; } }
     public bool IsRed { get { return !IsGreen; } }
     public double WaxTop { get { return Math.Max(Open, Close); } }
@@ -82,6 +95,7 @@ namespace Quqe
   public abstract class DataSeries
   {
     public readonly string Symbol;
+    public string Tag { get; protected set; }
     public abstract int Length { get; }
 
     [ThreadStatic]
@@ -290,6 +304,12 @@ namespace Quqe
     public IEnumerable<T> FromHere()
     {
       return _Elements.Skip(Pos);
+    }
+
+    public DataSeries<T> SetTag(string tag)
+    {
+      Tag = tag;
+      return this;
     }
 
     public IEnumerator<T> GetEnumerator()

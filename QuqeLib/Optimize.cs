@@ -46,6 +46,7 @@ namespace Quqe
 
   public class StrategyOptimizerReport
   {
+    public string StrategyName;
     public List<StrategyParameter> StrategyParams;
     public string GenomeName;
     public double GenomeFitness;
@@ -54,8 +55,9 @@ namespace Quqe
     public override string ToString()
     {
       var sb = new StringBuilder();
-      sb.AppendLine("Genome : " + GenomeName);
-      sb.AppendLine("Fitness: " + GenomeFitness);
+      sb.AppendLine("Strategy : " + StrategyName);
+      sb.AppendLine("Genome   : " + GenomeName);
+      sb.AppendLine("Fitness  : " + GenomeFitness);
       foreach (var sp in StrategyParams)
         sb.AppendLine(sp.Name + ": " + sp.Value);
       return sb.ToString();
@@ -78,13 +80,15 @@ namespace Quqe
           return line.Split(new[] { ':', ' ' }, StringSplitOptions.RemoveEmptyEntries);
         };
         var r = new StrategyOptimizerReport();
+        r.StrategyName = nextLine()[1];
         r.GenomeName = nextLine()[1];
         r.GenomeFitness = double.Parse(nextLine()[1]);
 
-        r.StrategyParams = new List<StrategyParameter>();
+        var sParams = new List<StrategyParameter>();
         string[] lin;
         while ((lin = nextLine()) != null)
-          r.StrategyParams.Add(new StrategyParameter(lin[0], double.Parse(lin[1])));
+          sParams.Add(new StrategyParameter(lin[0], double.Parse(lin[1])));
+        r.StrategyParams = sParams;
         return r;
       }
     }
@@ -142,31 +146,63 @@ namespace Quqe
 
   public static class Optimizer
   {
-    public static IEnumerable<StrategyOptimizerReport> OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
-      Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs,
-      Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal,
-      OptimizationType oType, DataSeries<Bar> bars, DataSeries<Value> idealSignal)
+    //public static IEnumerable<StrategyOptimizerReport> OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
+    //  Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs,
+    //  Func<IEnumerable<StrategyParameter>, Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal,
+    //  Func<IEnumerable<StrategyParameter>, DataSeries<Value>> makeIdealSignal,
+    //  OptimizationType oType, DataSeries<Bar> bars)
+    //{
+    //  return Optimizer.OptimizeStrategyParameters(oParams, sParams => {
+    //    var inputs = cookInputs(sParams);
+
+    //    var idealSignal = makeIdealSignal(sParams);
+
+    //    Genome bestGenome;
+    //    if (oType == OptimizationType.Genetic)
+    //    {
+    //      bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)),
+    //        g => -1 * makeSignal(sParams, g, inputs).Variance(idealSignal));
+    //    }
+    //    else
+    //    {
+    //      bestGenome = Optimizer.Anneal(Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)), g => {
+    //        var signal = makeSignal(sParams, g, inputs);
+    //        return signal.Variance(idealSignal) * Math.Pow(signal.Sign().Variance(idealSignal), 1);
+    //      });
+    //    }
+
+    //    var genomeName = bestGenome.Save();
+    //    return new StrategyOptimizerReport {
+    //      StrategyParams = sParams,
+    //      GenomeName = genomeName,
+    //      GenomeFitness = bestGenome.Fitness ?? 0
+    //    };
+    //  }).OrderByDescending(x => x.GenomeFitness);
+    //}
+
+    public static IEnumerable<StrategyOptimizerReport> OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams,
+      OptimizationType oType, EvolutionParams eParams, Func<IEnumerable<StrategyParameter>, Strategy> makeStrat)
     {
       return Optimizer.OptimizeStrategyParameters(oParams, sParams => {
-        var inputs = cookInputs(sParams);
+
+        var strat = makeStrat(sParams);
 
         Genome bestGenome;
         if (oType == OptimizationType.Genetic)
         {
-          bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)),
-            g => -1 * makeSignal(g, inputs).Variance(idealSignal));
+          bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(strat.GenomeSize),
+            g => -1 * strat.MakeSignal(g).Variance(strat.IdealSignal));
         }
         else
         {
-          bestGenome = Optimizer.Anneal(Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)), g => {
-            var signal = makeSignal(g, inputs);
-            return signal.Variance(idealSignal)/* * Math.Pow(signal.Sign().Variance(idealSignal), 1)*/;
-          });
+          bestGenome = Optimizer.Anneal(Optimizer.MakeRandomGenome(strat.GenomeSize), g =>
+          strat.CalculateError(g));
         }
 
         var genomeName = bestGenome.Save();
         return new StrategyOptimizerReport {
-          StrategyParams = sParams,
+          StrategyName = strat.Name,
+          StrategyParams = strat.Parameters,
           GenomeName = genomeName,
           GenomeFitness = bestGenome.Fitness ?? 0
         };

@@ -15,8 +15,12 @@ namespace Quqe
 
   public class ExitOnSessionClose : ExitCriteria
   {
-    readonly double _StopLimit;
-    public override double StopLimit { get { return _StopLimit; } }
+    readonly double? _StopLimit;
+    public override double StopLimit { get { return _StopLimit == null ? 0 : _StopLimit.Value; } }
+
+    public ExitOnSessionClose()
+    {
+    }
 
     public ExitOnSessionClose(double stopLimit)
     {
@@ -28,17 +32,20 @@ namespace Quqe
       var todayBar = dailyBarsFromNow.First();
       exitTime = todayBar.Timestamp.AddHours(16);
 
+      if (_StopLimit == null)
+        return todayBar.Close;
+
       if (pd == PositionDirection.Long)
       {
         Debug.Assert(_StopLimit < entry);
         if (todayBar.Low <= _StopLimit)
-          return _StopLimit;
+          return _StopLimit.Value;
       }
       else if (pd == PositionDirection.Short)
       {
         Debug.Assert(_StopLimit > entry);
         if (todayBar.High >= _StopLimit)
-          return _StopLimit;
+          return _StopLimit.Value;
       }
 
       return todayBar.Close;
@@ -70,6 +77,8 @@ namespace Quqe
     public double AccountValue { get { return Equity - AmountBorrowed + Positions.Sum(p => Math.Abs(p.NumShares * CurrentPrice(p.Symbol))); } }
 
     public double AmountBorrowed { get; private set; }
+
+    public double Padding { get; set; }
 
     public event Action<TradeRecord> Traded;
 

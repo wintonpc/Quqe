@@ -21,269 +21,172 @@ namespace QuqeViz
       InitializeComponent();
     }
 
-    static void WithStrat1(DataSeries<Bar> bars,
-      Action<
-      Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>>,
-      Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>>,
-      Func<DataSeries<Bar>, double>
-      > f)
-    {
-      Func<DataSeries<Bar>, double> getNormal = bs => bs[3].Close;
-
-      Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs = sParams => {
-        return List.Create(
-          bars.MapElements<Value>((s, v) => s[2].Open / getNormal(s)),
-          bars.MapElements<Value>((s, v) => s[2].Low / getNormal(s)),
-          bars.MapElements<Value>((s, v) => s[2].High / getNormal(s)),
-          bars.MapElements<Value>((s, v) => s[2].Close / getNormal(s)),
-          bars.MapElements<Value>((s, v) => s[1].Open / getNormal(s)),
-          bars.MapElements<Value>((s, v) => s[1].Low / getNormal(s)),
-          bars.MapElements<Value>((s, v) => s[1].High / getNormal(s)),
-          bars.MapElements<Value>((s, v) => s[1].Close / getNormal(s)),
-          bars.MapElements<Value>((s, v) => s[0].Open / getNormal(s)),
-          bars.ZLEMA(sParams.Get<int>("SlowZLEMAPeriod"), bar => bar.Close).Derivative(),
-          bars.ZLEMA(sParams.Get<int>("FastZLEMAPeriod"), bar => bar.Close).Derivative());
-      };
-
-      Func<Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal = (g, ins) =>
-        bars.NeuralNet(new WardNet(ins.Count(), g), ins);
-
-      f(cookInputs, makeSignal, getNormal);
-    }
-
-    public static void OptimizeStrat1(string symbol, string startDate, string endDate)
+    public static void OptimizeMidpointStrat1(string symbol, string startDate, string endDate)
     {
       var bars = Data.Get(symbol).From(startDate).To(endDate);
 
-      WithStrat1(bars, (cookInputs, makeSignal, getNormal) => {
-
-        var oParams = new List<OptimizerParameter> {
-          //new OptimizerParameter("FastZLEMAPeriod", 3, 3, 1),
-          //new OptimizerParameter("SlowZLEMAPeriod", 15, 15, 1),
-          new OptimizerParameter("FastZLEMAPeriod", 3, 3, 1),
-          new OptimizerParameter("SlowZLEMAPeriod", 17, 17, 1)
+      var oParams = new List<OptimizerParameter> {
+        //new OptimizerParameter("NumHidden", 2, 5, 1),
+        //new OptimizerParameter("Lookback", 3, 10, 1)
+        new OptimizerParameter("NumHidden", 3, 3, 1),
+        new OptimizerParameter("Lookback", 6, 6, 1)
         };
 
-        var eParams = new EvolutionParams {
-          NumGenerations = 300,
-          GenerationSurvivorCount = 15,
-          RandomAliensPerGeneration = 60,
-          MaxOffspring = 2,
-          MutationRate = 1,
-          MaxMutationTimesVariance = 0.002,
-        };
+      var reports = Strategy.Optimize("Midpoint", bars, oParams, OptimizationType.Anneal);
+    }
 
-        var buyReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal,
-          OptimizationType.Anneal, bars, bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1));
+    public static void OptimizeBuySell(string symbol, string startDate, string endDate)
+    {
+      var bars = Data.Get(symbol).From(startDate).To(endDate);
+      var oParams = new List<OptimizerParameter>();
+      var reports = Strategy.Optimize("BuySell", bars, oParams, OptimizationType.Anneal);
+    }
 
-        //var stopLimitReports = Optimizer.OptimizeNeuralIndicator(oParams, eParams, cookInputs, makeSignal, bars,
-        //  bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Low / getNormal(s) - 1) - 0.03 : (s[0].High / getNormal(s) - 1) + 0.03));
+    public static void DoBacktest(string symbol, string startDate, string endDate, string reportName, double initialValue, int marginFactor, bool isValidation)
+    {
+      var bars = Data.Get(symbol).From(startDate).To(endDate);
+      var optimizerReport = StrategyOptimizerReport.Load(reportName);
+      var strat = Strategy.Make(reportName.Split('-')[0], optimizerReport.StrategyParams);
+      strat.ApplyToBars(bars);
+      var backtestReport = strat.Backtest(Genome.Load(optimizerReport.GenomeName),
+        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 50 });
+      Trace.WriteLine(backtestReport.ToString());
+      WriteTrades(backtestReport.Trades, DateTime.Now, optimizerReport.GenomeName);
+      ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation);
+    }
 
-        Trace.WriteLine("=== BEST ===");
-        var bestBuy = buyReports.First();
-        Trace.WriteLine("-- Buy Signal --------------");
-        Trace.WriteLine(bestBuy.ToString());
-        Trace.WriteLine("(Saved as " + bestBuy.Save("BuySell") + ")");
-        Trace.WriteLine("----------------------------");
+    static void ShowBacktestChart(DataSeries<Bar> bars, List<TradeRecord> trades, double initialValue, int marginFactor, bool isValidation)
+    {
+      var profitPctPerTrade = trades.ToDataSeries(t => t.PercentProfit * 100.0);
+      var accountValue = trades.ToDataSeries(t => t.AccountValueAfterTrade);
 
-        //var bestStopLimit = stopLimitReports.First();
-        //Trace.WriteLine("-- StopLimit Signal --------------");
-        //Trace.WriteLine(bestStopLimit.ToString());
-        //Trace.WriteLine("(Saved as " + bestStopLimit.Save("StopLimit") + ")");
-        //Trace.WriteLine("----------------------------");
-
-        Trace.WriteLine("=== ALL ===");
-        Action<IEnumerable<StrategyOptimizerReport>> printReports = list => {
-          foreach (var r in list)
-            Trace.WriteLine(r.ToString() + "\r\n");
-        };
-
-        Trace.WriteLine("-- Buy Signal --------------");
-        printReports(buyReports);
-        //Trace.WriteLine("-- StopLimit Signal --------------");
-        //printReports(stopLimitReports);
+      var w = new ChartWindow();
+      var g1 = w.Chart.AddGraph();
+      g1.Title = bars.Symbol;
+      g1.Plots.Add(new Plot {
+        DataSeries = bars,
+        Type = PlotType.Candlestick
       });
+      var g2 = w.Chart.AddGraph();
+      g2.Plots.Add(new Plot {
+        Title = "Profit % per trade",
+        DataSeries = profitPctPerTrade,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+      var g3 = w.Chart.AddGraph();
+      g3.Plots.Add(new Plot {
+        Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x"),
+        DataSeries = accountValue,
+        Type = PlotType.ValueLine,
+        Color = Brushes.Green,
+        LineThickness = 2
+      });
+
+      w.Show();
+    }
+
+    private void ShowMidpoint_Click(object sender, RoutedEventArgs e)
+    {
+      var bars = Data.Get(SymbolBox.Text);
+      var report = StrategyOptimizerReport.Load(BuySellBox.Text);
+      var strat = Strategy.Make(report.StrategyName, report.StrategyParams);
+      strat.ApplyToBars(bars);
+      var mid = strat.MakeSignal(Genome.Load(report.GenomeName));
+
+      var w = new ChartWindow();
+      var g1 = w.Chart.AddGraph();
+      g1.Plots.Add(new Plot {
+        DataSeries = bars,
+        Type = PlotType.Candlestick
+      });
+      g1.Plots.Add(new Plot {
+        DataSeries = mid,
+        Type = PlotType.Dash,
+        Color = Brushes.BlueViolet
+      });
+      var g2 = w.Chart.AddGraph();
+      var accuracy = bars.ZipElements<Value, Value>(mid, (s, m, v) =>
+          (s[0].WaxBottom < m[0] && m[0] < s[0].WaxTop) ? 1 : 0);
+      g2.Plots.Add(new Plot {
+        DataSeries = accuracy,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+      Trace.WriteLine("Accuracy: " + ((double)accuracy.Count(x => x.Val == 1) / accuracy.Length * 100));
+
+      w.Show();
+    }
+
+    private void ShowMidFit_Click(object sender, RoutedEventArgs e)
+    {
+      var bars = Data.Get(SymbolBox.Text);
+
+      var oParams = List.Create(
+        new OptimizerParameter("LineSamples", 3, 3, 1),
+        new OptimizerParameter("QuadSamples", 7, 7, 1)
+        );
+
+      Func<IEnumerable<StrategyParameter>, DataSeries<Value>, DataSeries<Value>> makeAccuracy = (sp, md) => {
+        var maxSamplesNeeded = List.Create(sp.Get<int>("LineSamples"), sp.Get<int>("QuadSamples")).Max();
+        return bars.ZipElements<Value, Value>(md, (s, m, v) =>
+          (s.Pos > maxSamplesNeeded && (s[0].WaxBottom < m[0] && m[0] < s[0].WaxTop)) ? 1 : 0);
+      };
+
+      var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
+        var strat = new MidFit(sParams);
+        strat.ApplyToBars(bars);
+
+        var acc = makeAccuracy(sParams, strat.MakeSignal(null));
+        var accuracyPct = ((double)acc.Count(x => x.Val == 1) / acc.Length * 100);
+
+        return new StrategyOptimizerReport {
+          GenomeFitness = accuracyPct,
+          StrategyParams = sParams,
+          StrategyName = "MidFit",
+          GenomeName = "none"
+        };
+      }).OrderByDescending(x => x.GenomeFitness);
+
+      foreach (var r in reports)
+        Trace.WriteLine(r.ToString());
+
+      var st = new MidFit(reports.First().StrategyParams);
+      st.ApplyToBars(bars);
+      var mid = st.MakeSignal(null);
+
+      var w = new ChartWindow();
+      var g1 = w.Chart.AddGraph();
+      g1.Plots.Add(new Plot {
+        DataSeries = bars,
+        Type = PlotType.Candlestick
+      });
+      g1.Plots.Add(new Plot {
+        DataSeries = mid,
+        Type = PlotType.Dash,
+        Color = Brushes.BlueViolet
+      });
+      var g2 = w.Chart.AddGraph();
+      var accuracy = makeAccuracy(reports.First().StrategyParams, mid);
+      g2.Plots.Add(new Plot {
+        DataSeries = accuracy,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+
+      w.Show();
     }
 
     private void BacktestButton_Click(object sender, RoutedEventArgs e)
     {
-      BacktestStrat1(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text, BuySellBox.Text, StopLimitBox.Text,
+      DoBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text, BuySellBox.Text,
         double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
     }
 
     private void ValidateButton_Click(object sender, RoutedEventArgs e)
     {
-      BacktestStrat1(SymbolBox.Text, ValidationStartBox.Text, ValidationEndBox.Text, BuySellBox.Text, StopLimitBox.Text,
+      DoBacktest(SymbolBox.Text, ValidationStartBox.Text, ValidationEndBox.Text, BuySellBox.Text,
         double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), true);
-    }
-
-    static BacktestReport BacktestStrat1(string symbol, string startDate, string endDate, string buySellName, string stopLimitName, double initialValue, int marginFactor, bool isValidation)
-    {
-      var bars = Data.Get(symbol).From(startDate).To(endDate);
-
-      int donchianPeriod = 3;
-      double donchianBloat = 0.5;
-
-      BacktestReport backtestReport = null;
-      WithStrat1(bars, (cookInputs, makeSignal, getNormal) => {
-
-        var buySellReport = StrategyOptimizerReport.Load(buySellName);
-        var stopLimitReport = StrategyOptimizerReport.Load(stopLimitName);
-
-        var buySignal = makeSignal(Genome.Load(buySellReport.GenomeName), cookInputs(buySellReport.StrategyParams));
-        //var stopLimitSignal = makeSignal(Genome.Load(stopLimitReport.GenomeName), cookInputs(stopLimitReport.StrategyParams));
-
-        double accountPadding = 50.0;
-        var account = new Account { Equity = initialValue, MarginFactor = marginFactor };
-        var helper = BacktestHelper.Start(bars, account);
-
-        var dMin = bars.DonchianMin(donchianPeriod, donchianBloat);
-        var dMax = bars.DonchianMax(donchianPeriod, donchianBloat);
-        var dAvg = bars.DonchianAvg(donchianPeriod);
-
-        DataSeries.Walk(bars, buySignal, dMin, dMax, dAvg, /*stopLimitSignal, */pos => {
-          if (pos < Math.Max(donchianPeriod, 3))
-            return;
-
-          var shouldBuy = buySignal[0] >= 0;
-          double stopLimit = 0;// (1 + stopLimitSignal[0]) * getNormal(bars);
-
-          // hard stop limits
-          //double maxLossPercent = Math.Abs((bars[1].Open - bars[1].Close) / Math.Min(bars[1].Open, bars[1].Close)) * 3;
-          double maxLossPercent = 0.08;
-          var hardLongStop = bars[0].Open * (1 - maxLossPercent);
-          var hardShortStop = bars[0].Open * (1 + maxLossPercent);
-          //if (shouldBuy/* && (stopLimit >= bars[0].Open || stopLimit < liberalLongStop)*/)
-          //  stopLimit = liberalLongStop;
-          //else if (!shouldBuy/* && (stopLimit <= bars[0].Open || stopLimit > liberalShortStop)*/)
-          //  stopLimit = liberalShortStop;
-
-          // donchian stops
-          var rangePct = (dMax[1] - dMin[1]) / dAvg[1];
-          var bloat = Math.Max(0.02, -Math.Log10(rangePct * 8) / 2 + .4);
-          //var bloat = Math.Max(0.02, -5 * (rangePct - 0.19));
-          if (shouldBuy && bars[0].Open < dAvg[1])
-            stopLimit = List.Create<double>(dMin[1], dAvg[1] - (dAvg[1] - bars[0].Open) * (1 + bloat)).Min();
-          if (!shouldBuy && bars[0].Open > dAvg[1])
-            stopLimit = List.Create<double>(dMax[1], dAvg[1] + (bars[0].Open - dAvg[1]) * (1 + bloat)).Max();
-
-          if (shouldBuy && bars[0].Open >= dAvg[1])
-            stopLimit = dMax[1] - (dMax[1] - dAvg[1]) * (1 + bloat);
-          if (!shouldBuy && bars[0].Open <= dAvg[1])
-            stopLimit = dMin[1] + (dAvg[1] - dMin[1]) * (1 + bloat);
-
-          // hard stopping
-          if (shouldBuy)
-            stopLimit = Math.Max(hardLongStop, stopLimit);
-          else
-            stopLimit = Math.Min(hardShortStop, stopLimit);
-
-
-          //// special stops for gaps 2
-          //double minGapPct = 0.015;
-          ////double harshness = 6;
-          //double stopGapFraction = 0.5;
-          //if (shouldBuy && /*bars[1].IsGreen &&*/ bars[1].WaxTop * (1 + minGapPct) < bars[0].Open) // buying gap up
-          //{
-          //  //var gapPct = (bars[0].Open - bars[1].WaxTop) / bars[1].WaxTop;
-          //  //var stopGapFraction = Math.Pow(Math.Exp(-gapPct), harshness);
-          //  stopLimit = bars[0].Open - (bars[0].Open - bars[1].WaxTop) * stopGapFraction;
-          //}
-          //if (!shouldBuy && /*bars[1].IsRed &&*/ bars[1].WaxBottom * (1 - minGapPct) > bars[0].Open) // selling gap down
-          //{
-          //  //var gapPct = (bars[1].WaxBottom - bars[0].Open) / bars[0].Open;
-          //  //var stopGapFraction = Math.Pow(Math.Exp(-gapPct), harshness);
-          //  stopLimit = bars[0].Open + (bars[1].WaxBottom - bars[0].Open) * stopGapFraction;
-          //}
-
-          var size = (long)((account.BuyingPower - accountPadding) / bars[0].Open);
-
-          if (size > 0)
-          {
-            if (shouldBuy)
-              account.EnterLong(bars.Symbol, size, new ExitOnSessionClose(Math.Max(0, stopLimit)), bars.FromHere());
-            else
-              account.EnterShort(bars.Symbol, size, new ExitOnSessionClose(Math.Min(100000, stopLimit)), bars.FromHere());
-          }
-        });
-        backtestReport = helper.Stop();
-
-        Trace.WriteLine(backtestReport.ToString());
-
-        WriteTrades(backtestReport.Trades, DateTime.Now, buySellReport.GenomeName + ", " + stopLimitReport.GenomeName);
-      });
-
-      var w = new ChartWindow();
-      w.Chart.Title = isValidation ? "Validation" : "Backtest";
-      var g1 = w.Chart.AddGraph();
-      g1.Title = "TQQQ";
-      g1.Plots.Add(new Plot {
-        DataSeries = bars,
-        Type = PlotType.Candlestick
-      });
-      //g1.Plots.Add(new Plot {
-      //  DataSeries = bars.DonchianMin(donchianPeriod, donchianBloat),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Orange
-      //});
-      //g1.Plots.Add(new Plot {
-      //  DataSeries = bars.DonchianMax(donchianPeriod, donchianBloat),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Orange
-      //});
-      //g1.Plots.Add(new Plot {
-      //  DataSeries = bars.DonchianAvg(donchianPeriod),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Gray
-      //});
-      g1.Plots.Add(new Plot {
-        DataSeries = backtestReport.Trades.ToDataSeries(t => t.StopLimit),
-        Type = PlotType.Dash,
-        Color = Brushes.Blue
-      });
-      g1.AddTrades(backtestReport.Trades);
-      var g2 = w.Chart.AddGraph();
-      g2.Plots.Add(new Plot {
-        Title = "Profit % per trade",
-        DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.PercentProfit * 100))),
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-      //var g3 = w.Chart.AddGraph();
-      //g3.Plots.Add(new Plot {
-      //  Title = "Stopped gains",
-      //  DataSeries = backtestReport.Trades.ToDataSeries(t => t.IsStoppedGain ? 1.0 : 0.0),
-      //  Type = PlotType.Bar,
-      //  Color = Brushes.Red
-      //});
-
-      var g3 = w.Chart.AddGraph();
-      g3.Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x");
-      g3.Plots.Add(new Plot {
-        Title = "Account Value",
-        DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => new Value(t.ExitTime.Date, t.AccountValueAfterTrade))),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Green,
-        LineThickness = 3
-      });
-
-      //var g4 = w.Chart.AddGraph();
-      //g4.Plots.Add(new Plot {
-      //  Title = "Wrong-sided stoplimits",
-      //  DataSeries = new DataSeries<Value>(symbol, backtestReport.Trades.Select(t => {
-      //    if ((t.PositionDirection == PositionDirection.Long && t.StopLimit > t.Entry)
-      //      || (t.PositionDirection == PositionDirection.Short && t.StopLimit < t.Entry))
-      //      return new Value(t.EntryTime.Date, 1);
-      //    else
-      //      return new Value(t.EntryTime.Date, 0);
-      //  })),
-      //  Type = PlotType.Bar,
-      //  Color = Brushes.Red
-      //});
-
-      w.Show();
-
-      return backtestReport;
     }
 
     static void WriteTrades(List<TradeRecord> trades, DateTime now, string genomeName)
@@ -309,7 +212,12 @@ namespace QuqeViz
 
     private void OptimizeButton_Click(object sender, RoutedEventArgs e)
     {
-      OptimizeStrat1(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text);
+      OptimizeBuySell(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text);
+    }
+
+    private void OptimizeMidpointButton_Click(object sender, RoutedEventArgs e)
+    {
+      OptimizeMidpointStrat1(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text);
     }
 
     private void DemoButton_Click(object sender, RoutedEventArgs e)
@@ -379,6 +287,119 @@ namespace QuqeViz
         Color = Brushes.Green,
         DataSeries = y
       });
+
+      window.Show();
+    }
+
+    void ContributionsButton_Click(object sender, RoutedEventArgs e)
+    {
+      PrintContributions(BuySellBox.Text);
+    }
+
+    void PrintContributions(string reportName)
+    {
+      var report = StrategyOptimizerReport.Load(reportName);
+      var strat = Strategy.Make(report.StrategyName, report.StrategyParams);
+      var c = strat.CalculateContributions(Genome.Load(report.GenomeName));
+
+      Trace.WriteLine("== Contributions ==");
+      foreach (var kv in c)
+        Trace.WriteLine(kv.Key + ": " + (kv.Value * 100).ToString("N1") + " %");
+      Trace.WriteLine("===================");
+    }
+
+    private void TQQQButton_Click(object sender, RoutedEventArgs e)
+    {
+      var tqqq = Data.Get("TQQQ");
+      var window = new ChartWindow();
+      var chart = window.Chart;
+      var g = chart.AddGraph();
+      g.Title = "TQQQ";
+      g.Plots.Add(new Plot {
+        DataSeries = tqqq,
+        Type = PlotType.Candlestick
+      });
+
+      var delayedHeikenAshi = tqqq.HeikenAshi().Delay(1);
+
+      var g2 = chart.AddGraph();
+      g2.Title = "Yesterday's HeikenAshi(TQQQ)";
+      g2.Plots.Add(new Plot {
+        DataSeries = delayedHeikenAshi,
+        Type = PlotType.Candlestick
+      });
+      g2.Plots.Add(new Plot {
+        DataSeries = tqqq.DonchianMin(100),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Orange
+      });
+      g2.Plots.Add(new Plot {
+        DataSeries = tqqq.DonchianMax(100),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Orange
+      });
+
+      var random = new Random();
+      var accuracy1 = tqqq.From(delayedHeikenAshi.First().Timestamp)
+        .ZipElements<Bar, Value>(delayedHeikenAshi, (s, ha, v) => {
+          var shouldBuy = ha[0].IsGreen;
+
+          return shouldBuy == s[0].IsGreen ? 1 : 0;
+        });
+
+      var g3 = chart.AddGraph();
+      g3.Title = "HeikenAshi Accuracy";
+      g3.Plots.Add(new Plot {
+        DataSeries = accuracy1,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+
+      var g4 = chart.AddGraph();
+      g4.Title = "DonchianPct";
+      g4.Plots.Add(new Plot {
+        DataSeries = tqqq.DonchianPct(100, bar => bar.Close),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Blue
+      });
+
+      Trace.WriteLine("HeikinAshi Accuracy: " + ((double)accuracy1.Count(x => x.Val == 1) / accuracy1.Length * 100.0) + "%");
+
+
+      //var ema = tqqq.Closes().EMA(45).Extrapolate();
+      //var zlema = tqqq.Closes().ZLEMA(6).Extrapolate();
+      //var doubleDiff = tqqq.Closes().ZLEMA(6).Derivative().Derivative().Extrapolate();
+      //var slowMid = tqqq.Midpoint(b => b.WaxBottom, b => b.WaxTop).ZLEMA(10).Extrapolate();
+      //var superSlowMid = tqqq.Midpoint(b => b.WaxBottom, b => b.WaxTop).ZLEMA(30).Extrapolate();
+      //g.Plots.Add(new Plot {
+      //  Title = "Extrapolated EMA(45)",
+      //  DataSeries = ema,
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Purple
+      //});
+      //var g2 = chart.AddGraph();
+      //g2.Plots.Add(new Plot {
+      //  Title = "ZLEMA(6)''",
+      //  DataSeries = doubleDiff,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Blue
+      //});
+      //g.Plots.Add(new Plot {
+      //  DataSeries = slowMid,
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Blue,
+      //  LineStyle = LineStyle.Dashed
+      //});
+      //g.Plots.Add(new Plot {
+      //  DataSeries = mid.Average(slowMid),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.OrangeRed
+      //});
+      //g.Plots.Add(new Plot {
+      //  DataSeries = superSlowMid,
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.LightBlue
+      //});
 
       window.Show();
     }

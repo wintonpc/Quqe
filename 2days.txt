@@ -1,0 +1,157 @@
+=== BEST ===
+-- Buy Signal --------------
+Genome : Genome-000359
+Fitness: 0
+FastZLEMAPeriod: 7
+SlowZLEMAPeriod: 26
+
+(Saved as BuySell-001048)
+----------------------------
+=== ALL ===
+-- Buy Signal --------------
+Genome : Genome-000359
+Fitness: 0
+FastZLEMAPeriod: 7
+SlowZLEMAPeriod: 26
+
+
+Genome : Genome-000360
+Fitness: 0
+FastZLEMAPeriod: 5
+SlowZLEMAPeriod: 18
+
+
+Genome : Genome-000361
+Fitness: 0
+FastZLEMAPeriod: 7
+SlowZLEMAPeriod: 14
+
+
+Genome : Genome-000362
+Fitness: 0
+FastZLEMAPeriod: 5
+SlowZLEMAPeriod: 30
+
+
+Genome : Genome-000363
+Fitness: 0
+FastZLEMAPeriod: 5
+SlowZLEMAPeriod: 22
+
+
+Genome : Genome-000364
+Fitness: 0
+FastZLEMAPeriod: 7
+SlowZLEMAPeriod: 22
+
+
+Genome : Genome-000365
+Fitness: 0
+FastZLEMAPeriod: 3
+SlowZLEMAPeriod: 14
+
+
+Genome : Genome-000366
+Fitness: 0
+FastZLEMAPeriod: 9
+SlowZLEMAPeriod: 30
+
+
+Genome : Genome-000367
+Fitness: 0
+FastZLEMAPeriod: 7
+SlowZLEMAPeriod: 30
+
+
+Genome : Genome-000368
+Fitness: 0
+FastZLEMAPeriod: 7
+SlowZLEMAPeriod: 18
+
+
+Genome : Genome-000369
+Fitness: 0
+FastZLEMAPeriod: 9
+SlowZLEMAPeriod: 18
+
+
+Genome : Genome-000370
+Fitness: 0
+FastZLEMAPeriod: 3
+SlowZLEMAPeriod: 30
+
+
+Genome : Genome-000371
+Fitness: 0
+FastZLEMAPeriod: 7
+SlowZLEMAPeriod: 10
+
+
+Genome : Genome-000372
+Fitness: 0
+FastZLEMAPeriod: 9
+SlowZLEMAPeriod: 26
+
+
+Genome : Genome-000373
+Fitness: 0
+FastZLEMAPeriod: 3
+SlowZLEMAPeriod: 26
+
+
+Genome : Genome-000374
+Fitness: 0
+FastZLEMAPeriod: 9
+SlowZLEMAPeriod: 14
+
+
+Genome : Genome-000375
+Fitness: 0
+FastZLEMAPeriod: 5
+SlowZLEMAPeriod: 26
+
+
+Genome : Genome-000376
+Fitness: 0
+FastZLEMAPeriod: 3
+SlowZLEMAPeriod: 18
+
+
+Genome : Genome-000377
+Fitness: 0
+FastZLEMAPeriod: 9
+SlowZLEMAPeriod: 10
+
+
+Genome : Genome-000378
+Fitness: 0
+FastZLEMAPeriod: 9
+SlowZLEMAPeriod: 22
+
+
+Genome : Genome-000379
+Fitness: 0
+FastZLEMAPeriod: 3
+SlowZLEMAPeriod: 10
+
+
+Genome : Genome-000380
+Fitness: 0
+FastZLEMAPeriod: 5
+SlowZLEMAPeriod: 14
+
+
+Genome : Genome-000381
+Fitness: 0
+FastZLEMAPeriod: 3
+SlowZLEMAPeriod: 22
+
+
+Genome : Genome-000382
+Fitness: 0
+FastZLEMAPeriod: 5
+SlowZLEMAPeriod: 10
+
+
+The thread '<No Name>' (0x45c14) has exited with code 0 (0x0).
+The thread '<No Name>' (0x5ccfc) has exited with code 0 (0x0).
