@@ -158,11 +158,11 @@ namespace StockCharts
             {
               int k = i - pb.Left;
               var bar = bars[k];
-              var brush = bar.Close < bar.Open ?
-                //new SolidColorBrush(Color.FromRgb(255, 15, 35)) :
-                CandleRed :
-                CandleGreen;
-              //Brushes.Red : Brushes.Green;
+              Brush brush;
+              if (p.CandleColors == CandleColors.WhiteBlack)
+                brush = Brushes.Black;
+              else
+                brush = bar.Close < bar.Open ? CandleRed : CandleGreen;
               AddLine(i - SlotOffset, bar.High, i - SlotOffset, bar.Low, brush, LineStyle.Solid, 1, ViewRegion);
               var p1 = PointToCanvas(i - SlotOffset, bar.Open, ViewRegion);
               var p2 = PointToCanvas(i - SlotOffset, bar.Close, ViewRegion);
@@ -171,7 +171,7 @@ namespace StockCharts
                 p1.Y,
                 p2.X + Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
                 p2.Y,
-                brush);
+                brush, (p.CandleColors == CandleColors.WhiteBlack && bar.IsGreen) ? Brushes.White : null);
             }
           }
         }
@@ -228,7 +228,10 @@ namespace StockCharts
 
       var pb = PlotBoundaries[barsPlot];
 
-      var bar = ((DataSeries<Bar>)barsPlot.DataSeries)[SlotOffset + slotNumber - pb.Left];
+      var i = SlotOffset + slotNumber - pb.Left;
+      if (i < 0)
+        return;
+      var bar = ((DataSeries<Bar>)barsPlot.DataSeries)[i];
       var trade = Trades.FirstOrDefault(t => t.EntryTime.Date == bar.Timestamp);
       if (trade == null)
         return;
@@ -534,11 +537,11 @@ namespace StockCharts
       AddLine(p1.X, p1.Y, p2.X, p2.Y, stroke, lineStyle, thickness);
     }
 
-    void AddRectangle(double left, double top, double right, double bottom, Brush fill)
+    void AddRectangle(double left, double top, double right, double bottom, Brush stroke, Brush fill = null)
     {
       var path = new Path();
-      path.Fill = fill;
-      path.Stroke = fill;
+      path.Fill = fill ?? stroke;
+      path.Stroke = stroke;
       path.StrokeThickness = 1;
 
       var geom = new StreamGeometry();
@@ -595,6 +598,8 @@ namespace StockCharts
 
   public enum PlotType { Candlestick, ValueLine, Bar, Dash }
 
+  public enum CandleColors { GreenRed, WhiteBlack }
+
   public enum LineStyle { Solid, Dashed }
 
   public class Plot
@@ -605,5 +610,6 @@ namespace StockCharts
     public LineStyle LineStyle { get; set; }
     public double LineThickness { get; set; }
     public DataSeries DataSeries { get; set; }
+    public CandleColors CandleColors { get; set; }
   }
 }

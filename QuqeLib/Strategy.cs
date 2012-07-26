@@ -104,13 +104,13 @@ namespace Quqe
   {
     public override string Name { get { return "BuySell"; } }
 
-    readonly int Lookback = 2;
+    readonly int Lookback = 3;
 
     public BuySellStrategy(IEnumerable<StrategyParameter> sParams)
       :base(sParams)
     {
-      NumInputs = 2;
-      InputNames = List.Create("Open0", "Close1");
+      InputNames = List.Create("Open0", "Close1", "Close2");
+      NumInputs = InputNames.Count;
     }
 
     public override void ApplyToBars(DataSeries<Bar> bars)
@@ -119,7 +119,8 @@ namespace Quqe
 
       Inputs = List.Create(
         bars.MapElements<Value>((s, v) => Normalize(s[0].Open, bars)),
-        bars.MapElements<Value>((s, v) => Normalize(s[1].Close, bars))
+        bars.MapElements<Value>((s, v) => Normalize(s[1].Close, bars)),
+        bars.MapElements<Value>((s, v) => Normalize(s[2].Close, bars))
         );
       Debug.Assert(NumInputs == Inputs.Count);
       IdealSignal = bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1);
@@ -137,7 +138,8 @@ namespace Quqe
 
     public override double CalculateError(Genome g)
     {
-      return Error(MakeSignal(g), IdealSignal);
+      var signal = MakeSignal(g);
+      return Error(signal, IdealSignal) * Error(signal.Sign(), IdealSignal);
     }
 
     static double Error(DataSeries<Value> a, DataSeries<Value> b)
@@ -147,14 +149,14 @@ namespace Quqe
 
     public override double Normalize(double value, DataSeries<Bar> ds)
     {
-      //return value / ds[Lookback].Close - 1;
-      return value / ds[Lookback].Close;
+      return value / ds[Lookback].Close - 1;
+      //return value / ds[Lookback].Close;
     }
 
     public override double Denormalize(double value, DataSeries<Bar> ds)
     {
-      //return (value + 1) * ds[Lookback].Close;
-      return value * ds[Lookback].Close;
+      return (value + 1) * ds[Lookback].Close;
+      //return value * ds[Lookback].Close;
     }
 
     protected override NeuralNet MakeNeuralNet(Genome g)

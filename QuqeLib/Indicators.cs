@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using PCW;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -113,7 +114,7 @@ namespace Quqe
       return new DataSeries<Value>(bars.Symbol, newElements);
     }
 
-    static IEnumerable<T> BackBars<T>(this DataSeries<T> bars, int count)
+    public static IEnumerable<T> BackBars<T>(this DataSeries<T> bars, int count)
       where T : DataSeriesElement
     {
       for (int i = 0; i < count; i++)
@@ -226,6 +227,111 @@ namespace Quqe
     public static DataSeries<Value> ToDataSeries(this IEnumerable<TradeRecord> trades, Func<TradeRecord, double> getValue)
     {
       return new DataSeries<Value>(trades.First().Symbol, trades.Select(t => new Value(t.EntryTime.Date, getValue(t))));
+    }
+  }
+
+
+
+  public enum BarState { Bullish, Bearish, Parabolic, Washout, BullishBounce, BearishBounce }
+
+  public static class States
+  {
+    enum Trend { Bull, Bear }
+
+    static BarState TrendToState(Trend t) { return t == Trend.Bull ? BarState.Bullish : BarState.Bearish; }
+
+    public static IEnumerable<BarState> AssignStates(DataSeries<Bar> bars)
+    {
+      BarState s = BarState.Bullish;
+      Trend t = Trend.Bull;
+      var results = new List<BarState>();
+      int lastTrendChangePos = 0;
+      DataSeries.Walk(bars, pos => {
+        if (pos < 2)
+          results.Add(bars[0].IsGreen ? BarState.Bullish : BarState.Bearish);
+        else
+        {
+          var newTrend = bars.BackBars(3).GroupBy(x => x.IsGreen).OrderByDescending(x => x.Count()).First().Key ? Trend.Bull : Trend.Bear;
+          if (t != newTrend)
+            lastTrendChangePos = pos;
+          t = newTrend;
+
+          //Debug.Assert(bars[0].Timestamp != DateTime.Parse("05/28/2010"));
+          bool didntDoAnything = false;
+          var recentGreenBar = bars.BackBars(3).Skip(1).Where(b => b.IsGreen).FirstOrDefault();
+
+          var variableLookback = Math.Max(2, Math.Min(pos, pos - lastTrendChangePos));
+          var backBars = bars.BackBars(variableLookback).Skip(1);
+          var normalWaxHeight = backBars.Average(x => x.WaxHeight());
+          var recentHigh = backBars.Max(x => x.Max);
+
+          // bullish => parabolic
+          if (bars[1].IsGreen && bars[0].IsGreen && bars[0].UpperWickOnly() && bars[0].High > recentHigh
+            && bars[0].WaxHeight() > normalWaxHeight
+            && bars[1].WaxContains(bars[0].WaxBottom) && bars[0].WaxHeight() > 1.5 * bars[1].WaxHeight())
+          {
+            results.Add(BarState.Parabolic);
+            s = BarState.Parabolic;
+          }
+          else if (s == BarState.Parabolic)
+          {
+            // parabolic => parabolic
+            if (bars[0].IsGreen && bars[0].UpperWickOnly() && bars[1].WaxContains(bars[0].WaxBottom)
+              && bars[1].WaxBottom + bars[1].WaxHeight() * 0.33 < bars[0].WaxBottom && bars[0].WaxHeight() > bars[1].WaxHeight() * 0.85
+              && (bars[0].WaxTop - bars[0].Min) / (bars[0].Max - bars[0].Min) < 0.8)
+            {
+              results.Add(BarState.Parabolic);
+              s = BarState.Parabolic;
+            }
+            // parabolic => bullish
+            else
+            {
+              results.Add(BarState.Bullish);
+              s = BarState.Bullish;
+            }
+          }
+          else if (t == Trend.Bull && recentGreenBar != null && bars[0].IsRed && bars[0].LowerWickOnly() && bars[0].WaxHeight() > 1.5 * recentGreenBar.WaxHeight())
+          {
+            results.Add(BarState.BearishBounce);
+            s = BarState.Bearish;
+          }
+          else
+          {
+            didntDoAnything = true;
+          }
+
+          if (didntDoAnything)
+          {
+            s = TrendToState(t);
+            results.Add(s);
+          }
+        }
+      });
+
+      return results;
+    }
+  }
+
+  public static class BarHelpers
+  {
+    public static bool WaxContains(this Bar b, double v)
+    {
+      return b.WaxBottom < v && v < b.WaxTop;
+    }
+
+    public static double WaxHeight(this Bar b)
+    {
+      return b.WaxTop - b.WaxBottom;
+    }
+
+    public static bool UpperWickOnly(this Bar b)
+    {
+      return b.Low + b.WaxHeight() * 0.05 > b.WaxBottom && b.High - b.WaxHeight() * 0.1 > b.WaxTop;
+    }
+
+    public static bool LowerWickOnly(this Bar b)
+    {
+      return b.High - b.WaxHeight() * 0.05 < b.WaxTop && b.Low + b.WaxHeight() * 0.1 < b.WaxBottom;
     }
   }
 }

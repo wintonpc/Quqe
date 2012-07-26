@@ -67,6 +67,7 @@ namespace QuqeViz
         DataSeries = bars,
         Type = PlotType.Candlestick
       });
+      g1.AddTrades(trades);
       var g2 = w.Chart.AddGraph();
       g2.Plots.Add(new Plot {
         Title = "Profit % per trade",
@@ -311,6 +312,7 @@ namespace QuqeViz
     private void TQQQButton_Click(object sender, RoutedEventArgs e)
     {
       var tqqq = Data.Get("TQQQ");
+      var delayedHeikenAshi = tqqq.HeikenAshi().Delay(1);
       var window = new ChartWindow();
       var chart = window.Chart;
       var g = chart.AddGraph();
@@ -319,8 +321,16 @@ namespace QuqeViz
         DataSeries = tqqq,
         Type = PlotType.Candlestick
       });
-
-      var delayedHeikenAshi = tqqq.HeikenAshi().Delay(1);
+      //g.Plots.Add(new Plot {
+      //  DataSeries = delayedHeikenAshi,
+      //  Type = PlotType.Candlestick,
+      //  CandleColors = CandleColors.WhiteBlack
+      //});
+      //g.Plots.Add(new Plot {
+      //  DataSeries = tqqq.MapElements<Value>((s, v) => s[0].Open),
+      //  Type = PlotType.Dash,
+      //  Color = Brushes.Blue
+      //});
 
       var g2 = chart.AddGraph();
       g2.Title = "Yesterday's HeikenAshi(TQQQ)";
@@ -328,42 +338,76 @@ namespace QuqeViz
         DataSeries = delayedHeikenAshi,
         Type = PlotType.Candlestick
       });
-      g2.Plots.Add(new Plot {
-        DataSeries = tqqq.DonchianMin(100),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Orange
-      });
-      g2.Plots.Add(new Plot {
-        DataSeries = tqqq.DonchianMax(100),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Orange
-      });
+      //g2.Plots.Add(new Plot {
+      //  DataSeries = tqqq.DonchianMin(100),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Orange
+      //});
+      //g2.Plots.Add(new Plot {
+      //  DataSeries = tqqq.DonchianMax(100),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Orange
+      //});
 
-      var random = new Random();
-      var accuracy1 = tqqq.From(delayedHeikenAshi.First().Timestamp)
-        .ZipElements<Bar, Value>(delayedHeikenAshi, (s, ha, v) => {
-          var shouldBuy = ha[0].IsGreen;
+      var undatedStates = new DataSeries<Value>(tqqq.Symbol,
+        States.AssignStates(delayedHeikenAshi).Select(x => new Value(default(DateTime), (double)(int)x)));
+      var states = tqqq.From(delayedHeikenAshi.First().Timestamp)
+        .ZipElements<Value, Value>(undatedStates, (t, u, v) => u[0].Val);
 
-          return shouldBuy == s[0].IsGreen ? 1 : 0;
-        });
+      //var random = new Random();
+      //var accuracy1 = tqqq.From(delayedHeikenAshi.First().Timestamp)
+      //  .ZipElements<Bar, Value>(delayedHeikenAshi, (s, ha, v) => {
+      //    var shouldBuy = ha[0].IsGreen;
+
+      //    return shouldBuy == s[0].IsGreen ? 1 : 0;
+      //  });
 
       var g3 = chart.AddGraph();
-      g3.Title = "HeikenAshi Accuracy";
+      //g3.Title = "HeikenAshi Accuracy";
+      //g3.Plots.Add(new Plot {
+      //  DataSeries = accuracy1,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Blue
+      //});
       g3.Plots.Add(new Plot {
-        DataSeries = accuracy1,
+        DataSeries = states,
         Type = PlotType.Bar,
         Color = Brushes.Blue
       });
 
-      var g4 = chart.AddGraph();
-      g4.Title = "DonchianPct";
-      g4.Plots.Add(new Plot {
-        DataSeries = tqqq.DonchianPct(100, bar => bar.Close),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Blue
+      var tqqqSkipFirst = tqqq.From(states.First().Timestamp);
+      int nCorrect = 0;
+      int nIncorrect = 0;
+      double profit = 0;
+      double loss = 0;
+      DataSeries.Walk(tqqqSkipFirst, states, pos => {
+        if (states[0] == 2)
+        {
+          if (tqqqSkipFirst[0].IsRed)
+          {
+            nCorrect++;
+            profit += tqqqSkipFirst[0].WaxHeight();
+          }
+          else
+          {
+            nIncorrect++;
+            loss += tqqqSkipFirst[0].WaxHeight();
+          }
+        }
       });
 
-      Trace.WriteLine("HeikinAshi Accuracy: " + ((double)accuracy1.Count(x => x.Val == 1) / accuracy1.Length * 100.0) + "%");
+      Trace.WriteLine("parabolic accuracy: " + ((double)nCorrect / (nCorrect + nIncorrect) * 100.0) + "%");
+      Trace.WriteLine("parabolic total profit/loss: " + ((double)profit / (double)loss));
+
+      //var g4 = chart.AddGraph();
+      //g4.Title = "DonchianPct";
+      //g4.Plots.Add(new Plot {
+      //  DataSeries = tqqq.DonchianPct(100, bar => bar.Close),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Blue
+      //});
+
+      //Trace.WriteLine("HeikinAshi Accuracy: " + ((double)accuracy1.Count(x => x.Val == 1) / accuracy1.Length * 100.0) + "%");
 
 
       //var ema = tqqq.Closes().EMA(45).Extrapolate();
