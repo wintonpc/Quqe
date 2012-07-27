@@ -73,6 +73,20 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<Value> Trend(this DataSeries<Bar> bars, int lookback)
+    {
+      return bars.MapElements<Value>((s, v) => {
+        var windowSize = Math.Min(s.Pos, lookback);
+        if (windowSize == 0)
+          return s[0].IsGreen ? 1 : -1;
+        else
+        {
+          var bb = s.BackBars(windowSize + 1).Skip(1);
+          return Math.Sign(bb.Count(b => b.IsGreen) - bb.Count(b => b.IsRed));
+        }
+      });
+    }
+
     public static DataSeries<Value> Midpoint(this DataSeries<Bar> bars, Func<Bar, double> getMin, Func<Bar, double> getMax)
     {
       return bars.MapElements<Value>((s, v) => (getMin(s[0]) + getMax(s[0])) / 2.0);
@@ -126,7 +140,7 @@ namespace Quqe
     {
       Value[] result = new Value[bars.Length];
       DataSeries.Walk(inputs.Cast<DataSeries>().Concat(List.Create<DataSeries>(bars)), pos => {
-        result[pos] = net.Propagate(inputs.Select(x => x[0].Val))[0];
+        result[pos] = new Value(bars[0].Timestamp, net.Propagate(inputs.Select(x => x[0].Val))[0]);
       });
       return new DataSeries<Value>(bars.Symbol, result);
     }

@@ -180,6 +180,8 @@ namespace Quqe
     //  }).OrderByDescending(x => x.GenomeFitness);
     //}
 
+    public static bool ShowTrace = true;
+
     public static IEnumerable<StrategyOptimizerReport> OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams,
       OptimizationType oType, EvolutionParams eParams, Func<IEnumerable<StrategyParameter>, Strategy> makeStrat)
     {
@@ -207,6 +209,20 @@ namespace Quqe
           GenomeFitness = bestGenome.Fitness ?? 0
         };
       }).OrderByDescending(x => x.GenomeFitness);
+    }
+
+    public static Genome OptimizeNeuralGenome(Strategy strat, OptimizationType oType, EvolutionParams eParams = null)
+    {
+      if (oType == OptimizationType.Genetic)
+      {
+        return Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(strat.GenomeSize),
+          g => -1 * strat.MakeSignal(g).Variance(strat.IdealSignal));
+      }
+      else
+      {
+        return Optimizer.Anneal(Optimizer.MakeRandomGenome(strat.GenomeSize), g =>
+        strat.CalculateError(g));
+      }
     }
 
     public static Genome Evolve(EvolutionParams eParams, Genome seed, Func<Genome, double> fitnessFunc)
@@ -325,11 +341,34 @@ namespace Quqe
       };
     }
 
+    public static Func<double, double> MakeStdDev(int period)
+    {
+      Queue<double> q = new Queue<double>();
+      return n => {
+        if (q.Count < period)
+          q.Enqueue(n);
+        else
+        {
+          q.Dequeue();
+          q.Enqueue(n);
+        }
+        return StdDev(q);
+      };
+    }
+
+    static double StdDev(IEnumerable<double> xs)
+    {
+      var avg = xs.Average();
+      return Math.Sqrt(xs.Select(x => Math.Pow(x - avg, 2)).Sum() / xs.Count());
+    }
+
     public static Genome Anneal(Genome seed, Func<Genome, double> costFunc)
     {
       int iterations = 25000;
       Func<double, double> schedule = t => Math.Sqrt(Math.Exp(-11 * t));
-      var sma = MakeSMA(25);
+      var escapeCostPremiumSma = MakeSMA(25);
+      var costSma = MakeSMA(2000);
+      var costStdDev = MakeStdDev(2000);
 
       var acceptCount = 0;
       var rejectCount = 0;
@@ -339,6 +378,9 @@ namespace Quqe
       var bestGenome = currentGenome;
       var bestCost = currentCost;
       double averageEscapeCostPremium = 0;
+      double bestCostStdDev;
+      double bestCostAvg;
+      double bestCostThresh = 0.00001;
       for (int i = 0; i < iterations /*|| averageEscapeCostPremium / bestCost > 0.0000005*/; i++)
       {
         var temperature = schedule((double)i / iterations);
@@ -350,8 +392,9 @@ namespace Quqe
           //Console.WriteLine(string.Format("{0} / {1}  Temp = {2:N2}  Accept rate = {3}  ( {4} / {5} )  Cost = {6:N4}",
           //  i, iterations, temperature, rejectCount == 0 ? "always" : ((double)acceptCount / (double)rejectCount).ToString("N3"),
           //  acceptCount, rejectCount, currentCost));
-          Console.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
-            i, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
+          if (ShowTrace)
+            Console.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
+              i, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
           //acceptCount = 0;
           //rejectCount = 0;
         }
@@ -372,7 +415,7 @@ namespace Quqe
         else
         {
           var escapeCostPremium = (nextCost - currentCost);
-          averageEscapeCostPremium = sma(escapeCostPremium);
+          averageEscapeCostPremium = escapeCostPremiumSma(escapeCostPremium);
           takeAnywayProbability = temperature * Math.Exp(-(escapeCostPremium / averageEscapeCostPremium) + 1);
           bool takeItAnyway = WithProb(takeAnywayProbability);
           if (takeItAnyway)
@@ -380,10 +423,12 @@ namespace Quqe
           else
             rejectCount++;
         }
-      }
 
-      if (currentGenome != bestGenome)
-        Trace.WriteLine("Last genome was not best!!");
+        bestCostStdDev = costStdDev(currentCost);
+        bestCostAvg = costSma(currentCost);
+        //if (i > 2000 && bestCostStdDev / bestCostAvg < bestCostThresh)
+        //  break;
+      }
 
       return bestGenome;
     }

@@ -55,6 +55,16 @@ namespace QuqeViz
       ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation);
     }
 
+    public static void DoGenomelessBacktest(string symbol, string startDate, string endDate, Strategy strat, double initialValue, int marginFactor, bool isValidation)
+    {
+      var bars = Data.Get(symbol).From(startDate).To(endDate);
+      strat.ApplyToBars(bars);
+      var backtestReport = strat.Backtest(null, new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 50 });
+      Trace.WriteLine(backtestReport.ToString());
+      WriteTrades(backtestReport.Trades, DateTime.Now, "no-genome");
+      ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation);
+    }
+
     static void ShowBacktestChart(DataSeries<Bar> bars, List<TradeRecord> trades, double initialValue, int marginFactor, bool isValidation)
     {
       var profitPctPerTrade = trades.ToDataSeries(t => t.PercentProfit * 100.0);
@@ -85,6 +95,13 @@ namespace QuqeViz
       });
 
       w.Show();
+    }
+
+    private void UpdatingBuySell_Click(object sender, RoutedEventArgs e)
+    {
+      DoGenomelessBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text,
+        new UpdatingBuySellStrategy(new List<StrategyParameter>()),
+        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), true);
     }
 
     private void ShowMidpoint_Click(object sender, RoutedEventArgs e)

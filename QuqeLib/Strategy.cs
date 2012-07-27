@@ -6,6 +6,7 @@ using PCW;
 using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace Quqe
 {
@@ -79,6 +80,37 @@ namespace Quqe
       return reports;
     }
 
+    protected BacktestReport GenericBacktest(Genome g, Account account, int lookback, double? maxLossPct)
+    {
+      var signal = MakeSignal(g);
+      var helper = BacktestHelper.Start(Bars, account);
+      DataSeries.Walk(Bars, signal, pos => {
+        if (pos < lookback)
+          return;
+
+        var shouldBuy = signal[0] >= 0;
+
+        double? stopLimit = null;
+        if (maxLossPct.HasValue)
+        {
+          if (shouldBuy)
+            stopLimit = (1 - maxLossPct) * Bars[0].Open;
+          else
+            stopLimit = (1 + maxLossPct) * Bars[0].Open;
+        }
+
+        var size = (long)((account.BuyingPower - account.Padding) / Bars[0].Open);
+        if (size > 0)
+        {
+          if (shouldBuy)
+            account.EnterLong(Bars.Symbol, size, new ExitOnSessionClose(stopLimit), Bars.FromHere());
+          else
+            account.EnterShort(Bars.Symbol, size, new ExitOnSessionClose(stopLimit), Bars.FromHere());
+        }
+      });
+      return helper.Stop();
+    }
+
     static void PrintStrategyOptimizerReports(IEnumerable<StrategyOptimizerReport> reports)
     {
       var best = reports.First();
@@ -104,26 +136,28 @@ namespace Quqe
   {
     public override string Name { get { return "BuySell"; } }
 
-    readonly int Lookback = 3;
+    readonly int Lookback = 2;
 
     public BuySellStrategy(IEnumerable<StrategyParameter> sParams)
-      :base(sParams)
+      : base(sParams)
     {
-      InputNames = List.Create("Open0", "Close1", "Close2");
+      InputNames = List.Create("Open0", "Close1"/*, "HAsig", "WaxRatio12"*/);
       NumInputs = InputNames.Count;
     }
 
     public override void ApplyToBars(DataSeries<Bar> bars)
     {
-      base.ApplyToBars(bars);
+      var ha = bars.HeikenAshi().Delay(1).MapElements<Value>((s, v) => Math.Sign(s[0].Close - s[0].Open));
+      base.ApplyToBars(bars.From(ha.First().Timestamp));
 
       Inputs = List.Create(
-        bars.MapElements<Value>((s, v) => Normalize(s[0].Open, bars)),
-        bars.MapElements<Value>((s, v) => Normalize(s[1].Close, bars)),
-        bars.MapElements<Value>((s, v) => Normalize(s[2].Close, bars))
+        Bars.MapElements<Value>((s, v) => Normalize(s[0].Open, Bars)),
+        Bars.MapElements<Value>((s, v) => Normalize(s[1].Close, Bars))//,
+        //ha,
+        //Bars.MapElements<Value>((s, v) => s[1].WaxHeight() / s[2].WaxHeight())
         );
       Debug.Assert(NumInputs == Inputs.Count);
-      IdealSignal = bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1);
+      IdealSignal = Bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1);
     }
 
     public override int GenomeSize
@@ -166,24 +200,131 @@ namespace Quqe
 
     public override BacktestReport Backtest(Genome g, Account account)
     {
-      var signal = MakeSignal(g);
-      var helper = BacktestHelper.Start(Bars, account);
-      DataSeries.Walk(Bars, signal, pos => {
-        if (pos < Lookback)
-          return;
-
-        var shouldBuy = signal[0] >= 0;
-        var size = (long)((account.BuyingPower - account.Padding) / Bars[0].Open);
-        if (size > 0)
-        {
-          if (shouldBuy)
-            account.EnterLong(Bars.Symbol, size, new ExitOnSessionClose(), Bars.FromHere());
-          else
-            account.EnterShort(Bars.Symbol, size, new ExitOnSessionClose(), Bars.FromHere());
-        }
-      });
-      return helper.Stop();
+      return GenericBacktest(g, account, Lookback, null);
     }
+  }
+
+  public class UpdatingBuySellStrategy : Strategy
+  {
+    public override string Name { get { return "UpdatingBuySell"; } }
+
+    int MinTrainingSize = 20;
+    int MaxTrainingSize = 30;
+    int WindowStepSize = 2;
+
+    public UpdatingBuySellStrategy(IEnumerable<StrategyParameter> sParams)
+      : base(sParams)
+    {
+    }
+
+    class Trial
+    {
+      public int WindowSize;
+      public double PredictionError;
+    }
+
+    public override DataSeries<Value> MakeSignal(Genome notUsed)
+    {
+      List<Value> signalElements = new List<Value>();
+      for (int i = 0; i <= MaxTrainingSize; i++)
+        signalElements.Add(new Value(Bars[i].Timestamp, 0));
+
+      Optimizer.ShowTrace = false;
+
+      int bestTrainingSize = 0;
+
+      for (int i = MaxTrainingSize + 1; i < Bars.Length; i++)
+      {
+        Trace.WriteLine("UpdateBuySell [ " + i + " / " + Bars.Length + " ]    bestTrainingSize = " + bestTrainingSize);
+
+        // optimize and evaluate various windows sizes for the last known bar
+        var trials = new List<Trial>();
+        Parallel.For(0, (MaxTrainingSize - MinTrainingSize) / WindowStepSize + 1, j => {
+          //for (int size = MinTrainingSize; size<=MaxTrainingSize; size += WindowStepSize)
+          //{
+
+          var size = MinTrainingSize + j * WindowStepSize;
+
+          // optimize a neural net for each training size with i-2 as the last training bar
+          var trainingSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - size - 1).Take(size));
+          var oStrat = new BuySellStrategy(Parameters);
+          oStrat.ApplyToBars(trainingSet);
+          var genome = Optimizer.OptimizeNeuralGenome(oStrat, OptimizationType.Anneal);
+
+          // evaluate performance of each neural net in predicting bar i-1
+          var validationSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - size - 1).Take(size + 1));
+          var vStrat = new BuySellStrategy(Parameters);
+          vStrat.ApplyToBars(validationSet);
+          var vSignalAll = vStrat.MakeSignal(genome);
+          double correctPct = (double)validationSet.From(vSignalAll.First().Timestamp)
+            .ZipElements<Value, Value>(vSignalAll, (v, s, x) =>
+            ((s[0] > 0) == v[0].IsGreen) ? 1 : 0).Sum(x => x.Val) / validationSet.Length;
+          double vSignal = vSignalAll.Last().Val;
+
+          lock (trials)
+          {
+            trials.Add(new Trial {
+              WindowSize = size,
+              PredictionError = Math.Pow(vSignal - (validationSet.Last().IsGreen ? 1 : -1), 2)
+            });
+          }
+        });
+
+        // bestTrainingSize = training size of best performing neural net
+        bestTrainingSize = trials.OrderBy(t => t.PredictionError).First().WindowSize;
+
+        // let bestNet = optimize a neural net on bars i-bestTrainingSize..i-1
+        var currentTrainingSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - bestTrainingSize).Take(bestTrainingSize));
+        var bestStrat = new BuySellStrategy(Parameters);
+        bestStrat.ApplyToBars(currentTrainingSet);
+        var bestGenome = Optimizer.OptimizeNeuralGenome(bestStrat, OptimizationType.Anneal);
+
+        var currentValidationSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - bestTrainingSize).Take(bestTrainingSize + 1));
+        var finalStrat = new BuySellStrategy(Parameters);
+        finalStrat.ApplyToBars(currentValidationSet);
+        var sig = finalStrat.MakeSignal(bestGenome).Last();
+        signalElements.Add(new Value(Bars[i].Timestamp, sig.Val));
+
+        Trace.WriteLine("got it right? " + (Bars[i].IsGreen == (sig.Val > 0)));
+      }
+      Optimizer.ShowTrace = true;
+
+      return new DataSeries<Value>(Bars.Symbol, signalElements);
+    }
+
+    public override BacktestReport Backtest(Genome g, Account account)
+    {
+      return GenericBacktest(g, account, MaxTrainingSize + 1, null);
+    }
+
+    #region not implemented
+
+    public override int GenomeSize
+    {
+      get { throw new NotImplementedException(); }
+    }
+
+    public override double CalculateError(Genome g)
+    {
+      throw new NotImplementedException();
+    }
+
+    public override double Normalize(double value, DataSeries<Bar> ds)
+    {
+      throw new NotImplementedException();
+    }
+
+    public override double Denormalize(double value, DataSeries<Bar> ds)
+    {
+      throw new NotImplementedException();
+    }
+
+    protected override NeuralNet MakeNeuralNet(Genome g)
+    {
+      throw new NotImplementedException();
+    }
+
+    #endregion
   }
 
   public class MidpointStrategy : Strategy

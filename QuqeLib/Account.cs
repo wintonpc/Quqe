@@ -27,6 +27,12 @@ namespace Quqe
       _StopLimit = stopLimit;
     }
 
+    public ExitOnSessionClose(double? stopLimit)
+    {
+      if (stopLimit.HasValue)
+        _StopLimit = stopLimit;
+    }
+
     public override double GetExit(PositionDirection pd, double entry, IEnumerable<Bar> dailyBarsFromNow, out DateTime exitTime)
     {
       var todayBar = dailyBarsFromNow.First();
