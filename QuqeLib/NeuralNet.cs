@@ -21,11 +21,14 @@ namespace Quqe
 
   public class WardNet : NeuralNet
   {
-    static readonly List<Func<double, double>> ActivationFunction = List.Create<Func<double, double>>(Math.Tanh, Gaussian);
+    static readonly List<Func<double, double>> ActivationFunction = List.Create<Func<double, double>>(Math.Tanh, Gaussian, Identity);
 
-    public WardNet(int numInputs, Genome g)
+    List<int> ActivationSpec;
+
+    public WardNet(int numInputs, Genome g, List<int> activationSpec = null)
       : this(numInputs)
     {
+      ActivationSpec = activationSpec;
       FromGenome(g);
     }
 
@@ -49,6 +52,11 @@ namespace Quqe
         for (int layer = 0; layer < Weights.Count - 1 /* -1 to leave output layer alone */; layer++)
           for (int node = 0; node < Weights[layer].ColCount(); node++)
             ActivationFunctions[layer, node] = ActivationFunctionFromGene(genes.Dequeue());
+      }
+      else if (ActivationSpec != null)
+      {
+        ActivationFunctions[0, 0] = ActivationFunction[ActivationSpec[0]];
+        ActivationFunctions[0, 1] = ActivationFunction[ActivationSpec[1]];
       }
       else
       {

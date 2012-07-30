@@ -38,7 +38,11 @@ namespace QuqeViz
     public static void OptimizeBuySell(string symbol, string startDate, string endDate)
     {
       var bars = Data.Get(symbol).From(startDate).To(endDate);
-      var oParams = new List<OptimizerParameter>();
+      var oParams = new List<OptimizerParameter> {
+        new OptimizerParameter("Activation1", 0, 0, 1),
+        new OptimizerParameter("Activation2", 0, 0, 1),
+        new OptimizerParameter("MomentumPeriod", 14, 14, 1)
+      };
       var reports = Strategy.Optimize("BuySell", bars, oParams, OptimizationType.Anneal);
     }
 
@@ -78,6 +82,13 @@ namespace QuqeViz
         Type = PlotType.Candlestick
       });
       g1.AddTrades(trades);
+      var g1b = w.Chart.AddGraph();
+      g1b.Title = "Momentum";
+      g1b.Plots.Add(new Plot {
+        DataSeries = bars.Closes().Momentum(14),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Blue
+      });
       var g2 = w.Chart.AddGraph();
       g2.Plots.Add(new Plot {
         Title = "Profit % per trade",
@@ -99,8 +110,12 @@ namespace QuqeViz
 
     private void UpdatingBuySell_Click(object sender, RoutedEventArgs e)
     {
+      var sParams = List.Create(
+        new StrategyParameter("Activation1", 0),
+        new StrategyParameter("Activation2", 0),
+        new StrategyParameter("MomentumPeriod", 14));
       DoGenomelessBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text,
-        new UpdatingBuySellStrategy(new List<StrategyParameter>()),
+        new UpdatingBuySellStrategy(sParams),
         double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), true);
     }
 
@@ -349,12 +364,12 @@ namespace QuqeViz
       //  Color = Brushes.Blue
       //});
 
-      var g2 = chart.AddGraph();
-      g2.Title = "Yesterday's HeikenAshi(TQQQ)";
-      g2.Plots.Add(new Plot {
-        DataSeries = delayedHeikenAshi,
-        Type = PlotType.Candlestick
-      });
+      //var g2 = chart.AddGraph();
+      //g2.Title = "Yesterday's HeikenAshi(TQQQ)";
+      //g2.Plots.Add(new Plot {
+      //  DataSeries = delayedHeikenAshi,
+      //  Type = PlotType.Candlestick
+      //});
       //g2.Plots.Add(new Plot {
       //  DataSeries = tqqq.DonchianMin(100),
       //  Type = PlotType.ValueLine,
@@ -387,8 +402,8 @@ namespace QuqeViz
       //  Color = Brushes.Blue
       //});
       g3.Plots.Add(new Plot {
-        DataSeries = states,
-        Type = PlotType.Bar,
+        DataSeries = tqqq.Closes().Momentum(14),
+        Type = PlotType.ValueLine,
         Color = Brushes.Blue
       });
 

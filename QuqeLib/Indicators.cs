@@ -57,6 +57,15 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<Value> Momentum(this DataSeries<Value> values, int period)
+    {
+      return values.MapElements<Value>((s, v) => {
+        if (s.Pos == 0)
+          return 0;
+        return s[0] - s[Math.Min(s.Pos, period)];
+      });
+    }
+
     public static DataSeries<Bar> HeikenAshi(this DataSeries<Bar> bars)
     {
       return bars.MapElements<Bar>((s, ha) => {

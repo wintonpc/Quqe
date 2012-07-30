@@ -89,6 +89,7 @@ namespace Quqe
           return;
 
         var shouldBuy = signal[0] >= 0;
+        Trace.WriteLine(Bars[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
 
         double? stopLimit = null;
         if (maxLossPct.HasValue)
@@ -109,6 +110,12 @@ namespace Quqe
         }
       });
       return helper.Stop();
+    }
+
+    protected static List<DataSeries<Value>> TrimInputs(IEnumerable<DataSeries<Value>> inputs)
+    {
+      var firstDate = inputs.Select(x => x.First().Timestamp).Max();
+      return inputs.Select(x => x.From(firstDate)).ToList();
     }
 
     static void PrintStrategyOptimizerReports(IEnumerable<StrategyOptimizerReport> reports)
@@ -137,12 +144,16 @@ namespace Quqe
     public override string Name { get { return "BuySell"; } }
 
     readonly int Lookback = 2;
+    readonly List<int> ActivationSpec;
+    readonly int MomentumPeriod;
 
     public BuySellStrategy(IEnumerable<StrategyParameter> sParams)
       : base(sParams)
     {
-      InputNames = List.Create("Open0", "Close1"/*, "HAsig", "WaxRatio12"*/);
+      InputNames = List.Create("Open0", "Close1", "Momentum1");
       NumInputs = InputNames.Count;
+      ActivationSpec = List.Create(sParams.Get<int>("Activation1"), sParams.Get<int>("Activation2"));
+      MomentumPeriod = sParams.Get<int>("MomentumPeriod");
     }
 
     public override void ApplyToBars(DataSeries<Bar> bars)
@@ -150,12 +161,11 @@ namespace Quqe
       var ha = bars.HeikenAshi().Delay(1).MapElements<Value>((s, v) => Math.Sign(s[0].Close - s[0].Open));
       base.ApplyToBars(bars.From(ha.First().Timestamp));
 
-      Inputs = List.Create(
+      Inputs = TrimInputs(List.Create(
         Bars.MapElements<Value>((s, v) => Normalize(s[0].Open, Bars)),
-        Bars.MapElements<Value>((s, v) => Normalize(s[1].Close, Bars))//,
-        //ha,
-        //Bars.MapElements<Value>((s, v) => s[1].WaxHeight() / s[2].WaxHeight())
-        );
+        Bars.MapElements<Value>((s, v) => Normalize(s[1].Close, Bars)),
+        bars.Closes().Momentum(MomentumPeriod).MapElements<Value>((s, v) => s[0] / 20.0).Delay(1)
+        ));
       Debug.Assert(NumInputs == Inputs.Count);
       IdealSignal = Bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1);
     }
@@ -167,13 +177,13 @@ namespace Quqe
 
     public override DataSeries<Value> MakeSignal(Genome g)
     {
-      return Bars.NeuralNet(new WardNet(NumInputs, g), Inputs);
+      return Bars.NeuralNet(new WardNet(NumInputs, g, ActivationSpec), Inputs);
     }
 
     public override double CalculateError(Genome g)
     {
       var signal = MakeSignal(g);
-      return Error(signal, IdealSignal) * Error(signal.Sign(), IdealSignal);
+      return Error(signal, IdealSignal)/* * Error(signal.Sign(), IdealSignal)*/;
     }
 
     static double Error(DataSeries<Value> a, DataSeries<Value> b)
@@ -209,8 +219,8 @@ namespace Quqe
     public override string Name { get { return "UpdatingBuySell"; } }
 
     int MinTrainingSize = 20;
-    int MaxTrainingSize = 30;
-    int WindowStepSize = 2;
+    int MaxTrainingSize = 50;
+    int WindowStepSize = 3;
 
     public UpdatingBuySellStrategy(IEnumerable<StrategyParameter> sParams)
       : base(sParams)
