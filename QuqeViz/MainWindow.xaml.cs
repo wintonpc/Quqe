@@ -353,6 +353,17 @@ namespace QuqeViz
         DataSeries = tqqq,
         Type = PlotType.Candlestick
       });
+      var swing = tqqq.Swing(5);
+      g.Plots.Add(new Plot {
+        DataSeries = swing.MapElements<Value>((s, v) => s[0].Low),
+        Type = PlotType.Dot,
+        Color = Brushes.Orange
+      });
+      g.Plots.Add(new Plot {
+        DataSeries = swing.MapElements<Value>((s, v) => s[0].High),
+        Type = PlotType.Dot,
+        Color = Brushes.Green
+      });
       //g.Plots.Add(new Plot {
       //  DataSeries = delayedHeikenAshi,
       //  Type = PlotType.Candlestick,

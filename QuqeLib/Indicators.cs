@@ -121,6 +121,160 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<BiValue> Swing(this DataSeries<Bar> bars, int strength)
+    {
+      DataSeries<Value> swingHighSwings = bars.MapElements<Value>((s, v) => 0);
+      DataSeries<Value> swingLowSwings = bars.MapElements<Value>((s, v) => 0);
+      DataSeries<Value> swingHighSeries = bars.MapElements<Value>((s, v) => 0);
+      DataSeries<Value> swingLowSeries = bars.MapElements<Value>((s, v) => 0);
+      List<double> lastHighCache = new List<double>();
+      List<double> lastLowCache = new List<double>();
+      double lastSwingHighValue = 0;
+      double lastSwingLowValue = 0;
+      double currentSwingHigh = 0;
+      double currentSwingLow = 0;
+      int saveCurrentBar = -1;
+
+      DataSeries<Value> swingHighPlot = bars.MapElements<Value>((s, v) => 0);
+      DataSeries<Value> swingLowPlot = bars.MapElements<Value>((s, v) => 0);
+
+      DataSeries.Walk(List.Create<DataSeries>(bars, swingHighSwings, swingLowSwings, swingHighSeries, swingLowSeries, swingHighPlot, swingLowPlot), pos => {
+        if (saveCurrentBar != pos)
+        {
+          swingHighSwings[0] = new Value(bars[0].Timestamp, 0);
+          swingLowSwings[0] = new Value(bars[0].Timestamp, 0);
+
+          swingHighSeries[0] = new Value(bars[0].Timestamp, 0);
+          swingLowSeries[0] = new Value(bars[0].Timestamp, 0);
+
+          lastHighCache.Add(bars[0].High);
+          if (lastHighCache.Count > (2 * strength) + 1)
+            lastHighCache.RemoveAt(0);
+          lastLowCache.Add(bars[0].Low);
+          if (lastLowCache.Count > (2 * strength) + 1)
+            lastLowCache.RemoveAt(0);
+
+          if (lastHighCache.Count == (2 * strength) + 1)
+          {
+            bool isSwingHigh = true;
+            double swingHighCandidateValue = (double)lastHighCache[strength];
+            for (int i = 0; i < strength; i++)
+              if ((double)lastHighCache[i] >= swingHighCandidateValue - double.Epsilon)
+                isSwingHigh = false;
+
+            for (int i = strength + 1; i < lastHighCache.Count; i++)
+              if ((double)lastHighCache[i] > swingHighCandidateValue - double.Epsilon)
+                isSwingHigh = false;
+
+            swingHighSwings[strength] = new Value(bars[strength].Timestamp, isSwingHigh ? swingHighCandidateValue : 0);
+            if (isSwingHigh)
+              lastSwingHighValue = swingHighCandidateValue;
+
+            if (isSwingHigh)
+            {
+              currentSwingHigh = swingHighCandidateValue;
+              for (int i = 0; i <= strength; i++)
+                swingHighPlot[i] = new Value(bars[i].Timestamp, currentSwingHigh);
+            }
+            else if (bars[0].High > currentSwingHigh)
+            {
+              currentSwingHigh = 0.0;
+              swingHighPlot[0] = new Value(bars[0].Timestamp, double.NaN);
+            }
+            else
+              swingHighPlot[0] = new Value(bars[0].Timestamp, currentSwingHigh);
+
+            if (isSwingHigh)
+            {
+              for (int i = 0; i <= strength; i++)
+                swingHighSeries[i] = new Value(bars[i].Timestamp, lastSwingHighValue);
+            }
+            else
+            {
+              swingHighSeries[0] = new Value(bars[0].Timestamp, lastSwingHighValue);
+            }
+          }
+
+          if (lastLowCache.Count == (2 * strength) + 1)
+          {
+            bool isSwingLow = true;
+            double swingLowCandidateValue = (double)lastLowCache[strength];
+            for (int i = 0; i < strength; i++)
+              if ((double)lastLowCache[i] <= swingLowCandidateValue + double.Epsilon)
+                isSwingLow = false;
+
+            for (int i = strength + 1; i < lastLowCache.Count; i++)
+              if ((double)lastLowCache[i] < swingLowCandidateValue + double.Epsilon)
+                isSwingLow = false;
+
+            swingLowSwings[strength] = new Value(bars[strength].Timestamp, isSwingLow ? swingLowCandidateValue : 0);
+            if (isSwingLow)
+              lastSwingLowValue = swingLowCandidateValue;
+
+            if (isSwingLow)
+            {
+              currentSwingLow = swingLowCandidateValue;
+              for (int i = 0; i <= strength; i++)
+                swingLowPlot[i] = new Value(bars[i].Timestamp, currentSwingLow);
+            }
+            else if (bars[0].Low < currentSwingLow)
+            {
+              currentSwingLow = double.MaxValue;
+              swingLowPlot[0] = new Value(bars[0].Timestamp, double.NaN);
+            }
+            else
+              swingLowPlot[0] = new Value(bars[0].Timestamp, currentSwingLow);
+
+            if (isSwingLow)
+            {
+              for (int i = 0; i <= strength; i++)
+                swingLowSeries[i] = new Value(bars[i].Timestamp, lastSwingLowValue);
+            }
+            else
+            {
+              swingLowSeries[0] = new Value(bars[0].Timestamp, lastSwingLowValue);
+            }
+          }
+
+          saveCurrentBar = pos;
+        }
+        else
+        {
+          if (bars[0].High > bars[strength].High && swingHighSwings[strength] > 0)
+          {
+            swingHighSwings[strength] = new Value(bars[strength].Timestamp, 0);
+            for (int i = 0; i <= strength; i++)
+              swingHighPlot[i] = new Value(bars[i].Timestamp, double.NaN);
+            currentSwingHigh = 0.0;
+          }
+          else if (bars[0].High > bars[strength].High && currentSwingHigh != 0.0)
+          {
+            swingHighPlot[0] = new Value(bars[0].Timestamp, double.NaN);
+            currentSwingHigh = 0.0;
+          }
+          else if (bars[0].High <= currentSwingHigh)
+            swingHighPlot[0] = new Value(bars[0].Timestamp, currentSwingHigh);
+
+          if (bars[0].Low < bars[strength].Low && swingLowSwings[strength] > 0)
+          {
+            swingLowSwings[strength] = new Value(bars[strength].Timestamp, 0);
+            for (int i = 0; i <= strength; i++)
+              swingLowPlot[i] = new Value(bars[i].Timestamp, double.NaN);
+            currentSwingLow = double.MaxValue;
+          }
+          else if (bars[0].Low < bars[strength].Low && currentSwingLow != double.MaxValue)
+          {
+            swingLowPlot[0] = new Value(bars[0].Timestamp, double.NaN);
+            currentSwingLow = double.MaxValue;
+          }
+          else if (bars[0].Low >= currentSwingLow)
+            swingLowPlot[0] = new Value(bars[0].Timestamp, currentSwingLow);
+        }
+      });
+
+      return swingHighPlot.ZipElements<Value, BiValue>(swingLowPlot, (h, l, v) => new BiValue(l[0], h[0]));
+    }
+
     public static DataSeries<Value> DonchianAvg(this DataSeries<Bar> bars, int period)
     {
       return bars.DonchianMin(period).ZipElements<Value, Value>(bars.DonchianMax(period), (min, max, v) => (min[0] + max[0]) / 2);

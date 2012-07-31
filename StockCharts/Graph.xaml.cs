@@ -74,9 +74,13 @@ namespace StockCharts
         var ds = p.DataSeries.Elements.ToArray();
         for (int i = pb.ClipLeft; i <= pb.ClipRight; i++)
         {
-          minVal = Math.Min(minVal, ds[i - pb.Left].Min);
-          maxVal = Math.Max(maxVal, ds[i - pb.Left].Max);
-          anythingVisible = true;
+          var el = ds[i - pb.Left];
+          if (!double.IsNaN(el.Min))
+            minVal = Math.Min(minVal, el.Min);
+          if (!double.IsNaN(el.Max))
+            maxVal = Math.Max(maxVal, el.Max);
+          if (!double.IsNaN(el.Min) || !double.IsNaN(el.Max))
+            anythingVisible = true;
         }
       }
 
@@ -122,14 +126,18 @@ namespace StockCharts
             path.Data = geom;
             GraphCanvas.Children.Add(path);
           }
-          else if (p.Type == PlotType.Bar || p.Type == PlotType.Dash)
+          else if (p.Type == PlotType.Bar || p.Type == PlotType.Dash || p.Type == PlotType.Dot)
           {
             var vs = ((DataSeries<Value>)p.DataSeries).ToArray();
             for (int i = pb.ClipLeft; i <= pb.ClipRight; i++)
             {
               int k = i - pb.Left;
 
-              var p1 = PointToCanvas(i - SlotOffset, vs[k].Val, ViewRegion);
+              var val = vs[k].Val;
+              if (double.IsNaN(val))
+                continue;
+
+              var p1 = PointToCanvas(i - SlotOffset, val, ViewRegion);
               if (p.Type == PlotType.Bar)
               {
                 var p2 = PointToCanvas(i - SlotOffset, 0, ViewRegion);
@@ -148,6 +156,10 @@ namespace StockCharts
                   p1.X + Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
                   p1.Y + 1,
                   p.Color);
+              }
+              else if (p.Type == PlotType.Dot)
+              {
+                AddCircle(p1.X, p1.Y, (ParentChart.SlotPxWidth - 3) / 2, p.Color);
               }
             }
           }
@@ -558,6 +570,19 @@ namespace StockCharts
       GraphCanvas.Children.Add(path);
     }
 
+    void AddCircle(double x, double y, double radius, Brush stroke, Brush fill = null)
+    {
+      var path = new Ellipse();
+      path.Fill = fill ?? stroke;
+      path.Stroke = stroke;
+      path.StrokeThickness = 1;
+      path.Width = radius * 2;
+      path.Height = radius * 2;
+      GraphCanvas.Children.Add(path);
+      Canvas.SetLeft(path, x - radius);
+      Canvas.SetTop(path, y - radius);
+    }
+
     Path AddPolygon(Brush stroke, double strokeThickness, Brush fill, params Point[] points)
     {
       var path = new Path();
@@ -579,7 +604,7 @@ namespace StockCharts
     }
 
 
-    int InternalPadding = 0;
+    int InternalPadding = 3;
 
     Point PointToCanvas(double x, double y, Rect region)
     {
@@ -596,7 +621,7 @@ namespace StockCharts
 
   public enum PeriodType { OneDay }
 
-  public enum PlotType { Candlestick, ValueLine, Bar, Dash }
+  public enum PlotType { Candlestick, ValueLine, Bar, Dash, Dot }
 
   public enum CandleColors { GreenRed, WhiteBlack }
 

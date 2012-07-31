@@ -69,6 +69,31 @@ namespace Quqe
     public double WaxBottom { get { return Math.Min(Open, Close); } }
   }
 
+  public class BiValue : DataSeriesElement
+  {
+    public readonly double Low;
+    public readonly double High;
+
+    public BiValue() : base() { throw new NotImplementedException("Don't call this"); }
+
+    public BiValue(double low, double high)
+      : base()
+    {
+      Low = low;
+      High = high;
+    }
+
+    public BiValue(DateTime timestamp, double low, double high)
+      : base(timestamp)
+    {
+      Low = low;
+      High = high;
+    }
+
+    public override double Min { get { return Low; } }
+    public override double Max { get { return High; } }
+  }
+
   public class Value : DataSeriesElement
   {
     public readonly double Val;
@@ -242,6 +267,20 @@ namespace Quqe
           if (k < 0)
             throw new LookedBackTooFarException();
           return _Elements[k];
+        }
+      }
+      set
+      {
+        if (!IsFramed)
+          _Elements[offset] = value;
+        else
+        {
+          if (offset < 0)
+            throw new ArgumentException("Offset cannot be negative. Can\'t look forward.");
+          var k = Pos - offset;
+          if (k < 0)
+            throw new LookedBackTooFarException();
+          _Elements[k] = value;
         }
       }
     }
