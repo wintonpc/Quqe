@@ -225,6 +225,22 @@ namespace Quqe
       }
     }
 
+    public static void OptimizeSignalAccuracy(string signalName, IEnumerable<OptimizerParameter> oParams, DataSeries<Bar> bars,
+      Func<IEnumerable<StrategyParameter>, DataSeries<Value>> makeSignal)
+    {
+      var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
+        var sig = makeSignal(sParams);
+        var accuracy = bars.SignalAccuracy(sig);
+        return new StrategyOptimizerReport {
+          GenomeFitness = (double)accuracy.Count(x => x > 0) / accuracy.Count(),
+          StrategyParams = sParams,
+          StrategyName = signalName
+        };
+      }).OrderByDescending(x => x.GenomeFitness);
+
+      Strategy.PrintStrategyOptimizerReports(reports);
+    }
+
     public static Genome Evolve(EvolutionParams eParams, Genome seed, Func<Genome, double> fitnessFunc)
     {
       var population = new List<Genome>();

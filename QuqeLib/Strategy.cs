@@ -125,7 +125,7 @@ namespace Quqe
       return inputs.Select(x => x.FromDate(firstDate)).ToList();
     }
 
-    static void PrintStrategyOptimizerReports(IEnumerable<StrategyOptimizerReport> reports)
+    public static void PrintStrategyOptimizerReports(IEnumerable<StrategyOptimizerReport> reports)
     {
       var best = reports.First();
       Trace.WriteLine("-- " + best.StrategyName + " --------------");

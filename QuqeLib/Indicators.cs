@@ -121,6 +121,20 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<Value> ATR(this DataSeries<Bar> bars, int period)
+    {
+      return bars.MapElements<Value>((s, v) => {
+        if (s.Pos == 0)
+          return s[0].High - s[0].Low;
+        else
+        {
+          double trueRange = s[0].High - s[0].Low;
+          trueRange = Math.Max(Math.Abs(s[0].Low - s[1].Close), Math.Max(trueRange, Math.Abs(s[0].High - s[1].Close)));
+          return ((Math.Min(s.Pos + 1, period) - 1) * v[1] + trueRange) / Math.Min(s.Pos + 1, period);
+        }
+      });
+    }
+
     public static DataSeries<BiValue> Swing(this DataSeries<Bar> bars, int strength, bool revise = true)
     {
       DataSeries<Value> swingHighSwings = bars.MapElements<Value>((s, v) => 0);
@@ -295,6 +309,24 @@ namespace Quqe
       return new DataSeries<Value>(bars.Symbol, newElements);
     }
 
+    public static DataSeries<Value> LinReg(this DataSeries<Value> values, int period, int forecast)
+    {
+      return values.MapElements<Value>((s, v) => {
+        double sumX = (double)period * (period - 1) * 0.5;
+        double divisor = sumX * sumX - (double)period * period * (period - 1) * (2 * period - 1) / 6;
+        double sumXY = 0;
+
+        for (int count = 0; count < period && s.Pos - count >= 0; count++)
+          sumXY += count * s[count];
+
+        double backBarsSum = s.BackBars(period).Sum(x => x.Val);
+        double slope = ((double)period * sumXY - sumX * backBarsSum /*SUM(Inputs[0], period)[0]*/) / divisor;
+        double intercept = (backBarsSum /*SUM(Inputs[0], period)[0]*/ - slope * sumX) / period;
+
+        return intercept + slope * (period - 1 + forecast);
+      });
+    }
+
     public static IEnumerable<T> BackBars<T>(this DataSeries<T> bars, int count)
       where T : DataSeriesElement
     {
@@ -313,11 +345,49 @@ namespace Quqe
     }
   }
 
+  public static class Signals
+  {
+    public static DataSeries<Value> LinRegRel(this DataSeries<Bar> bars,
+      int openPeriod, int openForecast, int closePeriod, int closeForecast)
+    {
+      var closes = bars.Closes().LinReg(closePeriod, closeForecast).Delay(1);
+      var opens = bars.Opens().LinReg(openPeriod, openForecast).From(closes.First().Timestamp);
+      return closes.ZipElements<Value, Value>(opens, (c, o, v) => {
+        return Math.Sign(o[0] - c[0]);
+      });
+    }
+
+    public static DataSeries<Value> LinRegRel2(this DataSeries<Bar> bars, int atrPeriod, double threshold)
+    {
+      var volatileCloses = bars.Closes().LinReg(7, 0).Delay(1);
+      var volatileOpens = bars.Opens().LinReg(3, 6).From(volatileCloses.First().Timestamp);
+      var trendingCloses = bars.Closes().LinReg(11, 0).Delay(1);
+      var trendingOpens = bars.Opens().LinReg(5, 6).From(trendingCloses.First().Timestamp);
+      var atr = bars.From(trendingCloses.First().Timestamp).ATR(atrPeriod);
+
+      List<Value> newElements = new List<Value>();
+      var bs = bars.From(trendingCloses.First().Timestamp);
+      DataSeries.Walk(List.Create<DataSeries>(
+        bs, volatileCloses, volatileOpens, trendingCloses, trendingOpens, atr), pos => {
+          if (atr[0] > threshold)
+            newElements.Add(new Value(bs[0].Timestamp, Math.Sign(volatileOpens[0] - volatileCloses[0])));
+          else
+            newElements.Add(new Value(bs[0].Timestamp, Math.Sign(trendingOpens[0] - trendingCloses[0])));
+        });
+
+      return new DataSeries<Value>(bars.Symbol, newElements);
+    }
+  }
+
   public static class Transforms
   {
     public static DataSeries<Value> Closes(this DataSeries<Bar> bars)
     {
       return bars.MapElements<Value>((s, v) => s[0].Close);
+    }
+    public static DataSeries<Value> Opens(this DataSeries<Bar> bars)
+    {
+      return bars.MapElements<Value>((s, v) => s[0].Open);
     }
 
     public static DataSeries<Value> Derivative(this DataSeries<Value> values)
@@ -389,6 +459,12 @@ namespace Quqe
         }
       });
       return delayed.From(firstGoodTimestamp.Value);
+    }
+
+    public static DataSeries<Value> SignalAccuracy(this DataSeries<Bar> bars, DataSeries<Value> signal)
+    {
+      var bs = bars.From(signal.First().Timestamp);
+      return bs.ZipElements<Value, Value>(signal, (b, s, v) => b[0].IsGreen == (s[0] >= 0) ? 1 : -1);
     }
 
     public static DataSeries<Value> Average(this DataSeries<Value> xs, DataSeries<Value> ys)

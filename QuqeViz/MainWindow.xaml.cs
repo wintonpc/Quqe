@@ -46,6 +46,123 @@ namespace QuqeViz
       var reports = Strategy.Optimize("BuySell", bars, oParams, OptimizationType.Anneal);
     }
 
+    private void OptimizeLinReg_Click(object sender, RoutedEventArgs e)
+    {
+      var bars = Data.Get("TQQQ");
+      //var bars = Data.Get("TQQQ").From("02/12/2010").To("02/12/2012");
+      //var bars = Data.Get("TQQQ").From("02/13/2012").To("06/30/2012");
+
+      // sine pattern
+      //var bars = Data.Get("TQQQ").From("08/10/2011").To("12/12/2011");
+      //var bars = Data.Get("TQQQ").From("05/25/2010").To("08/09/2010");
+
+      // uptrend pattern
+      //var bars = Data.Get("TQQQ").From("08/31/2010").To("11/09/2010");
+      //var bars = Data.Get("TQQQ").From("12/29/2011").To("02/10/2012");
+
+      //var oParams = List.Create(
+      //  new OptimizerParameter("OpenPeriod", 3, 10, 1),
+      //  new OptimizerParameter("OpenForecast", 2, 8, 1),
+      //  new OptimizerParameter("ClosePeriod", 7, 13, 1),
+      //  new OptimizerParameter("CloseForecast", 0, 1, 1)
+      //  );
+      //Optimizer.OptimizeSignalAccuracy("LinReg", oParams, bars, sParams => {
+      //  return bars.LinRegRel(sParams.Get<int>("OpenPeriod"), sParams.Get<int>("OpenForecast"),
+      //    sParams.Get<int>("ClosePeriod"), sParams.Get<int>("CloseForecast"));
+      //});
+
+      //var oParams = List.Create(
+      //  new OptimizerParameter("ATRPeriod", 8, 18, 1),
+      //  new OptimizerParameter("Threshold", 0.9, 1.8, 0.1)
+      //  );
+      //Optimizer.OptimizeSignalAccuracy("LinReg2", oParams, bars, sParams => {
+      //  return bars.LinRegRel2(sParams.Get<int>("ATRPeriod"), sParams.Get<double>("Threshold"));
+      //});
+
+      //var openPeriod = 5;
+      //var openForecast = 4;
+      //var closePeriod = 11;
+      //var closeForecast = 0;
+
+      // volatile pattern
+      //var openPeriod = 3;
+      //var openForecast = 6;
+      //var closePeriod = 7;
+      //var closeForecast = 0;
+
+      // uptrend pattern
+      //var openPeriod = 5;
+      //var openForecast = 6;
+      //var closePeriod = 11;
+      //var closeForecast = 0;
+
+      var closeRegVolatile = bars.Closes().LinReg(7, 0).Delay(1);
+      var openRegVolatile = bars.Opens().LinReg(3, 6).From(closeRegVolatile.First().Timestamp);
+      var closeRegTrending = bars.Closes().LinReg(11, 0).Delay(1);
+      var openRegTrending = bars.Opens().LinReg(5, 6).From(closeRegVolatile.First().Timestamp);
+
+      var w = new ChartWindow();
+      var g = w.Chart.AddGraph();
+      g.Plots.Add(new Plot {
+        DataSeries = bars,
+        Type = PlotType.Candlestick
+      });
+      g.Plots.Add(new Plot {
+        DataSeries = closeRegVolatile,
+        Type = PlotType.ValueLine,
+        Color = Brushes.DarkOrange
+      });
+      g.Plots.Add(new Plot {
+        DataSeries = openRegVolatile,
+        Type = PlotType.ValueLine,
+        Color = Brushes.DarkGreen
+      });
+      g.Plots.Add(new Plot {
+        DataSeries = closeRegTrending,
+        Type = PlotType.ValueLine,
+        Color = Brushes.DarkCyan
+      });
+      g.Plots.Add(new Plot {
+        DataSeries = openRegTrending,
+        Type = PlotType.ValueLine,
+        Color = Brushes.Purple
+      });
+
+      //var accuracy = bars.SignalAccuracy(bars.LinRegRel(openPeriod, openForecast, closePeriod, closeForecast));
+      var accuracy = bars.SignalAccuracy(bars.LinRegRel2(10, 1.7));
+      Trace.WriteLine("Accuracy: " + (double)accuracy.Count(x => x > 0) / accuracy.Count());
+
+      var g2 = w.Chart.AddGraph();
+      g2.Plots.Add(new Plot {
+        DataSeries = accuracy,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+
+      var mmc = bars.Closes().Momentum(14).Delay(1);
+      var mmo = bars.Opens().Momentum(14).From(mmc.First().Timestamp);
+      //var g3 = w.Chart.AddGraph();
+      //g3.Plots.Add(new Plot {
+      //  DataSeries = mmc,
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Blue
+      //});
+      //g3.Plots.Add(new Plot {
+      //  DataSeries = mmo,
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Purple
+      //});
+
+      var g4 = w.Chart.AddGraph();
+      g4.Plots.Add(new Plot {
+        DataSeries = mmo.ZLEMA(8),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Blue
+      });
+
+      w.Show();
+    }
+
     public static void DoBacktest(string symbol, string startDate, string endDate, string reportName, double initialValue, int marginFactor, bool isValidation)
     {
       var bars = Data.Get(symbol).From(startDate).To(endDate);
@@ -500,17 +617,29 @@ namespace QuqeViz
           DataSeries = bars,
           Type = PlotType.Candlestick
         });
-        var swingA = bars.Swing(4, false);
+        var openReg = bars.Opens().LinReg(10, 0);
+        var closeReg = bars.Closes().LinReg(10, 0).Delay(1);
         g.Plots.Add(new Plot {
-          DataSeries = swingA.MapElements<Value>((s, v) => s[0].Low).Delay(1),
-          Type = PlotType.Dot,
-          Color = Brushes.Orange
+          DataSeries = openReg,
+          Type = PlotType.ValueLine,
+          Color = Brushes.DarkGreen
         });
         g.Plots.Add(new Plot {
-          DataSeries = swingA.MapElements<Value>((s, v) => s[0].High).Delay(1),
-          Type = PlotType.Dot,
-          Color = Brushes.Green
+          DataSeries = closeReg,
+          Type = PlotType.ValueLine,
+          Color = Brushes.DarkOrange
         });
+        //var swingA = bars.Swing(4, false);
+        //g.Plots.Add(new Plot {
+        //  DataSeries = swingA.MapElements<Value>((s, v) => s[0].Low).Delay(1),
+        //  Type = PlotType.Dot,
+        //  Color = Brushes.Orange
+        //});
+        //g.Plots.Add(new Plot {
+        //  DataSeries = swingA.MapElements<Value>((s, v) => s[0].High).Delay(1),
+        //  Type = PlotType.Dot,
+        //  Color = Brushes.Green
+        //});
         //var swingB = bars.Swing(3);
         //g.Plots.Add(new Plot {
         //  DataSeries = swingB.MapElements<Value>((s, v) => s[0].Low).Delay(1),
@@ -525,7 +654,7 @@ namespace QuqeViz
 
         var g3 = chart.AddGraph();
         g3.Plots.Add(new Plot {
-          DataSeries = bars.Closes().Momentum(14).Delay(1),
+          DataSeries = bars.ATR(14),
           Type = PlotType.ValueLine,
           Color = Brushes.Blue
         });

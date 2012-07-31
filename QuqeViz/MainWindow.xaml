@@ -11,7 +11,7 @@
     <Button x:Name="ShowMidFit" Click="ShowMidFit_Click">Show MidFit</Button>
     <Button x:Name="UpdatingBuySell" Click="UpdatingBuySell_Click">UpdatingBuySell</Button>
     <Button x:Name="Swing" Click="Swing_Click">Swing</Button>
-    <Button x:Name="SwingFlipped" Click="SwingFlipped_Click">Swing Flipped</Button>
+    <Button x:Name="OptimizeLinReg" Click="OptimizeLinReg_Click">Optimize LinReg</Button>
     <Button x:Name="ContributionsButton" Click="ContributionsButton_Click">Contributions</Button>
     <StackPanel Orientation="Horizontal">
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
