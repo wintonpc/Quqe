@@ -87,10 +87,28 @@ namespace StockCharts
       GraphsGrid.Children.Add(TimeAxisGraph);
     }
 
+    public void ScrollToEnd()
+    {
+      GraphScrollBar.Value = GraphScrollBar.Maximum;
+    }
+
     public string Title
     {
       get { return Presentation.Title; }
       set { Presentation.Title = value; }
+    }
+
+    public event Action NavigatePrev;
+    public event Action NavigateNext;
+
+    private void PrevButton_Click(object sender, RoutedEventArgs e)
+    {
+      NavigatePrev.Fire();
+    }
+
+    private void NextButton_Click(object sender, RoutedEventArgs e)
+    {
+      NavigateNext.Fire();
     }
   }
 

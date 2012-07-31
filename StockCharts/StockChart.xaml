@@ -40,6 +40,10 @@
     <ScrollBar Grid.Row="2" Grid.Column="0" x:Name="GraphScrollBar" Orientation="Horizontal" Minimum="0" Maximum="{Binding ScrollBarMax}"
                ViewportSize="{Binding SlotsInView}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
     <DockPanel Grid.Row="3" Grid.Column="0">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+        <Button x:Name="PrevButton" Click="PrevButton_Click" Padding="0,0,0,0" FontSize="9" FontWeight="Bold" Width="18">&lt;</Button>
+        <Button x:Name="NextButton" Click="NextButton_Click" Padding="0,0,0,0" FontSize="9" FontWeight="Bold" Width="18">&gt;</Button>
+      </StackPanel>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
         <TextBlock Padding="0,0,6,0">Bar Width:</TextBlock>
         <TextBlock Padding="0,0,6,0" Text="{Binding MinSlotPxWidth}"/>

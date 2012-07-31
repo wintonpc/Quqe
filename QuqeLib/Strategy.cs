@@ -112,10 +112,17 @@ namespace Quqe
       return helper.Stop();
     }
 
-    protected static List<DataSeries<Value>> TrimInputs(IEnumerable<DataSeries<Value>> inputs)
+    protected static List<DataSeries<T>> TrimInputs<T>(IEnumerable<DataSeries<T>> inputs)
+      where T: DataSeriesElement
     {
-      var firstDate = inputs.Select(x => x.First().Timestamp).Max();
+      var firstDate = inputs.Select(x => x.Elements.First().Timestamp).Max();
       return inputs.Select(x => x.From(firstDate)).ToList();
+    }
+
+    protected static List<DataSeries> TrimInputs(params DataSeries[] inputs)
+    {
+      var firstDate = inputs.Select(x => x.Elements.First().Timestamp).Max();
+      return inputs.Select(x => x.FromDate(firstDate)).ToList();
     }
 
     static void PrintStrategyOptimizerReports(IEnumerable<StrategyOptimizerReport> reports)
@@ -305,6 +312,104 @@ namespace Quqe
     public override BacktestReport Backtest(Genome g, Account account)
     {
       return GenericBacktest(g, account, MaxTrainingSize + 1, null);
+    }
+
+    #region not implemented
+
+    public override int GenomeSize
+    {
+      get { throw new NotImplementedException(); }
+    }
+
+    public override double CalculateError(Genome g)
+    {
+      throw new NotImplementedException();
+    }
+
+    public override double Normalize(double value, DataSeries<Bar> ds)
+    {
+      throw new NotImplementedException();
+    }
+
+    public override double Denormalize(double value, DataSeries<Bar> ds)
+    {
+      throw new NotImplementedException();
+    }
+
+    protected override NeuralNet MakeNeuralNet(Genome g)
+    {
+      throw new NotImplementedException();
+    }
+
+    #endregion
+  }
+
+  public class SwingStrategy : Strategy
+  {
+    public override string Name { get { return "Swing"; } }
+
+    readonly bool Flipped;
+    public SwingStrategy(IEnumerable<StrategyParameter> sParams, bool flipped = false)
+      : base(sParams)
+    {
+      Flipped = flipped;
+    }
+
+    enum State { Breakout, Breakdown, BounceUp, BounceDown }
+
+    public override DataSeries<Value> MakeSignal(Genome g)
+    {
+      // indicators
+      var swing4 = Bars.Swing(5, false).Delay(1);
+      var mm = Bars.Closes().Momentum(14).Delay(1);
+
+      List<Value> newElements = new List<Value>() { new Value(Bars[0].Timestamp, Bars[0].Open) };
+      State currentState = DetermineState(swing4.First(), mm.First(), null, null);
+      var tbars = Bars.From(swing4.First().Timestamp);
+      DataSeries.Walk(tbars, swing4, mm, pos => {
+        if (pos < 1)
+        {
+          newElements.Add(new Value(tbars[0].Timestamp, tbars[0].Open));
+          return;
+        }
+
+        currentState = DetermineState(swing4[0], mm[0], currentState, swing4[1]);
+        double s;
+        if (currentState == State.Breakout || currentState == State.BounceUp)
+          s = tbars[0].Open * (Flipped ? -1 : 1);
+        else
+          s = -tbars[0].Open * (Flipped ? -1 : 1);
+        newElements.Add(new Value(tbars[0].Timestamp, s));
+      });
+
+      return new DataSeries<Value>(Bars.Symbol, newElements);
+    }
+
+    static State DetermineState(BiValue swing, double momentum, State? prevState, BiValue prevSwing)
+    {
+      if (swing.HasLow && !swing.HasHigh)
+        return State.Breakout;
+      else if (swing.HasHigh && !swing.HasLow)
+        return State.Breakdown;
+      else
+      {
+        if (!prevState.HasValue)
+          return momentum > 0 ? State.BounceUp : State.BounceDown;
+        else
+        {
+          if (prevState.Value == State.Breakout || swing.High < prevSwing.High)
+            return State.BounceDown;
+          else if (prevState.Value == State.Breakdown || swing.Low > prevSwing.Low)
+            return State.BounceUp;
+          else
+            return prevState.Value;
+        }
+      }
+    }
+
+    public override BacktestReport Backtest(Genome g, Account account)
+    {
+      return GenericBacktest(g, account, 1, null);
     }
 
     #region not implemented

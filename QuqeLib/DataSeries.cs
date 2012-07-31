@@ -92,6 +92,8 @@ namespace Quqe
 
     public override double Min { get { return Low; } }
     public override double Max { get { return High; } }
+    public bool HasLow { get { return !double.IsNaN(Low); } }
+    public  bool HasHigh { get { return !double.IsNaN(High); } }
   }
 
   public class Value : DataSeriesElement
@@ -177,6 +179,8 @@ namespace Quqe
           ThreadFrames = null;
       }
     }
+
+    public abstract DataSeries FromDate(DateTime timestamp);
 
     class Frame : IDisposable
     {
@@ -318,6 +322,11 @@ namespace Quqe
         newInternalArray[pos] = v;
       });
       return result;
+    }
+
+    public override DataSeries FromDate(DateTime timestamp)
+    {
+      return From(timestamp);
     }
 
     public DataSeries<T> From(DateTime timestamp)

@@ -116,7 +116,21 @@ namespace QuqeViz
         new StrategyParameter("MomentumPeriod", 14));
       DoGenomelessBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text,
         new UpdatingBuySellStrategy(sParams),
-        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), true);
+        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
+    }
+
+    private void Swing_Click(object sender, RoutedEventArgs e)
+    {
+      DoGenomelessBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text,
+        new SwingStrategy(new List<StrategyParameter>()),
+        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
+    }
+
+    private void SwingFlipped_Click(object sender, RoutedEventArgs e)
+    {
+      DoGenomelessBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text,
+        new SwingStrategy(new List<StrategyParameter>(), true),
+        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
     }
 
     private void ShowMidpoint_Click(object sender, RoutedEventArgs e)
@@ -347,23 +361,7 @@ namespace QuqeViz
       var delayedHeikenAshi = tqqq.HeikenAshi().Delay(1);
       var window = new ChartWindow();
       var chart = window.Chart;
-      var g = chart.AddGraph();
-      g.Title = "TQQQ";
-      g.Plots.Add(new Plot {
-        DataSeries = tqqq,
-        Type = PlotType.Candlestick
-      });
-      var swing = tqqq.Swing(5);
-      g.Plots.Add(new Plot {
-        DataSeries = swing.MapElements<Value>((s, v) => s[0].Low),
-        Type = PlotType.Dot,
-        Color = Brushes.Orange
-      });
-      g.Plots.Add(new Plot {
-        DataSeries = swing.MapElements<Value>((s, v) => s[0].High),
-        Type = PlotType.Dot,
-        Color = Brushes.Green
-      });
+
       //g.Plots.Add(new Plot {
       //  DataSeries = delayedHeikenAshi,
       //  Type = PlotType.Candlestick,
@@ -405,18 +403,18 @@ namespace QuqeViz
       //    return shouldBuy == s[0].IsGreen ? 1 : 0;
       //  });
 
-      var g3 = chart.AddGraph();
+      //var g3 = chart.AddGraph();
       //g3.Title = "HeikenAshi Accuracy";
       //g3.Plots.Add(new Plot {
       //  DataSeries = accuracy1,
       //  Type = PlotType.Bar,
       //  Color = Brushes.Blue
       //});
-      g3.Plots.Add(new Plot {
-        DataSeries = tqqq.Closes().Momentum(14),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Blue
-      });
+      //g3.Plots.Add(new Plot {
+      //  DataSeries = tqqq.Closes().Momentum(14),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Blue
+      //});
 
       var tqqqSkipFirst = tqqq.From(states.First().Timestamp);
       int nCorrect = 0;
@@ -489,6 +487,69 @@ namespace QuqeViz
       //});
 
       window.Show();
+      chart.ScrollToEnd();
+
+      DateTime currentEnd = tqqq.First().Timestamp.AddMonths(24);
+
+      Action drawIt = () => {
+        var bars = tqqq.To(currentEnd);
+        chart.ClearGraphs();
+        var g = chart.AddGraph();
+        g.Title = "TQQQ";
+        g.Plots.Add(new Plot {
+          DataSeries = bars,
+          Type = PlotType.Candlestick
+        });
+        var swingA = bars.Swing(4, false);
+        g.Plots.Add(new Plot {
+          DataSeries = swingA.MapElements<Value>((s, v) => s[0].Low).Delay(1),
+          Type = PlotType.Dot,
+          Color = Brushes.Orange
+        });
+        g.Plots.Add(new Plot {
+          DataSeries = swingA.MapElements<Value>((s, v) => s[0].High).Delay(1),
+          Type = PlotType.Dot,
+          Color = Brushes.Green
+        });
+        //var swingB = bars.Swing(3);
+        //g.Plots.Add(new Plot {
+        //  DataSeries = swingB.MapElements<Value>((s, v) => s[0].Low).Delay(1),
+        //  Type = PlotType.Circle,
+        //  Color = Brushes.DarkOrange
+        //});
+        //g.Plots.Add(new Plot {
+        //  DataSeries = swingB.MapElements<Value>((s, v) => s[0].High).Delay(1),
+        //  Type = PlotType.Circle,
+        //  Color = Brushes.Black
+        //});
+
+        var g3 = chart.AddGraph();
+        g3.Plots.Add(new Plot {
+          DataSeries = bars.Closes().Momentum(14).Delay(1),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Blue
+        });
+
+        chart.ScrollToEnd();
+      };
+
+      chart.NavigatePrev += () => {
+        do
+        {
+          currentEnd = currentEnd.AddDays(-1);
+        } while (!tqqq.Any(b => b.Timestamp == currentEnd));
+        drawIt();
+      };
+
+      chart.NavigateNext += () => {
+        do
+        {
+          currentEnd = currentEnd.AddDays(1);
+        } while (!tqqq.Any(b => b.Timestamp == currentEnd));
+        drawIt();
+      };
+
+      drawIt();
     }
   }
 }

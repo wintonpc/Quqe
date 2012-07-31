@@ -10,6 +10,8 @@
     <Button x:Name="ShowMidpoint" Click="ShowMidpoint_Click">Show Midpoint</Button>
     <Button x:Name="ShowMidFit" Click="ShowMidFit_Click">Show MidFit</Button>
     <Button x:Name="UpdatingBuySell" Click="UpdatingBuySell_Click">UpdatingBuySell</Button>
+    <Button x:Name="Swing" Click="Swing_Click">Swing</Button>
+    <Button x:Name="SwingFlipped" Click="SwingFlipped_Click">Swing Flipped</Button>
     <Button x:Name="ContributionsButton" Click="ContributionsButton_Click">Contributions</Button>
     <StackPanel Orientation="Horizontal">
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
@@ -21,16 +23,16 @@
     </StackPanel>
     <StackPanel Orientation="Horizontal">
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Initial Value:</TextBlock>
-      <TextBox x:Name="InitialValueBox">10000</TextBox>
+      <TextBox x:Name="InitialValueBox">50000</TextBox>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Margin Factor</TextBlock>
       <TextBox x:Name="MarginFactorBox">1</TextBox>
     </StackPanel>
     <StackPanel Orientation="Horizontal">
       <Button x:Name="BacktestButton" Width="124" Click="BacktestButton_Click">Backtest</Button>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Teaching Start:</TextBlock>
-      <TextBox x:Name="TeachStartBox">06/10/2010</TextBox>
+      <TextBox x:Name="TeachStartBox">02/12/2010</TextBox>
       <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">End:</TextBlock>
-      <TextBox x:Name="TeachEndBox">07/15/2010</TextBox>
+      <TextBox x:Name="TeachEndBox">06/01/2012</TextBox>
     </StackPanel>
     <StackPanel Orientation="Horizontal">
       <Button x:Name="ValidateButton" Width="124" Click="ValidateButton_Click" HorizontalAlignment="Left">Validate</Button>

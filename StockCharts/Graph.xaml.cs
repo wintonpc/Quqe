@@ -126,7 +126,7 @@ namespace StockCharts
             path.Data = geom;
             GraphCanvas.Children.Add(path);
           }
-          else if (p.Type == PlotType.Bar || p.Type == PlotType.Dash || p.Type == PlotType.Dot)
+          else if (p.Type == PlotType.Bar || p.Type == PlotType.Dash || p.Type == PlotType.Dot || p.Type == PlotType.Circle)
           {
             var vs = ((DataSeries<Value>)p.DataSeries).ToArray();
             for (int i = pb.ClipLeft; i <= pb.ClipRight; i++)
@@ -157,9 +157,10 @@ namespace StockCharts
                   p1.Y + 1,
                   p.Color);
               }
-              else if (p.Type == PlotType.Dot)
+              else if (p.Type == PlotType.Dot || p.Type == PlotType.Circle)
               {
-                AddCircle(p1.X, p1.Y, (ParentChart.SlotPxWidth - 3) / 2, p.Color);
+                AddCircle(p1.X, p1.Y, Math.Min(5, (ParentChart.SlotPxWidth - 3) / 2), p.Color,
+                  p.Type == PlotType.Circle ? Brushes.Transparent : null);
               }
             }
           }
@@ -621,7 +622,7 @@ namespace StockCharts
 
   public enum PeriodType { OneDay }
 
-  public enum PlotType { Candlestick, ValueLine, Bar, Dash, Dot }
+  public enum PlotType { Candlestick, ValueLine, Bar, Dash, Dot, Circle }
 
   public enum CandleColors { GreenRed, WhiteBlack }
 

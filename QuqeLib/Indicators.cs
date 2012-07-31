@@ -121,7 +121,7 @@ namespace Quqe
       });
     }
 
-    public static DataSeries<BiValue> Swing(this DataSeries<Bar> bars, int strength)
+    public static DataSeries<BiValue> Swing(this DataSeries<Bar> bars, int strength, bool revise = true)
     {
       DataSeries<Value> swingHighSwings = bars.MapElements<Value>((s, v) => 0);
       DataSeries<Value> swingLowSwings = bars.MapElements<Value>((s, v) => 0);
@@ -173,7 +173,8 @@ namespace Quqe
             if (isSwingHigh)
             {
               currentSwingHigh = swingHighCandidateValue;
-              for (int i = 0; i <= strength; i++)
+              var stop = revise ? strength : 0;
+              for (int i = 0; i <= stop; i++)
                 swingHighPlot[i] = new Value(bars[i].Timestamp, currentSwingHigh);
             }
             else if (bars[0].High > currentSwingHigh)
@@ -214,7 +215,8 @@ namespace Quqe
             if (isSwingLow)
             {
               currentSwingLow = swingLowCandidateValue;
-              for (int i = 0; i <= strength; i++)
+              var stop = revise ? strength : 0;
+              for (int i = 0; i <= stop; i++)
                 swingLowPlot[i] = new Value(bars[i].Timestamp, currentSwingLow);
             }
             else if (bars[0].Low < currentSwingLow)
@@ -243,7 +245,8 @@ namespace Quqe
           if (bars[0].High > bars[strength].High && swingHighSwings[strength] > 0)
           {
             swingHighSwings[strength] = new Value(bars[strength].Timestamp, 0);
-            for (int i = 0; i <= strength; i++)
+            var stop = revise ? strength : 0;
+            for (int i = 0; i <= stop; i++)
               swingHighPlot[i] = new Value(bars[i].Timestamp, double.NaN);
             currentSwingHigh = 0.0;
           }
@@ -258,7 +261,8 @@ namespace Quqe
           if (bars[0].Low < bars[strength].Low && swingLowSwings[strength] > 0)
           {
             swingLowSwings[strength] = new Value(bars[strength].Timestamp, 0);
-            for (int i = 0; i <= strength; i++)
+            var stop = revise ? strength : 0;
+            for (int i = 0; i <= stop; i++)
               swingLowPlot[i] = new Value(bars[i].Timestamp, double.NaN);
             currentSwingLow = double.MaxValue;
           }
@@ -338,12 +342,19 @@ namespace Quqe
 
     public static DataSeries<Value> Delay(this DataSeries<Value> values, int delay)
     {
-      return values.MapElements<Value>((s, v) => {
+      DateTime? firstGoodTimestamp = null;
+      var delayed = values.MapElements<Value>((s, v) => {
+        if (s.Pos == delay)
+          firstGoodTimestamp = s[0].Timestamp;
         if (s.Pos < delay)
-          return 0;
+          return new Value(default(DateTime), 0);
         else
-          return s[delay].Val;
+        {
+          var b = s[delay];
+          return new Value(default(DateTime), b.Val);
+        }
       });
+      return delayed.From(firstGoodTimestamp.Value);
     }
 
     public static DataSeries<Bar> Delay(this DataSeries<Bar> bars, int delay)
@@ -358,6 +369,23 @@ namespace Quqe
         {
           var b = s[delay];
           return new Bar(b.Open, b.Low, b.High, b.Close, b.Volume);
+        }
+      });
+      return delayed.From(firstGoodTimestamp.Value);
+    }
+
+    public static DataSeries<BiValue> Delay(this DataSeries<BiValue> bars, int delay)
+    {
+      DateTime? firstGoodTimestamp = null;
+      var delayed = bars.MapElements<BiValue>((s, v) => {
+        if (s.Pos == delay)
+          firstGoodTimestamp = s[0].Timestamp;
+        if (s.Pos < delay)
+          return new BiValue(0, 0);
+        else
+        {
+          var b = s[delay];
+          return new BiValue(b.Low, b.High);
         }
       });
       return delayed.From(firstGoodTimestamp.Value);
