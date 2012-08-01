@@ -50,26 +50,34 @@ namespace Quqe
 
   public static class DecisionTree
   {
-    public static object Learn(IEnumerable<DtExample> examples, object defaultValue)
+    public static object Learn(IEnumerable<DtExample> examples, object defaultValue, double minimumMajority)
     {
-      return Learn(examples, examples.First().AttributesValues.Select(x => x.GetType()), defaultValue);
+      return Learn(examples, examples.First().AttributesValues.Select(x => x.GetType()), defaultValue, minimumMajority);
     }
 
-    static object Learn(IEnumerable<DtExample> examples, IEnumerable<Type> attribs, object defaultValue)
+    static object Learn(IEnumerable<DtExample> examples, IEnumerable<Type> attribs, object defaultValue, double minimumMajority)
     {
       if (!examples.Any())
         return defaultValue;
       else if (examples.GroupBy(x => x.Goal).Count() == 1)
         return examples.First().Goal;
       else if (!attribs.Any())
-        return MajorityValue(examples);
+      {
+        double strength;
+        var majorityValue = MajorityValue(examples, out strength);
+        if (strength > minimumMajority)
+          return majorityValue;
+        else
+          return "Unsure";
+      }
       else
       {
         Type best = ChooseAttribute(attribs, examples);
         return new DtNode(best, Values(best).Select(v => new DtChild(v, Learn(
           ExamplesWithAttributeValue(examples, v),
           attribs.Except(List.Create(best)),
-          MajorityValue(examples)))));
+          MajorityValue(examples),
+          minimumMajority))));
       }
     }
 
@@ -95,6 +103,13 @@ namespace Quqe
     static object MajorityValue(IEnumerable<DtExample> examples)
     {
       return examples.GroupBy(x => x.Goal).OrderByDescending(g => g.Count()).First().Key;
+    }
+
+    static object MajorityValue(IEnumerable<DtExample> examples, out double strength)
+    {
+      var majorityGroup = examples.GroupBy(x => x.Goal).OrderByDescending(g => g.Count()).First();
+      strength = (double)majorityGroup.Count() / examples.Count();
+      return majorityGroup.Key;
     }
 
     static Type ChooseAttribute(IEnumerable<Type> attribs, IEnumerable<DtExample> examples)

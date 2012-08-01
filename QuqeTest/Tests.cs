@@ -232,7 +232,7 @@ namespace QuqeTest
         new DtExample(TipSize.Large, FoodGood.Yes, ServiceGood.Yes, DayOfWeek.Thu),
         new DtExample(TipSize.Large, FoodGood.Yes, ServiceGood.No, DayOfWeek.Thu));
 
-      var dt = DecisionTree.Learn(examples, TipSize.Small);
+      var dt = DecisionTree.Learn(examples, TipSize.Small, 0);
 
       DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
 
@@ -241,31 +241,66 @@ namespace QuqeTest
     [TestMethod]
     public void DecisionTree2()
     {
-      var learningSet = DtSignals.MakeExamples(Data.Get("TQQQ").To("12/31/2011"));
-      var validationSet = DtSignals.MakeExamples(Data.Get("TQQQ").From("01/01/2012"));
+      var oParams = List.Create(
+        new OptimizerParameter("MinMajority", 0.50, 0.56, 0.01),
+        new OptimizerParameter("SmallMax", 0.60, 0.70, 0.01),
+        new OptimizerParameter("MediumMax", 1.18, 1.28, 0.01),
+        new OptimizerParameter("GapPadding", 0.0, 0.0, 0.03),
+        new OptimizerParameter("SuperGapPadding", 0.35, 0.41, 0.01)
+        );
 
-      var dt = DecisionTree.Learn(learningSet, DtSignals.Prediction.Green);
+      var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
+        //var learningSet = DtSignals.MakeExamples(Data.Get("TQQQ").To("12/31/2011"));
+        //var validationSet = DtSignals.MakeExamples(Data.Get("TQQQ").From("01/01/2012"));
+        var learningSet = DtSignals.MakeExamples(Data.Get("TQQQ"),
+          smallMax: sParams.Get<double>("SmallMax"),
+          mediumMax: sParams.Get<double>("MediumMax"),
+          gapPadding: sParams.Get<double>("GapPadding"),
+          superGapPadding: sParams.Get<double>("SuperGapPadding")
+          );
 
-      DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
+        var dt = DecisionTree.Learn(learningSet, DtSignals.Prediction.Green, sParams.Get<double>("MinMajority"));
 
-      foreach (var set in List.Create(learningSet, validationSet))
-      {
-        var numCorrect = 0;
-        var numIncorrect = 1;
-        foreach (var e in set)
+        //DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
+
+        foreach (var set in List.Create(learningSet/*, validationSet*/))
         {
-          var decision = DecisionTree.Decide(e.AttributesValues, dt);
-          if (decision.ToString() == e.Goal.ToString())
-            numCorrect++;
-          else
-            numIncorrect++;
-        }
+          var numCorrect = 0;
+          var numIncorrect = 0;
+          var numUnsure = 0;
+          foreach (var e in set)
+          {
+            var decision = DecisionTree.Decide(e.AttributesValues, dt);
+            if (decision.Equals(e.Goal))
+              numCorrect++;
+            else if (decision is string && (string)decision == "Unsure")
+              numUnsure++;
+            else
+              numIncorrect++;
+          }
 
-        Trace.WriteLine("NumCorrect: " + numCorrect);
-        Trace.WriteLine("NumIncorrect: " + numIncorrect);
-        Trace.WriteLine("Accuracy: " + (double)numCorrect / (numCorrect + numIncorrect));
-        Trace.WriteLine("---");
-      }
+          var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
+          var confidence = (double)(numCorrect + numIncorrect) / set.Count();
+          var quality = accuracy * confidence;
+          var altAccuracy = 0.57;
+          //Trace.WriteLine("NumCorrect: " + numCorrect);
+          //Trace.WriteLine("NumIncorrect: " + numIncorrect);
+          //Trace.WriteLine("NumUnsure: " + numUnsure);
+          //Trace.WriteLine("Accuracy: " + accuracy);
+          //Trace.WriteLine("Confidence: " + confidence);
+          //Trace.WriteLine("Quality: " + quality);
+          //Trace.WriteLine("---");
+          if (set == learningSet)
+            return new StrategyOptimizerReport {
+              StrategyName = "DecisionTree",
+              StrategyParams = sParams,
+              GenomeFitness = accuracy * confidence + altAccuracy * (1 - confidence)
+            };
+        }
+        throw new Exception();
+      });
+
+      Strategy.PrintStrategyOptimizerReports(reports.OrderByDescending(x => x.GenomeFitness));
     }
   }
 }

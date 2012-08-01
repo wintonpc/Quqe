@@ -426,7 +426,9 @@ namespace Quqe
     public enum GapType { NoneLower, NoneUpper, Up, SuperUp, Down, SuperDown }
     public enum Prediction { Green, Red }
 
-    public static IEnumerable<DtExample> MakeExamples(DataSeries<Bar> bars)
+    public static IEnumerable<DtExample> MakeExamples(DataSeries<Bar> bars,
+      double smallMax = 0.75, double mediumMax = 1.50, double gapPadding = 0, double superGapPadding = 0
+      )
     {
       List<DtExample> examples = new List<DtExample>();
       DataSeries.Walk(bars, pos => {
@@ -435,16 +437,17 @@ namespace Quqe
         var a = new List<object>();
         a.Add(bars[1].IsGreen ? LastBarColor.Green : LastBarColor.Red);
         a.Add(
-          bars[1].WaxHeight() < 0.75 ? LastBarSize.Small :
-          bars[1].WaxHeight() < 1.50 ? LastBarSize.Medium :
+          bars[1].WaxHeight() < smallMax ? LastBarSize.Small :
+          bars[1].WaxHeight() < mediumMax ? LastBarSize.Medium :
           LastBarSize.Large);
         a.Add(
           Between(bars[0].Open, bars[1].WaxBottom, bars[1].WaxMid()) ? GapType.NoneLower :
           Between(bars[0].Open, bars[1].WaxMid(), bars[1].WaxTop) ? GapType.NoneUpper :
-          Between(bars[0].Open, bars[1].WaxTop, bars[1].High) ? GapType.Up :
-          Between(bars[0].Open, bars[1].Low, bars[1].WaxBottom) ? GapType.Down :
-          bars[0].Open > bars[1].High ? GapType.SuperUp :
-          /*bars[0].Open < bars[1].Low ?*/ GapType.SuperDown);
+          Between(bars[0].Open, bars[1].WaxTop+gapPadding, bars[1].High) ? GapType.Up :
+          Between(bars[0].Open, bars[1].Low, bars[1].WaxBottom - gapPadding) ? GapType.Down :
+          bars[0].Open > bars[1].High + superGapPadding ? GapType.SuperUp :
+          bars[0].Open < bars[1].Low - superGapPadding ? GapType.SuperDown :
+          GapType.NoneLower);
         examples.Add(new DtExample(bars[0].IsGreen ? Prediction.Green : Prediction.Red, a));
       });
       return examples;
