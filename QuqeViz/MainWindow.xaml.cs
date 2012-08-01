@@ -79,6 +79,19 @@ namespace QuqeViz
       //  return bars.LinRegRel2(sParams.Get<int>("ATRPeriod"), sParams.Get<double>("Threshold"));
       //});
 
+      var oParams = List.Create(
+        new OptimizerParameter("MomoPeriod", 9, 9, 1), //9
+        new OptimizerParameter("FoscPeriod", 3, 3, 1), //3
+        new OptimizerParameter("FoscForecast", 1, 1, 1), //1
+        new OptimizerParameter("Threshold", 4, 4, 1), //4
+        new OptimizerParameter("K", 0.9, 0.9, 0.1) // 0.9
+        );
+      Optimizer.OptimizeSignalAccuracy("MomentumMinusFosc", oParams, bars, sParams => {
+        return bars.MomentumMinusFosc(sParams.Get<int>("MomoPeriod"), sParams.Get<int>("FoscPeriod"),
+          sParams.Get<int>("FoscForecast"), sParams.Get<double>("Threshold"),
+          sParams.Get<double>("K"));
+      });
+
       //var openPeriod = 5;
       //var openForecast = 4;
       //var closePeriod = 11;
@@ -129,8 +142,9 @@ namespace QuqeViz
       });
 
       //var accuracy = bars.SignalAccuracy(bars.LinRegRel(openPeriod, openForecast, closePeriod, closeForecast));
-      var accuracy = bars.SignalAccuracy(bars.LinRegRel2(10, 1.7));
-      Trace.WriteLine("Accuracy: " + (double)accuracy.Count(x => x > 0) / accuracy.Count());
+      var signal = bars.LinRegRel2(10, 1.7);
+      var accuracy = bars.SignalAccuracy(signal);
+      Trace.WriteLine("Accuracy: " + bars.SignalAccuracyPercent(signal));
 
       var g2 = w.Chart.AddGraph();
       g2.Plots.Add(new Plot {
@@ -153,10 +167,34 @@ namespace QuqeViz
       //  Color = Brushes.Purple
       //});
 
+      var momo = bars.Closes().Momentum(14).Delay(1);
+      var fosc = bars.Opens().FOSC(4, 0);
+
       var g4 = w.Chart.AddGraph();
       g4.Plots.Add(new Plot {
-        DataSeries = mmo.ZLEMA(8),
+        Title = "yesterday's Momentum(14)",
+        DataSeries = momo,
         Type = PlotType.ValueLine,
+        Color = Brushes.Blue
+      });
+
+      var g5 = w.Chart.AddGraph();
+      g5.Plots.Add(new Plot {
+        Title = "FOSC",
+        DataSeries = fosc,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+
+      var k = 1;
+
+      var mmf = momo.ZipElements<Value, Value>(fosc.From(momo.First().Timestamp), (m, f, v) => k * m[0] - f[0]);
+
+      var g6 = w.Chart.AddGraph();
+      g6.Plots.Add(new Plot {
+        Title = "Momentum - FOSC",
+        DataSeries = mmf,
+        Type = PlotType.Bar,
         Color = Brushes.Blue
       });
 

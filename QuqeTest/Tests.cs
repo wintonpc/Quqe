@@ -216,5 +216,24 @@ namespace QuqeTest
       n = sma(4);
       Assert.AreEqual(n, 5);
     }
+
+    enum TipSize { None, Small, Large }
+    enum FoodGood { Yes, No }
+    enum ServiceGood { Yes, No }
+
+    [TestMethod]
+    public void DecisionTree1()
+    {
+      var examples = List.Create(
+        new DtExample(TipSize.None, FoodGood.No, ServiceGood.No),
+        new DtExample(TipSize.Small, FoodGood.Yes, ServiceGood.No),
+        new DtExample(TipSize.Small, FoodGood.No, ServiceGood.Yes),
+        new DtExample(TipSize.Large, FoodGood.Yes, ServiceGood.Yes));
+
+      var dt = DecisionTree.Learn(examples, TipSize.Small);
+
+      DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
+
+    }
   }
 }

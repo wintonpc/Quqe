@@ -135,6 +135,22 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<Value> ReversalVolatility(this DataSeries<Bar> bars, int period)
+    {
+      return bars.MapElements<Value>((s, v) => {
+        var bb = s.BackBars(period).ToList();
+        bool lastWasGreen = bb.First().IsGreen;
+        double reversalCount = 0;
+        for (int i = 1; i < bb.Count; i++)
+        {
+          if (bb[i].IsGreen != lastWasGreen)
+            reversalCount += Math.Pow((double)(period - i) / period, 2);
+          lastWasGreen = bb[i].IsGreen;
+        }
+        return reversalCount;
+      });
+    }
+
     public static DataSeries<BiValue> Swing(this DataSeries<Bar> bars, int strength, bool revise = true)
     {
       DataSeries<Value> swingHighSwings = bars.MapElements<Value>((s, v) => 0);
@@ -327,6 +343,14 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<Value> FOSC(this DataSeries<Value> values, int period, int forecast)
+    {
+      var tsf = values.LinReg(period, 0);
+      return values.ZipElements<Value, Value>(tsf, (s, t, v) => {
+        return 100 * ((s[0] - t[0]) / s[0]);
+      });
+    }
+
     public static IEnumerable<T> BackBars<T>(this DataSeries<T> bars, int count)
       where T : DataSeriesElement
     {
@@ -374,6 +398,22 @@ namespace Quqe
           else
             newElements.Add(new Value(bs[0].Timestamp, Math.Sign(trendingOpens[0] - trendingCloses[0])));
         });
+
+      return new DataSeries<Value>(bars.Symbol, newElements);
+    }
+
+    public static DataSeries<Value> MomentumMinusFosc(this DataSeries<Bar> bars, int momoPeriod,
+      int foscPeriod, int foscForecast, double threshold, double k)
+    {
+      var momo = bars.Closes().Momentum(momoPeriod).Delay(1);
+      var fosc = bars.Opens().FOSC(foscPeriod, foscForecast).From(momo.First().Timestamp);
+
+      List<Value> newElements = new List<Value>();
+      var bs = bars.From(momo.First().Timestamp);
+      DataSeries.Walk(bs, momo, fosc, pos => {
+        var v = k * momo[0] - fosc[0];
+        newElements.Add(new Value(bs[0].Timestamp, Math.Abs(v) > threshold ? Math.Sign(v) : 0));
+      });
 
       return new DataSeries<Value>(bars.Symbol, newElements);
     }
@@ -464,7 +504,19 @@ namespace Quqe
     public static DataSeries<Value> SignalAccuracy(this DataSeries<Bar> bars, DataSeries<Value> signal)
     {
       var bs = bars.From(signal.First().Timestamp);
-      return bs.ZipElements<Value, Value>(signal, (b, s, v) => b[0].IsGreen == (s[0] >= 0) ? 1 : -1);
+      return bs.ZipElements<Value, Value>(signal, (b, s, v) =>
+        s[0] == 0 ? 0 :
+        b[0].IsGreen == (s[0] >= 0) ? 1 :
+        -1);
+    }
+
+    public static double SignalAccuracyPercent(this DataSeries<Bar> bars, DataSeries<Value> signal)
+    {
+      var accuracy = bars.SignalAccuracy(signal);
+      var result = (double)accuracy.Count(x => x > 0) / accuracy.Count(x => x != 0);
+      Trace.WriteLine(string.Format("SignalAccuracyPercent = {0} ({1} of {2} of {3})",
+        result, accuracy.Count(x => x > 0), accuracy.Count(x => x != 0), accuracy.Count()));
+      return result;
     }
 
     public static DataSeries<Value> Average(this DataSeries<Value> xs, DataSeries<Value> ys)

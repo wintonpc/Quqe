@@ -230,9 +230,8 @@ namespace Quqe
     {
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
         var sig = makeSignal(sParams);
-        var accuracy = bars.SignalAccuracy(sig);
         return new StrategyOptimizerReport {
-          GenomeFitness = (double)accuracy.Count(x => x > 0) / accuracy.Count(),
+          GenomeFitness = bars.SignalAccuracyPercent(sig),
           StrategyParams = sParams,
           StrategyName = signalName
         };
