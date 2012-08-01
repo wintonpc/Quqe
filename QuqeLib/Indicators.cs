@@ -423,11 +423,15 @@ namespace Quqe
   {
     public enum LastBarColor { Green, Red }
     public enum LastBarSize { Small, Medium, Large }
+    public enum LastUpperWickSize { Small, Large }
+    public enum LastLowerWickSize { Small,  Large }
     public enum GapType { NoneLower, NoneUpper, Up, SuperUp, Down, SuperDown }
     public enum Prediction { Green, Red }
 
     public static IEnumerable<DtExample> MakeExamples(DataSeries<Bar> bars,
-      double smallMax = 0.75, double mediumMax = 1.50, double gapPadding = 0, double superGapPadding = 0
+      double smallMax = 0.65, double mediumMax = 1.20,
+      double smallWickMax = 0.20,
+      double gapPadding = 0, double superGapPadding = 0
       )
     {
       List<DtExample> examples = new List<DtExample>();
@@ -440,6 +444,12 @@ namespace Quqe
           bars[1].WaxHeight() < smallMax ? LastBarSize.Small :
           bars[1].WaxHeight() < mediumMax ? LastBarSize.Medium :
           LastBarSize.Large);
+        a.Add(
+          bars[1].UpperWickHeight() < smallWickMax ? LastUpperWickSize.Small :
+          LastUpperWickSize.Large);
+        a.Add(
+          bars[1].LowerWickHeight() < smallWickMax ? LastLowerWickSize.Small :
+          LastLowerWickSize.Large);
         a.Add(
           Between(bars[0].Open, bars[1].WaxBottom, bars[1].WaxMid()) ? GapType.NoneLower :
           Between(bars[0].Open, bars[1].WaxMid(), bars[1].WaxTop) ? GapType.NoneUpper :
@@ -700,6 +710,16 @@ namespace Quqe
     public static double WaxMid(this Bar b)
     {
       return (b.WaxTop + b.WaxBottom) / 2;
+    }
+
+    public static double UpperWickHeight(this Bar b)
+    {
+      return b.High - b.WaxTop;
+    }
+
+    public static double LowerWickHeight(this Bar b)
+    {
+      return b.WaxBottom - b.Low;
     }
 
     public static bool UpperWickOnly(this Bar b)

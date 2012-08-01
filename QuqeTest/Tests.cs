@@ -239,14 +239,68 @@ namespace QuqeTest
     }
 
     [TestMethod]
+    public void DecisionTree3()
+    {
+      Func<string, string, IEnumerable<DtExample>> makeExamples = (start, end) => {
+        return DtSignals.MakeExamples(Data.Get("TQQQ").From(start).To(end),
+        smallMax: 0.65,
+        mediumMax: 1.21,
+        smallWickMax: 0.3,
+        gapPadding: 0,
+        superGapPadding: 0.35
+        );
+      };
+
+      //var teachingSet = makeExamples("02/12/2010", "12/31/2011");
+      //var validationSet = makeExamples("01/01/2012", "07/15/2012");
+      //var teachingSet = makeExamples("02/11/2010", "07/18/2012");
+      //var validationSet = makeExamples("02/11/2010", "07/18/2012");
+      var teachingSet = makeExamples("02/11/2010", "04/30/2012");
+      var validationSet = makeExamples("05/01/2012", "07/01/2012");
+
+      var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, 0.56);
+      DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
+
+      foreach (var set in List.Create(teachingSet, validationSet))
+      {
+        var numCorrect = 0;
+        var numIncorrect = 0;
+        var numUnsure = 0;
+        foreach (var e in set)
+        {
+          var decision = DecisionTree.Decide(e.AttributesValues, dt);
+          if (decision.Equals(e.Goal))
+            numCorrect++;
+          else if (decision is string && (string)decision == "Unsure")
+            numUnsure++;
+          else
+            numIncorrect++;
+        }
+
+        var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
+        var confidence = (double)(numCorrect + numIncorrect) / set.Count();
+        var altAccuracy = 0.57;
+        Trace.WriteLine("NumCorrect: " + numCorrect);
+        Trace.WriteLine("NumIncorrect: " + numIncorrect);
+        Trace.WriteLine("NumUnsure: " + numUnsure);
+        Trace.WriteLine("Accuracy: " + accuracy);
+        Trace.WriteLine("Confidence: " + confidence);
+        Trace.WriteLine("Overall Quality: " + (accuracy * confidence + altAccuracy * (1 - confidence)));
+        Trace.WriteLine("---");
+      }
+    }
+
+
+    [TestMethod]
     public void DecisionTree2()
     {
       var oParams = List.Create(
-        new OptimizerParameter("MinMajority", 0.50, 0.56, 0.01),
-        new OptimizerParameter("SmallMax", 0.60, 0.70, 0.01),
-        new OptimizerParameter("MediumMax", 1.18, 1.28, 0.01),
+        new OptimizerParameter("MinMajority", 0.52, 0.58, 0.02),
+        new OptimizerParameter("SmallMax", 0.65, 0.65, 0.01),
+        new OptimizerParameter("MediumMax", 1.21, 1.21, 0.01),
+        new OptimizerParameter("SmallWickMax", 0.15, 0.45, 0.03),
         new OptimizerParameter("GapPadding", 0.0, 0.0, 0.03),
-        new OptimizerParameter("SuperGapPadding", 0.35, 0.41, 0.01)
+        new OptimizerParameter("SuperGapPadding", 0.35, 0.41, 0.02)
         );
 
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
@@ -255,6 +309,7 @@ namespace QuqeTest
         var learningSet = DtSignals.MakeExamples(Data.Get("TQQQ"),
           smallMax: sParams.Get<double>("SmallMax"),
           mediumMax: sParams.Get<double>("MediumMax"),
+          smallWickMax: sParams.Get<double>("SmallWickMax"),
           gapPadding: sParams.Get<double>("GapPadding"),
           superGapPadding: sParams.Get<double>("SuperGapPadding")
           );

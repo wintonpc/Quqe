@@ -1,0 +1,49 @@
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.632414355628059
+MinMajority: 0.59
+SmallMax: 0.7
+MediumMax: 1.2
+GapPadding: 0
+SuperGapPadding: 0.18
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.633849918433931
+MinMajority: 0.58
+SmallMax: 0.7
+MediumMax: 1.2
+GapPadding: 0
+SuperGapPadding: 0.24
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.634355628058728
+MinMajority: 0.57
+SmallMax: 0.7
+MediumMax: 1.2
+GapPadding: 0
+SuperGapPadding: 0.36
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637667210440457
+MinMajority: 0.55
+SmallMax: 0.65
+MediumMax: 1.22
+GapPadding: 0
+SuperGapPadding: 0.38
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.640032626427406
+MinMajority: 0.56
+SmallMax: 0.65
+MediumMax: 1.21
+GapPadding: 0
+SuperGapPadding: 0.4
