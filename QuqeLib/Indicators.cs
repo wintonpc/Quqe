@@ -419,6 +419,43 @@ namespace Quqe
     }
   }
 
+  public static class DtSignals
+  {
+    public enum LastBarColor { Green, Red }
+    public enum LastBarSize { Small, Medium, Large }
+    public enum GapType { NoneLower, NoneUpper, Up, SuperUp, Down, SuperDown }
+    public enum Prediction { Green, Red }
+
+    public static IEnumerable<DtExample> MakeExamples(DataSeries<Bar> bars)
+    {
+      List<DtExample> examples = new List<DtExample>();
+      DataSeries.Walk(bars, pos => {
+        if (pos < 1)
+          return;
+        var a = new List<object>();
+        a.Add(bars[1].IsGreen ? LastBarColor.Green : LastBarColor.Red);
+        a.Add(
+          bars[1].WaxHeight() < 0.75 ? LastBarSize.Small :
+          bars[1].WaxHeight() < 1.50 ? LastBarSize.Medium :
+          LastBarSize.Large);
+        a.Add(
+          Between(bars[0].Open, bars[1].WaxBottom, bars[1].WaxMid()) ? GapType.NoneLower :
+          Between(bars[0].Open, bars[1].WaxMid(), bars[1].WaxTop) ? GapType.NoneUpper :
+          Between(bars[0].Open, bars[1].WaxTop, bars[1].High) ? GapType.Up :
+          Between(bars[0].Open, bars[1].Low, bars[1].WaxBottom) ? GapType.Down :
+          bars[0].Open > bars[1].High ? GapType.SuperUp :
+          /*bars[0].Open < bars[1].Low ?*/ GapType.SuperDown);
+        examples.Add(new DtExample(bars[0].IsGreen ? Prediction.Green : Prediction.Red, a));
+      });
+      return examples;
+    }
+
+    static bool Between(double v, double low, double high)
+    {
+      return low <= v && v <= high;
+    }
+  }
+
   public static class Transforms
   {
     public static DataSeries<Value> Closes(this DataSeries<Bar> bars)
@@ -655,6 +692,11 @@ namespace Quqe
     public static double WaxHeight(this Bar b)
     {
       return b.WaxTop - b.WaxBottom;
+    }
+
+    public static double WaxMid(this Bar b)
+    {
+      return (b.WaxTop + b.WaxBottom) / 2;
     }
 
     public static bool UpperWickOnly(this Bar b)

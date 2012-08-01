@@ -41,6 +41,11 @@ namespace Quqe
       Goal = goal;
       AttributesValues = attributeValues.ToList();
     }
+    public DtExample(object goal, IEnumerable<object> attributeValues)
+    {
+      Goal = goal;
+      AttributesValues = attributeValues.ToList();
+    }
   }
 
   public static class DecisionTree
@@ -66,6 +71,15 @@ namespace Quqe
           attribs.Except(List.Create(best)),
           MajorityValue(examples)))));
       }
+    }
+
+    public static object Decide(IEnumerable<object> attributeValues, object tree)
+    {
+      if (!(tree is DtNode))
+        return tree;
+
+      var path = ((DtNode)tree).Children.Single(c => attributeValues.Contains(c.DecidedAttribute));
+      return Decide(attributeValues, path.Child);
     }
 
     static IEnumerable<DtExample> ExamplesWithAttributeValue(IEnumerable<DtExample> examples, object value)
@@ -122,6 +136,7 @@ namespace Quqe
           if (node is DtNode)
           {
             var dtn = (DtNode)node;
+            var gs = dtn.Children.Where(c => !(c.Child is DtNode)).Select(c => c.Child).GroupBy(x => x).ToList();
             op.WriteLine(string.Format("n{0} [ label = \"{1}\" ]", dtn.GetHashCode(), dName(dtn)));
             foreach (var c in dtn.Children)
             {
@@ -129,15 +144,15 @@ namespace Quqe
               if (c.Child is DtNode)
               {
                 dest = ((DtNode)c.Child).GetHashCode().ToString();
+                op.WriteLine(string.Format("n{0} -> n{1} [ label = \"{2}\" ];", dtn.GetHashCode(), dest, lName(c.DecidedAttribute)));
                 write(c.Child);
               }
               else
               {
-                dest = new object().GetHashCode().ToString();
-                op.WriteLine(string.Format("n{0} [ label = \"{1}\" ]", dest, lName(c.Child)));
+                dest = gs.First(g => g.Key.ToString() == c.Child.ToString()).GetHashCode().ToString();
+                op.WriteLine(string.Format("n{0} [ label = \"{1}\", fillcolor=lightgray, style=filled ]", dest, lName(c.Child)));
+                op.WriteLine(string.Format("n{0} -> n{1} [ label = \"{2}\" ];", dtn.GetHashCode(), dest, lName(c.DecidedAttribute)));
               }
-
-              op.WriteLine(string.Format("n{0} -> n{1} [ label = \"{2}\" ];", dtn.GetHashCode(), dest, lName(c.DecidedAttribute)));
             }
           }
         }, tree);

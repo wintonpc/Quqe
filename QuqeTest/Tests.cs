@@ -220,20 +220,52 @@ namespace QuqeTest
     enum TipSize { None, Small, Large }
     enum FoodGood { Yes, No }
     enum ServiceGood { Yes, No }
+    enum DayOfWeek { Mon, Tue, Wed, Thu }
 
     [TestMethod]
     public void DecisionTree1()
     {
       var examples = List.Create(
-        new DtExample(TipSize.None, FoodGood.No, ServiceGood.No),
-        new DtExample(TipSize.Small, FoodGood.Yes, ServiceGood.No),
-        new DtExample(TipSize.Small, FoodGood.No, ServiceGood.Yes),
-        new DtExample(TipSize.Large, FoodGood.Yes, ServiceGood.Yes));
+        new DtExample(TipSize.None, FoodGood.No, ServiceGood.No, DayOfWeek.Mon),
+        new DtExample(TipSize.Small, FoodGood.Yes, ServiceGood.No, DayOfWeek.Tue),
+        new DtExample(TipSize.Small, FoodGood.No, ServiceGood.Yes, DayOfWeek.Wed),
+        new DtExample(TipSize.Large, FoodGood.Yes, ServiceGood.Yes, DayOfWeek.Thu),
+        new DtExample(TipSize.Large, FoodGood.Yes, ServiceGood.No, DayOfWeek.Thu));
 
       var dt = DecisionTree.Learn(examples, TipSize.Small);
 
       DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
 
+    }
+
+    [TestMethod]
+    public void DecisionTree2()
+    {
+      var learningSet = DtSignals.MakeExamples(Data.Get("TQQQ").To("12/31/2011"));
+      var validationSet = DtSignals.MakeExamples(Data.Get("TQQQ").From("01/01/2012"));
+
+      var dt = DecisionTree.Learn(learningSet, DtSignals.Prediction.Green);
+
+      DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
+
+      foreach (var set in List.Create(learningSet, validationSet))
+      {
+        var numCorrect = 0;
+        var numIncorrect = 1;
+        foreach (var e in set)
+        {
+          var decision = DecisionTree.Decide(e.AttributesValues, dt);
+          if (decision.ToString() == e.Goal.ToString())
+            numCorrect++;
+          else
+            numIncorrect++;
+        }
+
+        Trace.WriteLine("NumCorrect: " + numCorrect);
+        Trace.WriteLine("NumIncorrect: " + numIncorrect);
+        Trace.WriteLine("Accuracy: " + (double)numCorrect / (numCorrect + numIncorrect));
+        Trace.WriteLine("---");
+      }
     }
   }
 }
