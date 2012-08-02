@@ -245,9 +245,9 @@ namespace QuqeTest
         return DtSignals.MakeExamples(Data.Get("TQQQ").From(start).To(end),
         smallMax: 0.65,
         mediumMax: 1.21,
-        smallWickMax: 0.3,
         gapPadding: 0,
-        superGapPadding: 0.35
+        superGapPadding: 0.4,
+        emaPeriod: 3
         );
       };
 
@@ -255,8 +255,8 @@ namespace QuqeTest
       //var validationSet = makeExamples("01/01/2012", "07/15/2012");
       //var teachingSet = makeExamples("02/11/2010", "07/18/2012");
       //var validationSet = makeExamples("02/11/2010", "07/18/2012");
-      var teachingSet = makeExamples("02/11/2010", "04/30/2012");
-      var validationSet = makeExamples("05/01/2012", "07/01/2012");
+      var teachingSet = makeExamples("02/11/2010", "12/31/2011");
+      var validationSet = makeExamples("01/01/2012", "07/17/2012");
 
       var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, 0.56);
       DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
@@ -295,30 +295,49 @@ namespace QuqeTest
     public void DecisionTree2()
     {
       var oParams = List.Create(
-        new OptimizerParameter("MinMajority", 0.52, 0.58, 0.02),
+        new OptimizerParameter("MinMajority", 0.56, 0.56, 0.02),
         new OptimizerParameter("SmallMax", 0.65, 0.65, 0.01),
         new OptimizerParameter("MediumMax", 1.21, 1.21, 0.01),
-        new OptimizerParameter("SmallWickMax", 0.15, 0.45, 0.03),
+        new OptimizerParameter("SmallMaxPct", -0.09, -0.09, 0.01),
+        new OptimizerParameter("LargeMinPct", 0.3, 0.3, 0.01),
+        new OptimizerParameter("EnableBarSizeAveraging", 0, 0, 1),
         new OptimizerParameter("GapPadding", 0.0, 0.0, 0.03),
-        new OptimizerParameter("SuperGapPadding", 0.35, 0.41, 0.02)
+        new OptimizerParameter("SuperGapPadding", 0.4, 0.4, 0.02),
+        new OptimizerParameter("EnableEma", 0, 0, 1),
+        new OptimizerParameter("EmaPeriod", 3, 3, 1),
+        new OptimizerParameter("EnableMomentum", 0, 0, 1),
+        new OptimizerParameter("MomentumPeriod", 19, 19, 1)
         );
 
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
         //var learningSet = DtSignals.MakeExamples(Data.Get("TQQQ").To("12/31/2011"));
         //var validationSet = DtSignals.MakeExamples(Data.Get("TQQQ").From("01/01/2012"));
-        var learningSet = DtSignals.MakeExamples(Data.Get("TQQQ"),
+        var teachingBars = Data.Get("TQQQ").To("12/31/2011");
+        var validationBars = Data.Get("TQQQ").From("01/01/2012");
+
+        Func<DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = bars =>
+          DtSignals.MakeExamples(bars,
           smallMax: sParams.Get<double>("SmallMax"),
           mediumMax: sParams.Get<double>("MediumMax"),
-          smallWickMax: sParams.Get<double>("SmallWickMax"),
+          enableBarSizeAveraging: sParams.Get<int>("EnableBarSizeAveraging"),
+          smallMaxPct: sParams.Get<double>("SmallMaxPct"),
+          largeMinPct: sParams.Get<double>("LargeMinPct"),
           gapPadding: sParams.Get<double>("GapPadding"),
-          superGapPadding: sParams.Get<double>("SuperGapPadding")
+          superGapPadding: sParams.Get<double>("SuperGapPadding"),
+          enableEma: sParams.Get<int>("EnableEma"),
+          emaPeriod: sParams.Get<int>("EmaPeriod"),
+          enableMomentum: sParams.Get<int>("EnableMomentum"),
+          momentumPeriod: sParams.Get<int>("MomentumPeriod")
           );
 
-        var dt = DecisionTree.Learn(learningSet, DtSignals.Prediction.Green, sParams.Get<double>("MinMajority"));
+        var teachingSet = makeExamples(teachingBars);
+        var validationSet = makeExamples(validationBars);
+
+        var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, sParams.Get<double>("MinMajority"));
 
         //DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
 
-        foreach (var set in List.Create(learningSet/*, validationSet*/))
+        foreach (var set in List.Create(/*teachingSet,*/ validationSet))
         {
           var numCorrect = 0;
           var numIncorrect = 0;
@@ -345,7 +364,7 @@ namespace QuqeTest
           //Trace.WriteLine("Confidence: " + confidence);
           //Trace.WriteLine("Quality: " + quality);
           //Trace.WriteLine("---");
-          if (set == learningSet)
+          //if (set == teachingSet)
             return new StrategyOptimizerReport {
               StrategyName = "DecisionTree",
               StrategyParams = sParams,

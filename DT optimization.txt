@@ -47,3 +47,269 @@ SmallMax: 0.65
 MediumMax: 1.21
 GapPadding: 0
 SuperGapPadding: 0.4
+
+
+Added wick size attributes...
+
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.751647634584013
+MinMajority: 0.54
+SmallMax: 0.65
+MediumMax: 1.21
+GapPadding: 0
+SuperGapPadding: 0.4
+
+Wicksize S/M/L causes overfitting. try just S/L...
+
+still overfitting. get rid of it and try colors of back bars.
+
+1 bar back:
+
+NumCorrect: 226
+NumIncorrect: 117
+NumUnsure: 133
+Accuracy: 0.658892128279883
+Confidence: 0.720588235294118
+Overall Quality: 0.63405462184874
+---
+NumCorrect: 67
+NumIncorrect: 37
+NumUnsure: 31
+Accuracy: 0.644230769230769
+Confidence: 0.77037037037037
+Overall Quality: 0.627185185185185
+
+
+2 bars back:
+
+NumCorrect: 250
+NumIncorrect: 112
+NumUnsure: 113
+Accuracy: 0.69060773480663
+Confidence: 0.762105263157895
+Overall Quality: 0.661915789473684
+---
+NumCorrect: 64
+NumIncorrect: 33
+NumUnsure: 37
+Accuracy: 0.65979381443299
+Confidence: 0.723880597014925
+Overall Quality: 0.635
+
+
+3 bars back:
+
+NumCorrect: 268
+NumIncorrect: 101
+NumUnsure: 105
+Accuracy: 0.726287262872629
+Confidence: 0.778481012658228
+Overall Quality: 0.691666666666667
+---
+NumCorrect: 56
+NumIncorrect: 40
+NumUnsure: 37
+Accuracy: 0.583333333333333
+Confidence: 0.721804511278195
+Overall Quality: 0.579624060150376
+
+looks like overfitting. stick with 2 bars.
+add size of 2nd bar back...
+
+NumCorrect: 298
+NumIncorrect: 85
+NumUnsure: 92
+Accuracy: 0.778067885117493
+Confidence: 0.806315789473684
+Overall Quality: 0.737768421052632
+---
+NumCorrect: 69
+NumIncorrect: 38
+NumUnsure: 27
+Accuracy: 0.644859813084112
+Confidence: 0.798507462686567
+Overall Quality: 0.629776119402985
+
+overfitting again :(
+
+
+
+
+0.56 minMajority
+
+NumCorrect: 250
+NumIncorrect: 112
+NumUnsure: 113
+Accuracy: 0.69060773480663
+Confidence: 0.762105263157895
+Overall Quality: 0.661915789473684
+---
+NumCorrect: 64
+NumIncorrect: 33
+NumUnsure: 37
+Accuracy: 0.65979381443299
+Confidence: 0.723880597014925
+Overall Quality: 0.635
+
+
+0.58 minMajority
+
+NumCorrect: 246
+NumIncorrect: 109
+NumUnsure: 120
+Accuracy: 0.692957746478873
+Confidence: 0.747368421052632
+Overall Quality: 0.661894736842105
+---
+NumCorrect: 62
+NumIncorrect: 32
+NumUnsure: 40
+Accuracy: 0.659574468085106
+Confidence: 0.701492537313433
+Overall Quality: 0.632835820895522
+
+
+0.60 minMajority
+
+NumCorrect: 193
+NumIncorrect: 73
+NumUnsure: 209
+Accuracy: 0.725563909774436
+Confidence: 0.56
+Overall Quality: 0.657115789473684
+---
+NumCorrect: 44
+NumIncorrect: 23
+NumUnsure: 67
+Accuracy: 0.656716417910448
+Confidence: 0.5
+Overall Quality: 0.613358208955224
+
+...accuracy marginally better but confidence much lower
+
+
+0.64 minMajority
+
+NumCorrect: 149
+NumIncorrect: 47
+NumUnsure: 279
+Accuracy: 0.760204081632653
+Confidence: 0.412631578947368
+Overall Quality: 0.648484210526316
+---
+NumCorrect: 36
+NumIncorrect: 19
+NumUnsure: 79
+Accuracy: 0.654545454545455
+Confidence: 0.41044776119403
+Overall Quality: 0.604701492537313
+
+back to...
+0.56 minMajority
+
+NumCorrect: 250
+NumIncorrect: 112
+NumUnsure: 113
+Accuracy: 0.69060773480663
+Confidence: 0.762105263157895
+Overall Quality: 0.661915789473684
+---
+NumCorrect: 64
+NumIncorrect: 33
+NumUnsure: 37
+Accuracy: 0.65979381443299
+Confidence: 0.723880597014925
+Overall Quality: 0.635
+
+add ema slope with period 3:
+
+NumCorrect: 274
+NumIncorrect: 115
+NumUnsure: 85
+Accuracy: 0.704370179948586
+Confidence: 0.820675105485232
+Overall Quality: 0.680274261603375
+---
+NumCorrect: 71
+NumIncorrect: 37
+NumUnsure: 25
+Accuracy: 0.657407407407407
+Confidence: 0.81203007518797
+Overall Quality: 0.640977443609023
+
+
+add momentum sign with period 19:
+
+NumCorrect: 268
+NumIncorrect: 72
+NumUnsure: 134
+Accuracy: 0.788235294117647
+Confidence: 0.717299578059072
+Overall Quality: 0.726540084388186
+---
+NumCorrect: 65
+NumIncorrect: 36
+NumUnsure: 32
+Accuracy: 0.643564356435644
+Confidence: 0.759398496240602
+Overall Quality: 0.625864661654135
+
+(worse)
+remove ema, keep momentum...
+
+NumCorrect: 268
+NumIncorrect: 93
+NumUnsure: 113
+Accuracy: 0.742382271468144
+Confidence: 0.761603375527426
+Overall Quality: 0.701286919831224
+---
+NumCorrect: 64
+NumIncorrect: 37
+NumUnsure: 32
+Accuracy: 0.633663366336634
+Confidence: 0.759398496240602
+Overall Quality: 0.618345864661654
+
+(still worse)
+remove momentum, return to ema slope
+
+NumCorrect: 274
+NumIncorrect: 115
+NumUnsure: 85
+Accuracy: 0.704370179948586
+Confidence: 0.820675105485232
+Overall Quality: 0.680274261603375
+---
+NumCorrect: 71
+NumIncorrect: 37
+NumUnsure: 25
+Accuracy: 0.657407407407407
+Confidence: 0.81203007518797
+Overall Quality: 0.640977443609023
+
+trying averaging:
+
+baseline...
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.627537313432836
+MinMajority: 0.56
+SmallMax: 0.65
+MediumMax: 1.21
+SmallMaxPct: -0.1
+LargeMinPct: 0.1
+EnableBarSizeAveraging: 0
+GapPadding: 0
+SuperGapPadding: 0.4
+EnableEma: 0
+EmaPeriod: 3
+
+
+
+

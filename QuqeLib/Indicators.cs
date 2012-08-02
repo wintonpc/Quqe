@@ -421,45 +421,63 @@ namespace Quqe
 
   public static class DtSignals
   {
+    public enum Prediction { Green, Red }
+    public enum Last2BarColor { Green, Red }
     public enum LastBarColor { Green, Red }
     public enum LastBarSize { Small, Medium, Large }
-    public enum LastUpperWickSize { Small, Large }
-    public enum LastLowerWickSize { Small,  Large }
     public enum GapType { NoneLower, NoneUpper, Up, SuperUp, Down, SuperDown }
-    public enum Prediction { Green, Red }
+    public enum EmaSlope { Up, Down }
+    public enum Momentum { Positive, Negative }
 
-    public static IEnumerable<DtExample> MakeExamples(DataSeries<Bar> bars,
+    public static IEnumerable<DtExample> MakeExamples(DataSeries<Bar> carefulBars,
       double smallMax = 0.65, double mediumMax = 1.20,
-      double smallWickMax = 0.20,
-      double gapPadding = 0, double superGapPadding = 0
+      double gapPadding = 0, double superGapPadding = 0,
+      double smallMaxPct = -0.1, double largeMinPct = 0.1, int sizeAvgPeriod = 10, int enableBarSizeAveraging = 0,
+      int emaPeriod = 12, int enableEma = 0,
+      int momentumPeriod = 19, int enableMomentum = 0
       )
     {
       List<DtExample> examples = new List<DtExample>();
-      DataSeries.Walk(bars, pos => {
-        if (pos < 1)
-          return;
-        var a = new List<object>();
-        a.Add(bars[1].IsGreen ? LastBarColor.Green : LastBarColor.Red);
-        a.Add(
-          bars[1].WaxHeight() < smallMax ? LastBarSize.Small :
-          bars[1].WaxHeight() < mediumMax ? LastBarSize.Medium :
-          LastBarSize.Large);
-        a.Add(
-          bars[1].UpperWickHeight() < smallWickMax ? LastUpperWickSize.Small :
-          LastUpperWickSize.Large);
-        a.Add(
-          bars[1].LowerWickHeight() < smallWickMax ? LastLowerWickSize.Small :
-          LastLowerWickSize.Large);
-        a.Add(
-          Between(bars[0].Open, bars[1].WaxBottom, bars[1].WaxMid()) ? GapType.NoneLower :
-          Between(bars[0].Open, bars[1].WaxMid(), bars[1].WaxTop) ? GapType.NoneUpper :
-          Between(bars[0].Open, bars[1].WaxTop+gapPadding, bars[1].High) ? GapType.Up :
-          Between(bars[0].Open, bars[1].Low, bars[1].WaxBottom - gapPadding) ? GapType.Down :
-          bars[0].Open > bars[1].High + superGapPadding ? GapType.SuperUp :
-          bars[0].Open < bars[1].Low - superGapPadding ? GapType.SuperDown :
-          GapType.NoneLower);
-        examples.Add(new DtExample(bars[0].IsGreen ? Prediction.Green : Prediction.Red, a));
-      });
+      var emaSlope = carefulBars.Closes().ZLEMA(emaPeriod).Derivative().Delay(1);
+      var momo = carefulBars.Closes().Momentum(momentumPeriod).Delay(1);
+      var bs = carefulBars.From(emaSlope.First().Timestamp);
+      DataSeries.Walk(
+        List.Create<DataSeries>(bs, emaSlope, momo), pos => {
+          if (pos < 2)
+            return;
+          var a = new List<object>();
+          a.Add(bs[1].IsGreen ? LastBarColor.Green : LastBarColor.Red);
+          a.Add(bs[2].IsGreen ? Last2BarColor.Green : Last2BarColor.Red);
+          if (enableBarSizeAveraging > 0)
+          {
+            var avgHeight = bs.BackBars(Math.Min(pos, sizeAvgPeriod + 1)).Skip(1).Average(x => x.WaxHeight());
+            var r = (bs[0].WaxHeight() - avgHeight) / avgHeight;
+            a.Add(
+              r < smallMaxPct ? LastBarSize.Small :
+              r > largeMinPct ? LastBarSize.Large :
+              LastBarSize.Medium);
+          }
+          else
+          {
+            a.Add(
+              bs[1].WaxHeight() < smallMax ? LastBarSize.Small :
+              bs[1].WaxHeight() < mediumMax ? LastBarSize.Medium :
+              LastBarSize.Large);
+          }
+          a.Add(
+            Between(bs[0].Open, bs[1].WaxBottom, bs[1].WaxMid()) ? GapType.NoneLower :
+            Between(bs[0].Open, bs[1].WaxMid(), bs[1].WaxTop) ? GapType.NoneUpper :
+            Between(bs[0].Open, bs[1].WaxTop + gapPadding, bs[1].High) ? GapType.Up :
+            Between(bs[0].Open, bs[1].Low, bs[1].WaxBottom - gapPadding) ? GapType.Down :
+            bs[0].Open > bs[1].High + superGapPadding ? GapType.SuperUp :
+            bs[0].Open < bs[1].Low - superGapPadding ? GapType.SuperDown :
+            GapType.NoneLower);
+          if (enableEma > 0)
+            a.Add(emaSlope[0] >= 0 ? EmaSlope.Up : EmaSlope.Down);
+          if (enableMomentum > 0)
+            a.Add(momo[0] >= 0 ? Momentum.Positive : Momentum.Negative);
+          examples.Add(new DtExample(bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
+        });
       return examples;
     }
 

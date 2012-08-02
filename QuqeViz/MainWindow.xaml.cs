@@ -655,47 +655,17 @@ namespace QuqeViz
           DataSeries = bars,
           Type = PlotType.Candlestick
         });
-        var openReg = bars.Opens().LinReg(10, 0);
-        var closeReg = bars.Closes().LinReg(10, 0).Delay(1);
-        g.Plots.Add(new Plot {
-          DataSeries = openReg,
-          Type = PlotType.ValueLine,
-          Color = Brushes.DarkGreen
-        });
-        g.Plots.Add(new Plot {
-          DataSeries = closeReg,
-          Type = PlotType.ValueLine,
-          Color = Brushes.DarkOrange
-        });
-        //var swingA = bars.Swing(4, false);
-        //g.Plots.Add(new Plot {
-        //  DataSeries = swingA.MapElements<Value>((s, v) => s[0].Low).Delay(1),
-        //  Type = PlotType.Dot,
-        //  Color = Brushes.Orange
-        //});
-        //g.Plots.Add(new Plot {
-        //  DataSeries = swingA.MapElements<Value>((s, v) => s[0].High).Delay(1),
-        //  Type = PlotType.Dot,
-        //  Color = Brushes.Green
-        //});
-        //var swingB = bars.Swing(3);
-        //g.Plots.Add(new Plot {
-        //  DataSeries = swingB.MapElements<Value>((s, v) => s[0].Low).Delay(1),
-        //  Type = PlotType.Circle,
-        //  Color = Brushes.DarkOrange
-        //});
-        //g.Plots.Add(new Plot {
-        //  DataSeries = swingB.MapElements<Value>((s, v) => s[0].High).Delay(1),
-        //  Type = PlotType.Circle,
-        //  Color = Brushes.Black
-        //});
 
-        var g3 = chart.AddGraph();
-        g3.Plots.Add(new Plot {
-          DataSeries = bars.ATR(14),
-          Type = PlotType.ValueLine,
+        var ema = bars.Closes().ZLEMA(12);
+        var emaSlope = ema.Derivative();
+        g.Title = "EMA Slope Sign (delayed)";
+        g.Plots.Add(new Plot {
+          DataSeries = emaSlope.Sign().Delay(1),
+          Type = PlotType.Bar,
           Color = Brushes.Blue
         });
+
+
 
         chart.ScrollToEnd();
       };
