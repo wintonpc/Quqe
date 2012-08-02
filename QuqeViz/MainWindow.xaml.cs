@@ -79,18 +79,18 @@ namespace QuqeViz
       //  return bars.LinRegRel2(sParams.Get<int>("ATRPeriod"), sParams.Get<double>("Threshold"));
       //});
 
-      var oParams = List.Create(
-        new OptimizerParameter("MomoPeriod", 9, 9, 1), //9
-        new OptimizerParameter("FoscPeriod", 3, 3, 1), //3
-        new OptimizerParameter("FoscForecast", 1, 1, 1), //1
-        new OptimizerParameter("Threshold", 4, 4, 1), //4
-        new OptimizerParameter("K", 0.9, 0.9, 0.1) // 0.9
-        );
-      Optimizer.OptimizeSignalAccuracy("MomentumMinusFosc", oParams, bars, sParams => {
-        return bars.MomentumMinusFosc(sParams.Get<int>("MomoPeriod"), sParams.Get<int>("FoscPeriod"),
-          sParams.Get<int>("FoscForecast"), sParams.Get<double>("Threshold"),
-          sParams.Get<double>("K"));
-      });
+      //var oParams = List.Create(
+      //  new OptimizerParameter("MomoPeriod", 9, 9, 1), //9
+      //  new OptimizerParameter("FoscPeriod", 3, 3, 1), //3
+      //  new OptimizerParameter("FoscForecast", 1, 1, 1), //1
+      //  new OptimizerParameter("Threshold", 4, 4, 1), //4
+      //  new OptimizerParameter("K", 0.9, 0.9, 0.1) // 0.9
+      //  );
+      //Optimizer.OptimizeSignalAccuracy("MomentumMinusFosc", oParams, bars, sParams => {
+      //  return bars.MomentumMinusFosc(sParams.Get<int>("MomoPeriod"), sParams.Get<int>("FoscPeriod"),
+      //    sParams.Get<int>("FoscForecast"), sParams.Get<double>("Threshold"),
+      //    sParams.Get<double>("K"));
+      //});
 
       //var openPeriod = 5;
       //var openForecast = 4;
@@ -142,7 +142,7 @@ namespace QuqeViz
       });
 
       //var accuracy = bars.SignalAccuracy(bars.LinRegRel(openPeriod, openForecast, closePeriod, closeForecast));
-      var signal = bars.LinRegRel2(10, 1.7);
+      var signal = bars.LinRegRel2();
       var accuracy = bars.SignalAccuracy(signal);
       Trace.WriteLine("Accuracy: " + bars.SignalAccuracyPercent(signal));
 

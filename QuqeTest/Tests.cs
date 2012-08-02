@@ -247,7 +247,11 @@ namespace QuqeTest
         mediumMax: 1.21,
         gapPadding: 0,
         superGapPadding: 0.4,
-        emaPeriod: 3
+        enableEma: 1,
+        emaPeriod: 3,
+        enableMomentum: 0,
+        momentumPeriod: 19,
+        enableLrr2: 1
         );
       };
 
@@ -306,7 +310,8 @@ namespace QuqeTest
         new OptimizerParameter("EnableEma", 0, 0, 1),
         new OptimizerParameter("EmaPeriod", 3, 3, 1),
         new OptimizerParameter("EnableMomentum", 0, 0, 1),
-        new OptimizerParameter("MomentumPeriod", 19, 19, 1)
+        new OptimizerParameter("MomentumPeriod", 19, 19, 1),
+        new OptimizerParameter("EnableLrr2", 0, 1, 1)
         );
 
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
@@ -327,7 +332,8 @@ namespace QuqeTest
           enableEma: sParams.Get<int>("EnableEma"),
           emaPeriod: sParams.Get<int>("EmaPeriod"),
           enableMomentum: sParams.Get<int>("EnableMomentum"),
-          momentumPeriod: sParams.Get<int>("MomentumPeriod")
+          momentumPeriod: sParams.Get<int>("MomentumPeriod"),
+          enableLrr2: sParams.Get<int>("EnableLrr2")
           );
 
         var teachingSet = makeExamples(teachingBars);

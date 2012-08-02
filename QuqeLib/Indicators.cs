@@ -381,13 +381,13 @@ namespace Quqe
       });
     }
 
-    public static DataSeries<Value> LinRegRel2(this DataSeries<Bar> bars, int atrPeriod, double threshold)
+    public static DataSeries<Value> LinRegRel2(this DataSeries<Bar> bars, int atrPeriod = 10, double threshold = 1.7)
     {
       var volatileCloses = bars.Closes().LinReg(7, 0).Delay(1);
       var volatileOpens = bars.Opens().LinReg(3, 6).From(volatileCloses.First().Timestamp);
       var trendingCloses = bars.Closes().LinReg(11, 0).Delay(1);
       var trendingOpens = bars.Opens().LinReg(5, 6).From(trendingCloses.First().Timestamp);
-      var atr = bars.From(trendingCloses.First().Timestamp).ATR(atrPeriod);
+      var atr = bars.ATR(atrPeriod).Delay(1);
 
       List<Value> newElements = new List<Value>();
       var bs = bars.From(trendingCloses.First().Timestamp);
@@ -428,21 +428,24 @@ namespace Quqe
     public enum GapType { NoneLower, NoneUpper, Up, SuperUp, Down, SuperDown }
     public enum EmaSlope { Up, Down }
     public enum Momentum { Positive, Negative }
+    public enum Lrr2 { Buy, Sell }
 
     public static IEnumerable<DtExample> MakeExamples(DataSeries<Bar> carefulBars,
       double smallMax = 0.65, double mediumMax = 1.20,
       double gapPadding = 0, double superGapPadding = 0,
       double smallMaxPct = -0.1, double largeMinPct = 0.1, int sizeAvgPeriod = 10, int enableBarSizeAveraging = 0,
       int emaPeriod = 12, int enableEma = 0,
-      int momentumPeriod = 19, int enableMomentum = 0
+      int momentumPeriod = 19, int enableMomentum = 0,
+      int enableLrr2 = 0
       )
     {
       List<DtExample> examples = new List<DtExample>();
       var emaSlope = carefulBars.Closes().ZLEMA(emaPeriod).Derivative().Delay(1);
       var momo = carefulBars.Closes().Momentum(momentumPeriod).Delay(1);
+      var lrr2 = carefulBars.LinRegRel2(); // already delayed!
       var bs = carefulBars.From(emaSlope.First().Timestamp);
       DataSeries.Walk(
-        List.Create<DataSeries>(bs, emaSlope, momo), pos => {
+        List.Create<DataSeries>(bs, emaSlope, momo, lrr2), pos => {
           if (pos < 2)
             return;
           var a = new List<object>();
@@ -476,6 +479,8 @@ namespace Quqe
             a.Add(emaSlope[0] >= 0 ? EmaSlope.Up : EmaSlope.Down);
           if (enableMomentum > 0)
             a.Add(momo[0] >= 0 ? Momentum.Positive : Momentum.Negative);
+          if (enableLrr2 > 0)
+            a.Add(lrr2[0] >= 0 ? Lrr2.Buy : Lrr2.Sell);
           examples.Add(new DtExample(bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
         });
       return examples;
