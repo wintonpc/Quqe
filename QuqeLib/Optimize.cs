@@ -500,6 +500,8 @@ namespace Quqe
         ParallelStrategies = false;
       }
 
+      List<StrategyOptimizerReport> results;
+
       if (ParallelStrategies)
       {
         List<StrategyOptimizerReport> reports = new List<StrategyOptimizerReport>();
@@ -507,10 +509,12 @@ namespace Quqe
           var rpt = optimizeKernel(sParams.ToList());
           lock (reports) { reports.Add(rpt); }
         });
-        return reports;
+        results = reports;
       }
       else
-        return sParamsList.Select(sParams => optimizeKernel(sParams.ToList())).ToList();
+        results = sParamsList.Select(sParams => optimizeKernel(sParams.ToList())).ToList();
+
+      return results.OrderByDescending(x => x.GenomeFitness).ToList();
     }
 
     static IEnumerable<double> Range(double low, double high, double step)

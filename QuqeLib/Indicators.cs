@@ -325,21 +325,64 @@ namespace Quqe
       return new DataSeries<Value>(bars.Symbol, newElements);
     }
 
+    static void LinRegInternal(DataSeries<Value> s, int period, out double slope, out double intercept)
+    {
+      double sumX = (double)period * (period - 1) * 0.5;
+      double divisor = sumX * sumX - (double)period * period * (period - 1) * (2 * period - 1) / 6;
+      double sumXY = 0;
+
+      for (int count = 0; count < period && s.Pos - count >= 0; count++)
+        sumXY += count * s[count];
+
+      double backBarsSum = s.BackBars(period).Sum(x => x.Val);
+      slope = ((double)period * sumXY - sumX * backBarsSum /*SUM(Inputs[0], period)[0]*/) / divisor;
+      intercept = (backBarsSum /*SUM(Inputs[0], period)[0]*/ - slope * sumX) / period;
+    }
+
     public static DataSeries<Value> LinReg(this DataSeries<Value> values, int period, int forecast)
+    {
+      return values.MapElements<Value>((s, v) => {
+        double slope;
+        double intercept;
+        LinRegInternal(s, period, out slope, out intercept);
+        return intercept + slope * (period - 1 + forecast);
+      });
+    }
+
+    public static DataSeries<Value> LinRegSlope(this DataSeries<Value> values, int period)
+    {
+      return values.MapElements<Value>((s, v) => {
+        double slope;
+        double intercept;
+        LinRegInternal(s, period, out slope, out intercept);
+        return slope;
+      });
+    }
+
+    public static DataSeries<Value> RSquared(this DataSeries<Value> values, int period)
     {
       return values.MapElements<Value>((s, v) => {
         double sumX = (double)period * (period - 1) * 0.5;
         double divisor = sumX * sumX - (double)period * period * (period - 1) * (2 * period - 1) / 6;
         double sumXY = 0;
+        double sumX2 = 0;
+        double sumY2 = 0;
 
         for (int count = 0; count < period && s.Pos - count >= 0; count++)
+        {
           sumXY += count * s[count];
+          sumX2 += (count * count);
+          sumY2 += (s[count] * s[count]);
+        }
 
         double backBarsSum = s.BackBars(period).Sum(x => x.Val);
-        double slope = ((double)period * sumXY - sumX * backBarsSum /*SUM(Inputs[0], period)[0]*/) / divisor;
-        double intercept = (backBarsSum /*SUM(Inputs[0], period)[0]*/ - slope * sumX) / period;
+        double numerator = (period * sumXY - sumX * backBarsSum);
+        double denominator = (period * sumX2 - (sumX * sumX)) * (period * sumY2 - (backBarsSum * backBarsSum));
 
-        return intercept + slope * (period - 1 + forecast);
+        if (denominator > 0)
+          return Math.Pow((numerator / Math.Sqrt(denominator)), 2);
+        else
+          return 0;
       });
     }
 
@@ -429,6 +472,8 @@ namespace Quqe
     public enum EmaSlope { Up, Down }
     public enum Momentum { Positive, Negative }
     public enum Lrr2 { Buy, Sell }
+    public enum RSquared { Linear, Nonlinear }
+    public enum LinRegSlope { Positive, Negative }
 
     public static IEnumerable<DtExample> MakeExamples(DataSeries<Bar> carefulBars,
       double smallMax = 0.65, double mediumMax = 1.20,
@@ -436,12 +481,16 @@ namespace Quqe
       double smallMaxPct = -0.1, double largeMinPct = 0.1, int sizeAvgPeriod = 10, int enableBarSizeAveraging = 0,
       int emaPeriod = 12, int enableEma = 0,
       int momentumPeriod = 19, int enableMomentum = 0,
+      int rSquaredPeriod = 8, double rSquaredThresh = 0.75, int enableRSquared = 0,
+      int linRegSlopePeriod = 14, int enableLinRegSlope = 0,
       int enableLrr2 = 0
       )
     {
       List<DtExample> examples = new List<DtExample>();
       var emaSlope = carefulBars.Closes().ZLEMA(emaPeriod).Derivative().Delay(1);
       var momo = carefulBars.Closes().Momentum(momentumPeriod).Delay(1);
+      var rsquared = carefulBars.Closes().RSquared(rSquaredPeriod).Delay(1);
+      var linRegSlope = carefulBars.Closes().LinRegSlope(linRegSlopePeriod).Delay(1);
       var lrr2 = carefulBars.LinRegRel2(); // already delayed!
       var bs = carefulBars.From(emaSlope.First().Timestamp);
       DataSeries.Walk(
@@ -481,7 +530,11 @@ namespace Quqe
             a.Add(momo[0] >= 0 ? Momentum.Positive : Momentum.Negative);
           if (enableLrr2 > 0)
             a.Add(lrr2[0] >= 0 ? Lrr2.Buy : Lrr2.Sell);
-          examples.Add(new DtExample(bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
+          if (enableLinRegSlope > 0)
+            a.Add(linRegSlope[0] >= 0 ? LinRegSlope.Positive : LinRegSlope.Negative);
+          if (enableRSquared > 0)
+            a.Add(rsquared[0] >= rSquaredThresh ? RSquared.Linear : RSquared.Nonlinear);
+          examples.Add(new DtExample(bs[0].Timestamp, bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
         });
       return examples;
     }
@@ -489,6 +542,46 @@ namespace Quqe
     static bool Between(double v, double low, double high)
     {
       return low <= v && v <= high;
+    }
+
+    public static DataSeries<Value> DtCombo(DataSeries<Bar> teachingSet, DataSeries<Bar> validationSet)
+    {
+      Func<DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = bs => {
+        return MakeExamples(bs,
+        smallMax: 0.65,
+        mediumMax: 1.21,
+        gapPadding: 0,
+        superGapPadding: 0.4,
+        enableEma: 1,
+        emaPeriod: 3,
+        enableMomentum: 0,
+        momentumPeriod: 19,
+        enableLrr2: 0,
+        enableLinRegSlope: 0,
+        linRegSlopePeriod: 14,
+        enableRSquared: 0,
+        rSquaredPeriod: 8,
+        rSquaredThresh: 0.75
+        );
+      };
+
+      var dt = DecisionTree.Learn(makeExamples(teachingSet), DtSignals.Prediction.Green, 0.50);
+      var exs = makeExamples(validationSet);
+      var firstDate = exs.First().Timestamp.Value;
+      var attribs = exs.Select(x => x.AttributesValues).ToList();
+      var bars = validationSet.From(firstDate);
+      var lrr2 = validationSet.LinRegRel2(10, 1.7).From(firstDate);
+      var newElements = new List<Value>();
+      for (int i = 0; i < bars.Length; i++)
+      {
+        var d = DecisionTree.Decide(attribs[i], dt);
+        if (d is string && (string)d == "Unsure")
+          newElements.Add(new Value(bars[0].Timestamp, lrr2[i] >= 0 ? 1 : -1));
+        else
+          newElements.Add(new Value(bars[0].Timestamp, d.Equals(Prediction.Green) ? 1 : -1));
+      }
+
+      return new DataSeries<Value>(bars.Symbol, newElements);
     }
   }
 

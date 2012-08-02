@@ -34,15 +34,18 @@ namespace Quqe
 
   public class DtExample
   {
+    public DateTime? Timestamp;
     public List<object> AttributesValues;
     public object Goal;
-    public DtExample(object goal, params object[] attributeValues)
+    public DtExample(DateTime? timestamp, object goal, params object[] attributeValues)
     {
+      Timestamp = timestamp;
       Goal = goal;
       AttributesValues = attributeValues.ToList();
     }
-    public DtExample(object goal, IEnumerable<object> attributeValues)
+    public DtExample(DateTime? timestamp, object goal, IEnumerable<object> attributeValues)
     {
+      Timestamp = timestamp;
       Goal = goal;
       AttributesValues = attributeValues.ToList();
     }
@@ -114,14 +117,18 @@ namespace Quqe
 
     static Type ChooseAttribute(IEnumerable<Type> attribs, IEnumerable<DtExample> examples)
     {
-      return attribs.Select(attr => {
+      var sortedAttribs = attribs.Select(attr => {
         var infoHere = Information(AttributeValueProbabilities(attr, examples));
         var remainder = Values(attr).Sum(v => {
           var subset = ExamplesWithAttributeValue(examples, v);
-          return (double)subset.Count() / examples.Count() * Information(AttributeValueProbabilities(attr, subset));
+          var sc = subset.Count();
+          if (sc == 0)
+            return 0;
+          return (double)sc / examples.Count() * Information(AttributeValueProbabilities(attr, subset));
         });
         return new { Attr = attr, Information = infoHere - remainder };
-      }).OrderByDescending(x => x.Information).First().Attr;
+      }).OrderByDescending(x => x.Information).ToList();
+      return sortedAttribs.First().Attr;
     }
 
     static IEnumerable<double> AttributeValueProbabilities(Type attr, IEnumerable<DtExample> examples)
@@ -136,7 +143,7 @@ namespace Quqe
 
     static double Information(IEnumerable<double> ps)
     {
-      return ps.Sum(p => -p * Log2(p));
+      return ps.Sum(p => p == 0 ? 0 : -p * Log2(p));
     }
 
     public static void WriteDot(string fn, object tree)

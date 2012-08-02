@@ -46,161 +46,6 @@ namespace QuqeViz
       var reports = Strategy.Optimize("BuySell", bars, oParams, OptimizationType.Anneal);
     }
 
-    private void OptimizeLinReg_Click(object sender, RoutedEventArgs e)
-    {
-      var bars = Data.Get("TQQQ");
-      //var bars = Data.Get("TQQQ").From("02/12/2010").To("02/12/2012");
-      //var bars = Data.Get("TQQQ").From("02/13/2012").To("06/30/2012");
-
-      // sine pattern
-      //var bars = Data.Get("TQQQ").From("08/10/2011").To("12/12/2011");
-      //var bars = Data.Get("TQQQ").From("05/25/2010").To("08/09/2010");
-
-      // uptrend pattern
-      //var bars = Data.Get("TQQQ").From("08/31/2010").To("11/09/2010");
-      //var bars = Data.Get("TQQQ").From("12/29/2011").To("02/10/2012");
-
-      //var oParams = List.Create(
-      //  new OptimizerParameter("OpenPeriod", 3, 10, 1),
-      //  new OptimizerParameter("OpenForecast", 2, 8, 1),
-      //  new OptimizerParameter("ClosePeriod", 7, 13, 1),
-      //  new OptimizerParameter("CloseForecast", 0, 1, 1)
-      //  );
-      //Optimizer.OptimizeSignalAccuracy("LinReg", oParams, bars, sParams => {
-      //  return bars.LinRegRel(sParams.Get<int>("OpenPeriod"), sParams.Get<int>("OpenForecast"),
-      //    sParams.Get<int>("ClosePeriod"), sParams.Get<int>("CloseForecast"));
-      //});
-
-      //var oParams = List.Create(
-      //  new OptimizerParameter("ATRPeriod", 8, 18, 1),
-      //  new OptimizerParameter("Threshold", 0.9, 1.8, 0.1)
-      //  );
-      //Optimizer.OptimizeSignalAccuracy("LinReg2", oParams, bars, sParams => {
-      //  return bars.LinRegRel2(sParams.Get<int>("ATRPeriod"), sParams.Get<double>("Threshold"));
-      //});
-
-      //var oParams = List.Create(
-      //  new OptimizerParameter("MomoPeriod", 9, 9, 1), //9
-      //  new OptimizerParameter("FoscPeriod", 3, 3, 1), //3
-      //  new OptimizerParameter("FoscForecast", 1, 1, 1), //1
-      //  new OptimizerParameter("Threshold", 4, 4, 1), //4
-      //  new OptimizerParameter("K", 0.9, 0.9, 0.1) // 0.9
-      //  );
-      //Optimizer.OptimizeSignalAccuracy("MomentumMinusFosc", oParams, bars, sParams => {
-      //  return bars.MomentumMinusFosc(sParams.Get<int>("MomoPeriod"), sParams.Get<int>("FoscPeriod"),
-      //    sParams.Get<int>("FoscForecast"), sParams.Get<double>("Threshold"),
-      //    sParams.Get<double>("K"));
-      //});
-
-      //var openPeriod = 5;
-      //var openForecast = 4;
-      //var closePeriod = 11;
-      //var closeForecast = 0;
-
-      // volatile pattern
-      //var openPeriod = 3;
-      //var openForecast = 6;
-      //var closePeriod = 7;
-      //var closeForecast = 0;
-
-      // uptrend pattern
-      //var openPeriod = 5;
-      //var openForecast = 6;
-      //var closePeriod = 11;
-      //var closeForecast = 0;
-
-      var closeRegVolatile = bars.Closes().LinReg(7, 0).Delay(1);
-      var openRegVolatile = bars.Opens().LinReg(3, 6).From(closeRegVolatile.First().Timestamp);
-      var closeRegTrending = bars.Closes().LinReg(11, 0).Delay(1);
-      var openRegTrending = bars.Opens().LinReg(5, 6).From(closeRegVolatile.First().Timestamp);
-
-      var w = new ChartWindow();
-      var g = w.Chart.AddGraph();
-      g.Plots.Add(new Plot {
-        DataSeries = bars,
-        Type = PlotType.Candlestick
-      });
-      g.Plots.Add(new Plot {
-        DataSeries = closeRegVolatile,
-        Type = PlotType.ValueLine,
-        Color = Brushes.DarkOrange
-      });
-      g.Plots.Add(new Plot {
-        DataSeries = openRegVolatile,
-        Type = PlotType.ValueLine,
-        Color = Brushes.DarkGreen
-      });
-      g.Plots.Add(new Plot {
-        DataSeries = closeRegTrending,
-        Type = PlotType.ValueLine,
-        Color = Brushes.DarkCyan
-      });
-      g.Plots.Add(new Plot {
-        DataSeries = openRegTrending,
-        Type = PlotType.ValueLine,
-        Color = Brushes.Purple
-      });
-
-      //var accuracy = bars.SignalAccuracy(bars.LinRegRel(openPeriod, openForecast, closePeriod, closeForecast));
-      var signal = bars.LinRegRel2();
-      var accuracy = bars.SignalAccuracy(signal);
-      Trace.WriteLine("Accuracy: " + bars.SignalAccuracyPercent(signal));
-
-      var g2 = w.Chart.AddGraph();
-      g2.Plots.Add(new Plot {
-        DataSeries = accuracy,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-
-      var mmc = bars.Closes().Momentum(14).Delay(1);
-      var mmo = bars.Opens().Momentum(14).From(mmc.First().Timestamp);
-      //var g3 = w.Chart.AddGraph();
-      //g3.Plots.Add(new Plot {
-      //  DataSeries = mmc,
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Blue
-      //});
-      //g3.Plots.Add(new Plot {
-      //  DataSeries = mmo,
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Purple
-      //});
-
-      var momo = bars.Closes().Momentum(14).Delay(1);
-      var fosc = bars.Opens().FOSC(4, 0);
-
-      var g4 = w.Chart.AddGraph();
-      g4.Plots.Add(new Plot {
-        Title = "yesterday's Momentum(14)",
-        DataSeries = momo,
-        Type = PlotType.ValueLine,
-        Color = Brushes.Blue
-      });
-
-      var g5 = w.Chart.AddGraph();
-      g5.Plots.Add(new Plot {
-        Title = "FOSC",
-        DataSeries = fosc,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-
-      var k = 1;
-
-      var mmf = momo.ZipElements<Value, Value>(fosc.From(momo.First().Timestamp), (m, f, v) => k * m[0] - f[0]);
-
-      var g6 = w.Chart.AddGraph();
-      g6.Plots.Add(new Plot {
-        Title = "Momentum - FOSC",
-        DataSeries = mmf,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-
-      w.Show();
-    }
-
     public static void DoBacktest(string symbol, string startDate, string endDate, string reportName, double initialValue, int marginFactor, bool isValidation)
     {
       var bars = Data.Get(symbol).From(startDate).To(endDate);
@@ -237,13 +82,6 @@ namespace QuqeViz
         Type = PlotType.Candlestick
       });
       g1.AddTrades(trades);
-      var g1b = w.Chart.AddGraph();
-      g1b.Title = "Momentum";
-      g1b.Plots.Add(new Plot {
-        DataSeries = bars.Closes().Momentum(14),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Blue
-      });
       var g2 = w.Chart.AddGraph();
       g2.Plots.Add(new Plot {
         Title = "Profit % per trade",
@@ -281,11 +119,75 @@ namespace QuqeViz
         double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
     }
 
-    private void SwingFlipped_Click(object sender, RoutedEventArgs e)
+
+    private void BacktestDtCombo_Click(object sender, RoutedEventArgs e)
     {
+      //var bars = Data.Get("TQQQ");
+
+      //var teachingSet = bars.To("12/31/2011");
+      //var validationSet = bars.From("01/01/2012");
+
+      //var oParams = List.Create(
+      //  new OptimizerParameter("StopLimitPct", 0.005, 0.035, 0.003)
+      //  );
+      //var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
+      //  var strat = new ComboStrategy(sParams.Get<double>("StopLimitPct"));
+      //  strat.ApplyToBars(validationSet);
+      //  var report = strat.Backtest(null, new Account { Equity = 10000, MarginFactor = 4, Padding = 20 });
+      //  return new StrategyOptimizerReport {
+      //    StrategyName = "Combo",
+      //    GenomeFitness = report.CPC,
+      //    StrategyParams = sParams
+      //  };
+      //});
+
+      //Strategy.PrintStrategyOptimizerReports(reports);
+
       DoGenomelessBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text,
-        new SwingStrategy(new List<StrategyParameter>(), true),
+        new ComboStrategy(TeachEndBox.Text, 0.023),
         double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
+
+      DoGenomelessBacktest(SymbolBox.Text, ValidationStartBox.Text, ValidationEndBox.Text,
+        new ComboStrategy(TeachEndBox.Text, 0.023),
+        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), true);
+    }
+
+    private void DtCombo_Click(object sender, RoutedEventArgs e)
+    {
+      var bars = Data.Get("TQQQ");
+
+      var teachingSet = bars.To("12/31/2011");
+      var validationSet = bars.From("01/01/2012");
+
+      var strat = new ComboStrategy();
+      strat.ApplyToBars(validationSet);
+      var sig = strat.MakeSignal(null);// DtSignals.DtCombo(teachingSet, validationSet);
+
+      var w = new ChartWindow();
+      var g = w.Chart.AddGraph();
+      g.Title = "TQQQ";
+      g.Plots.Add(new Plot {
+        DataSeries = validationSet,
+        Type = PlotType.Candlestick
+      });
+      //var g2 = w.Chart.AddGraph();
+      //g2.Plots.Add(new Plot {
+      //  Title = "Signal",
+      //  DataSeries = sig,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Blue
+      //});
+      var g3 = w.Chart.AddGraph();
+      g3.Plots.Add(new Plot {
+        Title = "Signal Accuracy",
+        DataSeries = validationSet.SignalAccuracy(sig),
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+
+      Trace.WriteLine("Accuracy: " + validationSet.SignalAccuracyPercent(sig));
+
+      w.Show();
     }
 
     private void ShowMidpoint_Click(object sender, RoutedEventArgs e)
@@ -655,14 +557,19 @@ namespace QuqeViz
           DataSeries = bars,
           Type = PlotType.Candlestick
         });
-
-        var ema = bars.Closes().ZLEMA(12);
-        var emaSlope = ema.Derivative();
-        g.Title = "EMA Slope Sign (delayed)";
-        g.Plots.Add(new Plot {
-          DataSeries = emaSlope.Sign().Delay(1),
-          Type = PlotType.Bar,
-          Color = Brushes.Blue
+        var g2 = chart.AddGraph();
+        g2.Plots.Add(new Plot {
+          Title = "LinRegSlope",
+          DataSeries = bars.Closes().LinRegSlope(14),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Orange
+        });
+        var g3 = chart.AddGraph();
+        g3.Plots.Add(new Plot {
+          Title = "RSquared",
+          DataSeries = bars.Closes().RSquared(8),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Red
         });
 
 

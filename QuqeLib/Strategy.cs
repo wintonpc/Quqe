@@ -65,6 +65,8 @@ namespace Quqe
         return new MidpointStrategy(sParams);
       if (strategyName == "BuySell")
         return new BuySellStrategy(sParams);
+      if (strategyName == "Combo")
+        return new ComboStrategy(sParams);
       else
         throw new Exception("didn't expect " + strategyName);
     }
@@ -83,30 +85,31 @@ namespace Quqe
     protected BacktestReport GenericBacktest(Genome g, Account account, int lookback, double? maxLossPct)
     {
       var signal = MakeSignal(g);
-      var helper = BacktestHelper.Start(Bars, account);
-      DataSeries.Walk(Bars, signal, pos => {
+      var bs = Bars.From(signal.First().Timestamp);
+      var helper = BacktestHelper.Start(bs, account);
+      DataSeries.Walk(bs, signal, pos => {
         if (pos < lookback)
           return;
 
         var shouldBuy = signal[0] >= 0;
-        Trace.WriteLine(Bars[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
+        //Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
 
         double? stopLimit = null;
         if (maxLossPct.HasValue)
         {
           if (shouldBuy)
-            stopLimit = (1 - maxLossPct) * Bars[0].Open;
+            stopLimit = (1 - maxLossPct) * bs[0].Open;
           else
-            stopLimit = (1 + maxLossPct) * Bars[0].Open;
+            stopLimit = (1 + maxLossPct) * bs[0].Open;
         }
 
-        var size = (long)((account.BuyingPower - account.Padding) / Bars[0].Open);
+        var size = (long)((account.BuyingPower - account.Padding) / bs[0].Open);
         if (size > 0)
         {
           if (shouldBuy)
-            account.EnterLong(Bars.Symbol, size, new ExitOnSessionClose(stopLimit), Bars.FromHere());
+            account.EnterLong(bs.Symbol, size, new ExitOnSessionClose(stopLimit), bs.FromHere());
           else
-            account.EnterShort(Bars.Symbol, size, new ExitOnSessionClose(stopLimit), Bars.FromHere());
+            account.EnterShort(bs.Symbol, size, new ExitOnSessionClose(stopLimit), bs.FromHere());
         }
       });
       return helper.Stop();
@@ -638,6 +641,69 @@ namespace Quqe
     }
 
     public override double CalculateError(Genome g)
+    {
+      throw new NotImplementedException();
+    }
+
+    #endregion
+  }
+
+  public class ComboStrategy : Strategy
+  {
+    public override string Name { get { return "Combo"; } }
+
+    readonly double? StopLimitPct;
+    string TeachingEndDate = "12/31/2011";
+    public ComboStrategy()
+      : this(null, (double?)null)
+    {
+    }
+
+    public ComboStrategy(string teachingEndDate, double? stopLimitPct)
+      : base(new List<StrategyParameter>())
+    {
+      TeachingEndDate = teachingEndDate ?? TeachingEndDate;
+      StopLimitPct = stopLimitPct;
+    }
+
+    public ComboStrategy(IEnumerable<StrategyParameter> sParams)
+      : base(sParams)
+    {
+    }
+
+    public override DataSeries<Value> MakeSignal(Genome g)
+    {
+      return DtSignals.DtCombo(Data.Get("TQQQ").To(TeachingEndDate), Bars);
+    }
+
+    public override BacktestReport Backtest(Genome g, Account account)
+    {
+      return GenericBacktest(null, account, 1, StopLimitPct);
+    }
+
+    #region not implemented
+
+    public override int GenomeSize
+    {
+      get { throw new NotImplementedException(); }
+    }
+
+    public override double CalculateError(Genome g)
+    {
+      throw new NotImplementedException();
+    }
+
+    public override double Normalize(double value, DataSeries<Bar> ds)
+    {
+      throw new NotImplementedException();
+    }
+
+    public override double Denormalize(double value, DataSeries<Bar> ds)
+    {
+      throw new NotImplementedException();
+    }
+
+    protected override NeuralNet MakeNeuralNet(Genome g)
     {
       throw new NotImplementedException();
     }

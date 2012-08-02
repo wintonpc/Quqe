@@ -226,11 +226,11 @@ namespace QuqeTest
     public void DecisionTree1()
     {
       var examples = List.Create(
-        new DtExample(TipSize.None, FoodGood.No, ServiceGood.No, DayOfWeek.Mon),
-        new DtExample(TipSize.Small, FoodGood.Yes, ServiceGood.No, DayOfWeek.Tue),
-        new DtExample(TipSize.Small, FoodGood.No, ServiceGood.Yes, DayOfWeek.Wed),
-        new DtExample(TipSize.Large, FoodGood.Yes, ServiceGood.Yes, DayOfWeek.Thu),
-        new DtExample(TipSize.Large, FoodGood.Yes, ServiceGood.No, DayOfWeek.Thu));
+        new DtExample(null, TipSize.None, FoodGood.No, ServiceGood.No, DayOfWeek.Mon),
+        new DtExample(null, TipSize.Small, FoodGood.Yes, ServiceGood.No, DayOfWeek.Tue),
+        new DtExample(null, TipSize.Small, FoodGood.No, ServiceGood.Yes, DayOfWeek.Wed),
+        new DtExample(null, TipSize.Large, FoodGood.Yes, ServiceGood.Yes, DayOfWeek.Thu),
+        new DtExample(null, TipSize.Large, FoodGood.Yes, ServiceGood.No, DayOfWeek.Thu));
 
       var dt = DecisionTree.Learn(examples, TipSize.Small, 0);
 
@@ -251,7 +251,12 @@ namespace QuqeTest
         emaPeriod: 3,
         enableMomentum: 0,
         momentumPeriod: 19,
-        enableLrr2: 1
+        enableLrr2: 0,
+        enableLinRegSlope: 0,
+        linRegSlopePeriod: 14,
+        enableRSquared: 0,
+        rSquaredPeriod: 8,
+        rSquaredThresh: 0.75
         );
       };
 
@@ -260,9 +265,9 @@ namespace QuqeTest
       //var teachingSet = makeExamples("02/11/2010", "07/18/2012");
       //var validationSet = makeExamples("02/11/2010", "07/18/2012");
       var teachingSet = makeExamples("02/11/2010", "12/31/2011");
-      var validationSet = makeExamples("01/01/2012", "07/17/2012");
+      var validationSet = makeExamples("01/01/2012", "07/18/2012");
 
-      var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, 0.56);
+      var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, 0.50);
       DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
 
       foreach (var set in List.Create(teachingSet, validationSet))
@@ -299,7 +304,7 @@ namespace QuqeTest
     public void DecisionTree2()
     {
       var oParams = List.Create(
-        new OptimizerParameter("MinMajority", 0.56, 0.56, 0.02),
+        new OptimizerParameter("MinMajority", 0.48, 0.52, 0.01),
         new OptimizerParameter("SmallMax", 0.65, 0.65, 0.01),
         new OptimizerParameter("MediumMax", 1.21, 1.21, 0.01),
         new OptimizerParameter("SmallMaxPct", -0.09, -0.09, 0.01),
@@ -307,11 +312,16 @@ namespace QuqeTest
         new OptimizerParameter("EnableBarSizeAveraging", 0, 0, 1),
         new OptimizerParameter("GapPadding", 0.0, 0.0, 0.03),
         new OptimizerParameter("SuperGapPadding", 0.4, 0.4, 0.02),
-        new OptimizerParameter("EnableEma", 0, 0, 1),
-        new OptimizerParameter("EmaPeriod", 3, 3, 1),
+        new OptimizerParameter("EnableEma", 1, 1, 1),
+        new OptimizerParameter("EmaPeriod", 3, 5, 1),
         new OptimizerParameter("EnableMomentum", 0, 0, 1),
         new OptimizerParameter("MomentumPeriod", 19, 19, 1),
-        new OptimizerParameter("EnableLrr2", 0, 1, 1)
+        new OptimizerParameter("EnableLrr2", 0, 0, 1),
+        new OptimizerParameter("EnableLinRegSlope", 0, 0, 1),
+        new OptimizerParameter("LinRegSlopePeriod", 10, 10, 1),
+        new OptimizerParameter("EnableRSquared", 0, 0, 1),
+        new OptimizerParameter("RSquaredPeriod", 10, 10, 1),
+        new OptimizerParameter("RSquaredThresh", 0.5, 0.5, 4)
         );
 
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
@@ -333,7 +343,12 @@ namespace QuqeTest
           emaPeriod: sParams.Get<int>("EmaPeriod"),
           enableMomentum: sParams.Get<int>("EnableMomentum"),
           momentumPeriod: sParams.Get<int>("MomentumPeriod"),
-          enableLrr2: sParams.Get<int>("EnableLrr2")
+          enableLrr2: sParams.Get<int>("EnableLrr2"),
+          enableLinRegSlope: sParams.Get<int>("EnableLinRegSlope"),
+          linRegSlopePeriod: sParams.Get<int>("LinRegSlopePeriod"),
+          enableRSquared: sParams.Get<int>("EnableRSquared"),
+          rSquaredPeriod: sParams.Get<int>("RSquaredPeriod"),
+          rSquaredThresh: sParams.Get<double>("RSquaredThresh")
           );
 
         var teachingSet = makeExamples(teachingBars);
