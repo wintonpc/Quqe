@@ -105,20 +105,11 @@ namespace QuqeViz
     {
       var sParams = List.Create(
         new StrategyParameter("Activation1", 0),
-        new StrategyParameter("Activation2", 0),
-        new StrategyParameter("MomentumPeriod", 14));
+        new StrategyParameter("Activation2", 0));
       DoGenomelessBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text,
         new UpdatingBuySellStrategy(sParams),
         double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
     }
-
-    private void Swing_Click(object sender, RoutedEventArgs e)
-    {
-      DoGenomelessBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text,
-        new SwingStrategy(new List<StrategyParameter>()),
-        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
-    }
-
 
     private void BacktestDtCombo_Click(object sender, RoutedEventArgs e)
     {
@@ -221,66 +212,7 @@ namespace QuqeViz
 
       w.Show();
     }
-
-    private void ShowMidFit_Click(object sender, RoutedEventArgs e)
-    {
-      var bars = Data.Get(SymbolBox.Text);
-
-      var oParams = List.Create(
-        new OptimizerParameter("LineSamples", 3, 3, 1),
-        new OptimizerParameter("QuadSamples", 7, 7, 1)
-        );
-
-      Func<IEnumerable<StrategyParameter>, DataSeries<Value>, DataSeries<Value>> makeAccuracy = (sp, md) => {
-        var maxSamplesNeeded = List.Create(sp.Get<int>("LineSamples"), sp.Get<int>("QuadSamples")).Max();
-        return bars.ZipElements<Value, Value>(md, (s, m, v) =>
-          (s.Pos > maxSamplesNeeded && (s[0].WaxBottom < m[0] && m[0] < s[0].WaxTop)) ? 1 : 0);
-      };
-
-      var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
-        var strat = new MidFit(sParams);
-        strat.ApplyToBars(bars);
-
-        var acc = makeAccuracy(sParams, strat.MakeSignal(null));
-        var accuracyPct = ((double)acc.Count(x => x.Val == 1) / acc.Length * 100);
-
-        return new StrategyOptimizerReport {
-          GenomeFitness = accuracyPct,
-          StrategyParams = sParams,
-          StrategyName = "MidFit",
-          GenomeName = "none"
-        };
-      }).OrderByDescending(x => x.GenomeFitness);
-
-      foreach (var r in reports)
-        Trace.WriteLine(r.ToString());
-
-      var st = new MidFit(reports.First().StrategyParams);
-      st.ApplyToBars(bars);
-      var mid = st.MakeSignal(null);
-
-      var w = new ChartWindow();
-      var g1 = w.Chart.AddGraph();
-      g1.Plots.Add(new Plot {
-        DataSeries = bars,
-        Type = PlotType.Candlestick
-      });
-      g1.Plots.Add(new Plot {
-        DataSeries = mid,
-        Type = PlotType.Dash,
-        Color = Brushes.BlueViolet
-      });
-      var g2 = w.Chart.AddGraph();
-      var accuracy = makeAccuracy(reports.First().StrategyParams, mid);
-      g2.Plots.Add(new Plot {
-        DataSeries = accuracy,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-
-      w.Show();
-    }
-
+    
     private void BacktestButton_Click(object sender, RoutedEventArgs e)
     {
       DoBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text, BuySellBox.Text,
@@ -594,6 +526,10 @@ namespace QuqeViz
       };
 
       drawIt();
+    }
+    
+    private void FooButton_Click(object sender, RoutedEventArgs e)
+    {
     }
   }
 }

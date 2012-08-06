@@ -61,8 +61,6 @@ namespace Quqe
 
     public static Strategy Make(string strategyName, IEnumerable<StrategyParameter> sParams)
     {
-      if (strategyName == "Midpoint")
-        return new MidpointStrategy(sParams);
       if (strategyName == "BuySell")
         return new BuySellStrategy(sParams);
       if (strategyName == "Combo")
@@ -92,7 +90,7 @@ namespace Quqe
           return;
 
         var shouldBuy = signal[0] >= 0;
-        //Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
+        Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
 
         double? stopLimit = null;
         if (maxLossPct.HasValue)
@@ -155,15 +153,13 @@ namespace Quqe
 
     readonly int Lookback = 2;
     readonly List<int> ActivationSpec;
-    readonly int MomentumPeriod;
 
     public BuySellStrategy(IEnumerable<StrategyParameter> sParams)
       : base(sParams)
     {
-      InputNames = List.Create("Open0", "Close1", "Momentum1");
+      InputNames = List.Create("Open0", "Close1");
       NumInputs = InputNames.Count;
       ActivationSpec = List.Create(sParams.Get<int>("Activation1"), sParams.Get<int>("Activation2"));
-      MomentumPeriod = sParams.Get<int>("MomentumPeriod");
     }
 
     public override void ApplyToBars(DataSeries<Bar> bars)
@@ -173,8 +169,7 @@ namespace Quqe
 
       Inputs = TrimInputs(List.Create(
         Bars.MapElements<Value>((s, v) => Normalize(s[0].Open, Bars)),
-        Bars.MapElements<Value>((s, v) => Normalize(s[1].Close, Bars)),
-        bars.Closes().Momentum(MomentumPeriod).MapElements<Value>((s, v) => s[0] / 20.0).Delay(1)
+        Bars.MapElements<Value>((s, v) => Normalize(s[1].Close, Bars))
         ));
       Debug.Assert(NumInputs == Inputs.Count);
       IdealSignal = Bars.MapElements<Value>((s, v) => s[0].IsGreen ? 1 : -1);
@@ -228,9 +223,11 @@ namespace Quqe
   {
     public override string Name { get { return "UpdatingBuySell"; } }
 
-    int MinTrainingSize = 20;
-    int MaxTrainingSize = 50;
-    int WindowStepSize = 3;
+    int MinTrainingSize = 15;
+    int MaxTrainingSize = 39;
+    //int MinTrainingSize = 30;
+    //int MaxTrainingSize = 30;
+    int WindowStepSize = 4;
 
     public UpdatingBuySellStrategy(IEnumerable<StrategyParameter> sParams)
       : base(sParams)
@@ -252,6 +249,8 @@ namespace Quqe
       Optimizer.ShowTrace = false;
 
       int bestTrainingSize = 0;
+
+      var sizeSma = Optimizer.MakeSMA(5);
 
       for (int i = MaxTrainingSize + 1; i < Bars.Length; i++)
       {
@@ -293,13 +292,17 @@ namespace Quqe
         // bestTrainingSize = training size of best performing neural net
         bestTrainingSize = trials.OrderBy(t => t.PredictionError).First().WindowSize;
 
+        //bestTrainingSize = 30;
+
+        int sizeToUse = (int)sizeSma(bestTrainingSize);
+
         // let bestNet = optimize a neural net on bars i-bestTrainingSize..i-1
-        var currentTrainingSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - bestTrainingSize).Take(bestTrainingSize));
+        var currentTrainingSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - sizeToUse).Take(sizeToUse));
         var bestStrat = new BuySellStrategy(Parameters);
         bestStrat.ApplyToBars(currentTrainingSet);
         var bestGenome = Optimizer.OptimizeNeuralGenome(bestStrat, OptimizationType.Anneal);
 
-        var currentValidationSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - bestTrainingSize).Take(bestTrainingSize + 1));
+        var currentValidationSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - sizeToUse).Take(sizeToUse + 1));
         var finalStrat = new BuySellStrategy(Parameters);
         finalStrat.ApplyToBars(currentValidationSet);
         var sig = finalStrat.MakeSignal(bestGenome).Last();
@@ -340,307 +343,6 @@ namespace Quqe
     }
 
     protected override NeuralNet MakeNeuralNet(Genome g)
-    {
-      throw new NotImplementedException();
-    }
-
-    #endregion
-  }
-
-  public class SwingStrategy : Strategy
-  {
-    public override string Name { get { return "Swing"; } }
-
-    readonly bool Flipped;
-    public SwingStrategy(IEnumerable<StrategyParameter> sParams, bool flipped = false)
-      : base(sParams)
-    {
-      Flipped = flipped;
-    }
-
-    enum State { Breakout, Breakdown, BounceUp, BounceDown }
-
-    public override DataSeries<Value> MakeSignal(Genome g)
-    {
-      // indicators
-      var swing4 = Bars.Swing(5, false).Delay(1);
-      var mm = Bars.Closes().Momentum(14).Delay(1);
-
-      List<Value> newElements = new List<Value>() { new Value(Bars[0].Timestamp, Bars[0].Open) };
-      State currentState = DetermineState(swing4.First(), mm.First(), null, null);
-      var tbars = Bars.From(swing4.First().Timestamp);
-      DataSeries.Walk(tbars, swing4, mm, pos => {
-        if (pos < 1)
-        {
-          newElements.Add(new Value(tbars[0].Timestamp, tbars[0].Open));
-          return;
-        }
-
-        currentState = DetermineState(swing4[0], mm[0], currentState, swing4[1]);
-        double s;
-        if (currentState == State.Breakout || currentState == State.BounceUp)
-          s = tbars[0].Open * (Flipped ? -1 : 1);
-        else
-          s = -tbars[0].Open * (Flipped ? -1 : 1);
-        newElements.Add(new Value(tbars[0].Timestamp, s));
-      });
-
-      return new DataSeries<Value>(Bars.Symbol, newElements);
-    }
-
-    static State DetermineState(BiValue swing, double momentum, State? prevState, BiValue prevSwing)
-    {
-      if (swing.HasLow && !swing.HasHigh)
-        return State.Breakout;
-      else if (swing.HasHigh && !swing.HasLow)
-        return State.Breakdown;
-      else
-      {
-        if (!prevState.HasValue)
-          return momentum > 0 ? State.BounceUp : State.BounceDown;
-        else
-        {
-          if (prevState.Value == State.Breakout || swing.High < prevSwing.High)
-            return State.BounceDown;
-          else if (prevState.Value == State.Breakdown || swing.Low > prevSwing.Low)
-            return State.BounceUp;
-          else
-            return prevState.Value;
-        }
-      }
-    }
-
-    public override BacktestReport Backtest(Genome g, Account account)
-    {
-      return GenericBacktest(g, account, 1, null);
-    }
-
-    #region not implemented
-
-    public override int GenomeSize
-    {
-      get { throw new NotImplementedException(); }
-    }
-
-    public override double CalculateError(Genome g)
-    {
-      throw new NotImplementedException();
-    }
-
-    public override double Normalize(double value, DataSeries<Bar> ds)
-    {
-      throw new NotImplementedException();
-    }
-
-    public override double Denormalize(double value, DataSeries<Bar> ds)
-    {
-      throw new NotImplementedException();
-    }
-
-    protected override NeuralNet MakeNeuralNet(Genome g)
-    {
-      throw new NotImplementedException();
-    }
-
-    #endregion
-  }
-
-  public class MidpointStrategy : Strategy
-  {
-    public override string Name { get { return "Midpoint"; } }
-
-    public readonly int NumHidden;
-    public readonly int Lookback;
-
-    public MidpointStrategy(IEnumerable<StrategyParameter> sParams)
-      : base(sParams)
-    {
-      NumHidden = sParams.Get<int>("NumHidden");
-      Lookback = sParams.Get<int>("Lookback");
-      NumInputs = Lookback - 1;
-      InputNames = List.Repeat(NumInputs, n => "mid" + (n + 1));
-    }
-
-    protected override NeuralNet MakeNeuralNet(Genome g)
-    {
-      return new NeuralNet(NumInputs, NumHidden, g);
-    }
-
-    public override void ApplyToBars(DataSeries<Bar> bars)
-    {
-      base.ApplyToBars(bars);
-
-      Inputs = List.Repeat(Lookback - 1, n => Bars.MapElements<Value>((s, v) => Normalize(s[n + 1].Midpoint, s)));
-      IdealSignal = Bars.MapElements<Value>((s, v) => s[0].Midpoint);
-    }
-
-    public override int GenomeSize
-    {
-      get { return new NeuralNet(NumInputs, NumHidden).ToGenome().Genes.Count; }
-    }
-
-    public override DataSeries<Value> MakeSignal(Genome g)
-    {
-      var output = Bars.NeuralNet(new NeuralNet(NumInputs, NumHidden, g), Inputs);
-      var denormalized = Bars.ZipElements<Value, Value>(output, (bars, s, v) => {
-        return s.Pos < Lookback ? 0 : Denormalize(s[0], bars);
-      });
-      return denormalized;
-    }
-
-    public override double CalculateError(Genome g)
-    {
-      var signal = MakeSignal(g);
-      return Error(signal, IdealSignal) * Bars.ZipElements<Value, Value>(signal, (s, m, v) =>
-          (s[0].WaxBottom < m[0] && m[0] < s[0].WaxTop) ? 0 : 1).Sum(x => x.Val);
-    }
-
-    static double Error(DataSeries<Value> a, DataSeries<Value> b)
-    {
-      return a.Variance(b);
-    }
-
-    public override double Normalize(double value, DataSeries<Bar> ds)
-    {
-      return value / ds[Lookback].Midpoint - 1;
-    }
-
-    public override double Denormalize(double value, DataSeries<Bar> ds)
-    {
-      return (value + 1) * ds[Lookback].Midpoint;
-    }
-
-    public override BacktestReport Backtest(Genome g, Account account)
-    {
-      throw new NotImplementedException();
-    }
-  }
-
-  public class MidFit : Strategy
-  {
-    public override string Name { get { return "MidFit"; } }
-
-    readonly int LineSamples;
-    readonly int QuadSamples;
-
-    public MidFit(IEnumerable<StrategyParameter> sParams)
-      : base(sParams)
-    {
-      LineSamples = sParams.Get<int>("LineSamples");
-      QuadSamples = sParams.Get<int>("QuadSamples");
-    }
-
-    class FitResult
-    {
-      public double NextY;
-      public double Error;
-    }
-
-    public override DataSeries<Value> MakeSignal(Genome g)
-    {
-      var s = Bars;
-      var newElements = new List<Value>();
-      var maxSamplesNeeded = List.Create(LineSamples, QuadSamples).Max();
-      DataSeries.Walk(s, pos => {
-        if (pos < maxSamplesNeeded)
-        {
-          newElements.Add(new Value(s[0].Timestamp, s[0].Midpoint));
-          return;
-        }
-
-        var lineFit = FitLine(List.Repeat(LineSamples, n => s[LineSamples - n].Midpoint));
-        var quadFit = FitQuad(List.Repeat(QuadSamples, n => s[QuadSamples - n].Midpoint));
-
-        var bestFit = List.Create(lineFit, quadFit)
-          .OrderBy(x => x.Error).First();
-        newElements.Add(new Value(s[0].Timestamp, bestFit.NextY));
-      });
-
-      return new DataSeries<Value>(Bars.Symbol, newElements);
-    }
-
-    static FitResult FitLine(List<double> ys)
-    {
-      var A = new DenseMatrix(ys.Count, 2);
-      for (int i = 0; i < ys.Count; i++)
-      {
-        A[i, 0] = i;
-        A[i, 1] = 1;
-      }
-      var B = new DenseMatrix(ys.Count, 1);
-      for (int i = 0; i < ys.Count; i++)
-        B[i, 0] = ys[i];
-
-      var At = A.Transpose();
-
-      var coefs = (At * A).Inverse() * At * B;
-
-      var a = coefs[0, 0];
-      var b = coefs[1, 0];
-
-      var fit = List.Repeat(ys.Count, x => a * x + b);
-      return new FitResult { Error = Error(ys, fit), NextY = a * ys.Count + b };
-    }
-
-    static FitResult FitQuad(List<double> ys)
-    {
-      var A = new DenseMatrix(ys.Count, 3);
-      for (int i = 0; i < ys.Count; i++)
-      {
-        A[i, 0] = i * i;
-        A[i, 1] = i;
-        A[i, 2] = 1;
-      }
-      var B = new DenseMatrix(ys.Count, 1);
-      for (int i = 0; i < ys.Count; i++)
-        B[i, 0] = ys[i];
-
-      var At = A.Transpose();
-
-      var coefs = (At * A).Inverse() * At * B;
-
-      var a = coefs[0, 0];
-      var b = coefs[1, 0];
-      var c = coefs[2, 0];
-
-      var fit = List.Repeat(ys.Count, x => a * x * x + b * x + c);
-      var nextX = ys.Count;
-      return new FitResult { Error = Error(ys, fit), NextY = a * nextX * nextX + b * nextX + c };
-    }
-
-    static double Error(List<double> y1, List<double> y2)
-    {
-      return y1.Zip(y2, (q, r) => Math.Pow(q - r, 2)).Sum();
-    }
-
-    public override double Normalize(double value, DataSeries<Bar> ds)
-    {
-      throw new NotImplementedException();
-    }
-
-    public override double Denormalize(double value, DataSeries<Bar> ds)
-    {
-      throw new NotImplementedException();
-    }
-
-    public override BacktestReport Backtest(Genome g, Account account)
-    {
-      throw new NotImplementedException();
-    }
-
-    #region Not Implemented
-
-    protected override NeuralNet MakeNeuralNet(Genome g)
-    {
-      throw new NotImplementedException();
-    }
-
-    public override int GenomeSize
-    {
-      get { throw new NotImplementedException(); }
-    }
-
-    public override double CalculateError(Genome g)
     {
       throw new NotImplementedException();
     }

@@ -487,7 +487,7 @@ namespace Quqe
     public static List<StrategyOptimizerReport> OptimizeStrategyParameters(IEnumerable<OptimizerParameter> oParams, OptimizeKernelFunc optimizeKernel)
     {
       var sParamsList = CrossProd(oParams.Select(op => Range(op.Low, op.High, op.Granularity).ToArray()).ToList())
-        .Select(sParamValues => oParams.Select(sp => sp.Name).Zip(sParamValues, (n, v) => new StrategyParameter(n, v))).ToList();
+        .Select(sParamValues => oParams.Select(sp => sp.Name).Zip(sParamValues, (n, v) => new StrategyParameter(n, v)).ToList()).ToList();
 
       if (sParamsList.Count > 1)
       {
@@ -505,10 +505,31 @@ namespace Quqe
       if (ParallelStrategies)
       {
         List<StrategyOptimizerReport> reports = new List<StrategyOptimizerReport>();
+        var sw = new Stopwatch();
+        sw.Start();
+        var eta = Optimizer.MakeSMA(25);
         Parallel.ForEach(sParamsList, sParams => {
           var rpt = optimizeKernel(sParams.ToList());
-          lock (reports) { reports.Add(rpt); }
+          lock (reports)
+          {
+            reports.Add(rpt);
+            Trace.WriteLine(string.Format("Completed {0} of {1}    ETA: {2} min",
+              reports.Count, sParamsList.Count, eta(sw.Elapsed.TotalMinutes / reports.Count * sParamsList.Count).ToString("N1")));
+          }
         });
+        //var slices = sParamsList.Slice(8);
+        //Parallel.ForEach(slices, new ParallelOptions { MaxDegreeOfParallelism = 8 }, slice => {
+        //  foreach (var sParams in slice)
+        //  {
+        //    var rpt = optimizeKernel(sParams.ToList());
+        //    lock (reports)
+        //    {
+        //      reports.Add(rpt);
+        //      Trace.WriteLine(string.Format("Completed {0} of {1}    ETA: {2} min",
+        //        reports.Count, sParamsList.Count, eta(sw.Elapsed.TotalMinutes / reports.Count * sParamsList.Count).ToString("N1")));
+        //    }
+        //  }
+        //});
         results = reports;
       }
       else

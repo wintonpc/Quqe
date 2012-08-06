@@ -583,6 +583,64 @@ namespace Quqe
 
       return new DataSeries<Value>(bars.Symbol, newElements);
     }
+
+    public enum OpenCloseRel { OpenBelowClose, CloseBelowOpen }
+    public enum ActualOpenRel { Below, Between, Above }
+
+    public static IEnumerable<DtExample> MakeExamples2(DataSeries<Bar> carefulBars,
+      int toPeriod = 10, int toForecast = 0,
+      int tcPeriod = 10, int tcForecast = 0,
+      int voPeriod = 10, int voForecast = 0,
+      int vcPeriod = 10, int vcForecast = 0,
+      int atrPeriod = 10, double atrThresh = 1.5,
+      int useYesterdaysOpen = 0
+      )
+    {
+      List<DtExample> examples = new List<DtExample>();
+      var tof = carefulBars.Opens().LinReg(toPeriod, toForecast);
+      var tcf = carefulBars.Closes().LinReg(tcPeriod, tcForecast).Delay(1);
+      var vof = carefulBars.Opens().LinReg(voPeriod, voForecast);
+      var vcf = carefulBars.Closes().LinReg(vcPeriod, vcForecast).Delay(1);
+      var atr = carefulBars.ATR(atrPeriod).Delay(1);
+
+      if (useYesterdaysOpen > 0)
+      {
+        tof = tof.Delay(1);
+        vof = vof.Delay(1);
+      }
+      else
+      {
+        tof = tof.From(atr.First().Timestamp);
+        vof = tof.From(atr.First().Timestamp);
+      }
+
+      var bs = carefulBars.From(atr.First().Timestamp);
+      DataSeries.Walk(
+        List.Create<DataSeries>(bs, tof, tcf, vof, vcf, atr), pos => {
+          if (pos < 1)
+            return;
+          var a = new List<object>();
+          DataSeries<Value> open;
+          DataSeries<Value> close;
+          if (atr[0] > atrThresh)
+          {
+            open = vof;
+            close = vcf;
+          }
+          else
+          {
+            open = tof;
+            close = tcf;
+          }
+          a.Add(open[0] < close[0] ? OpenCloseRel.OpenBelowClose : OpenCloseRel.CloseBelowOpen);
+          a.Add(
+            bs[0].Open < Math.Min(open[0], close[0]) ? ActualOpenRel.Below :
+            bs[0].Open > Math.Max(open[0], close[0]) ? ActualOpenRel.Above :
+            ActualOpenRel.Between);
+          examples.Add(new DtExample(bs[0].Timestamp, bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
+        });
+      return examples;
+    }
   }
 
   public static class Transforms
