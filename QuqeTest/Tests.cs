@@ -401,50 +401,25 @@ namespace QuqeTest
     [TestMethod]
     public void DecisionTree4()
     {
-      //var oParams = List.Create(
-      //  new OptimizerParameter("TOPeriod", 2, 10, 2),
-      //  new OptimizerParameter("TOForecast", 4, 8, 4),
-      //  new OptimizerParameter("TCPeriod", 6, 18, 3),
-      //  new OptimizerParameter("TCForecast", 0, 0, 1),
-      //  new OptimizerParameter("VOPeriod", 2, 8, 3),
-      //  new OptimizerParameter("VOForecast", 3, 12, 3),
-      //  new OptimizerParameter("VCPeriod", 4, 10, 2),
-      //  new OptimizerParameter("VCForecast", 0, 0, 1),
-      //  new OptimizerParameter("ATRPeriod", 8, 12, 2),
-      //  new OptimizerParameter("ATRThresh", 1.4, 2.0, 0.3),
-      //  new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
-      //  );
-      //var oParams = List.Create(
-      //  new OptimizerParameter("TOPeriod", 7, 9, 2),
-      //  new OptimizerParameter("TOForecast", 0, 4, 2),
-      //  new OptimizerParameter("TCPeriod", 7, 9, 2),
-      //  new OptimizerParameter("TCForecast", 0, 4, 2),
-      //  new OptimizerParameter("VOPeriod", 4, 6, 2),
-      //  new OptimizerParameter("VOForecast", 0, 1, 1),
-      //  new OptimizerParameter("VCPeriod", 4, 6, 2),
-      //  new OptimizerParameter("VCForecast", 0, 1, 1),
-      //  new OptimizerParameter("ATRPeriod", 7, 16, 3),
-      //  new OptimizerParameter("ATRThresh", 1.0, 2.0, 0.2),
-      //  new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
-      //  );
       var oParams = List.Create(
-        new OptimizerParameter("TOPeriod", 7, 7, 1),
-        new OptimizerParameter("TOForecast", 4, 4, 1),
-        new OptimizerParameter("TCPeriod", 7, 7, 1),
-        new OptimizerParameter("TCForecast", 1, 1, 1),
-        new OptimizerParameter("VOPeriod", 5, 7, 1),
+        new OptimizerParameter("TOPeriod", 6, 10, 2),
+        new OptimizerParameter("TOForecast", 0, 4, 2),
+        new OptimizerParameter("TCPeriod", 6, 10, 2),
+        new OptimizerParameter("TCForecast", 0, 4, 2),
+        new OptimizerParameter("VOPeriod", 4, 6, 2),
         new OptimizerParameter("VOForecast", 0, 0, 1),
-        new OptimizerParameter("VCPeriod", 3, 5, 1),
+        new OptimizerParameter("VCPeriod", 4, 6, 2),
         new OptimizerParameter("VCForecast", 0, 0, 1),
-        new OptimizerParameter("ATRPeriod", 10, 10, 3),
-        new OptimizerParameter("ATRThresh", 1.5, 1.8, 0.1),
+        new OptimizerParameter("ATRPeriod", 10, 10, 1),
+        new OptimizerParameter("ATRThresh", 1.4, 2.0, 0.3),
         new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
         );
 
 
       //var learningSet = DtSignals.MakeExamples(Data.Get("TQQQ").To("12/31/2011"));
       //var validationSet = DtSignals.MakeExamples(Data.Get("TQQQ").From("01/01/2012"));
-      var teachingBars = Data.Get("TQQQ").To("12/31/2011");
+      //var teachingBars = Data.Get("TQQQ").To("12/31/2011");
+      var teachingBars = Data.Get("TQQQ").From("01/01/2012");
       var validationBars = Data.Get("TQQQ").From("01/01/2012");
 
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {

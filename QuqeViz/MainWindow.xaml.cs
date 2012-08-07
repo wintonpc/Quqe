@@ -212,7 +212,7 @@ namespace QuqeViz
 
       w.Show();
     }
-    
+
     private void BacktestButton_Click(object sender, RoutedEventArgs e)
     {
       DoBacktest(SymbolBox.Text, TeachStartBox.Text, TeachEndBox.Text, BuySellBox.Text,
@@ -478,7 +478,8 @@ namespace QuqeViz
       window.Show();
       chart.ScrollToEnd();
 
-      DateTime currentEnd = tqqq.First().Timestamp.AddMonths(24);
+      //DateTime currentEnd = tqqq.First().Timestamp.AddMonths(24);
+      DateTime currentEnd = tqqq.Last().Timestamp;
 
       Action drawIt = () => {
         var bars = tqqq.To(currentEnd);
@@ -486,25 +487,30 @@ namespace QuqeViz
         var g = chart.AddGraph();
         g.Title = "TQQQ";
         g.Plots.Add(new Plot {
-          DataSeries = bars,
-          Type = PlotType.Candlestick
-        });
-        var g2 = chart.AddGraph();
-        g2.Plots.Add(new Plot {
-          Title = "LinRegSlope",
-          DataSeries = bars.Closes().LinRegSlope(14),
+          DataSeries = bars.Closes(),
           Type = PlotType.ValueLine,
-          Color = Brushes.Orange
+          Color = Brushes.LightBlue,
+          LineStyle = LineStyle.Dashed
         });
-        var g3 = chart.AddGraph();
-        g3.Plots.Add(new Plot {
-          Title = "RSquared",
-          DataSeries = bars.Closes().RSquared(8),
+        var qqq = Data.Get("QQQ").From(bars.First().Timestamp).Closes();
+        g.Plots.Add(new Plot {
+          DataSeries = qqq.Derivative().MapElements<Value>((s, v) =>
+            2.1 * Math.Sign(s[0]) * Math.Pow(Math.Abs(s[0]), 0.6)
+            ).Integral(tqqq.First().Close),
           Type = PlotType.ValueLine,
-          Color = Brushes.Red
+          Color = Brushes.Blue
         });
-
-
+        //g.Plots.Add(new Plot {
+        //  DataSeries = bars,
+        //  Type = PlotType.Candlestick
+        //});
+        //var g2 = chart.AddGraph();
+        //g2.Plots.Add(new Plot {
+        //  Title = "Reversals2",
+        //  DataSeries = bars.Reversals2(5, 1).Delay(1),
+        //  Type = PlotType.Bar,
+        //  Color = Brushes.Blue
+        //});
 
         chart.ScrollToEnd();
       };
@@ -527,9 +533,24 @@ namespace QuqeViz
 
       drawIt();
     }
-    
+
     private void FooButton_Click(object sender, RoutedEventArgs e)
     {
+      var bars = Data.Get("TQQQ");
+
+      var oParams = List.Create(
+        new OptimizerParameter("Period", 5, 9, 1), //  8
+        new OptimizerParameter("K", 2.0, 3.0, 0.1), // 2.7
+        new OptimizerParameter("Thresh", 1.7, 2.7, 0.1) // 1.9
+        );
+
+      Optimizer.OptimizeSignalAccuracy("ReversalProbability", oParams, bars, sParams => {
+        return bars.ReversalProbability(
+          sParams.Get<int>("Period"),
+          sParams.Get<double>("K"),
+          sParams.Get<double>("Thresh")
+          );
+      });
     }
   }
 }

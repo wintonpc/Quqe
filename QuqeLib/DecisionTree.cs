@@ -11,11 +11,13 @@ namespace Quqe
   {
     public readonly object DecidingAttribute;
     public readonly List<DtChild> Children;
+    public readonly double InformationProvided;
 
-    public DtNode(object decidingAttribute, IEnumerable<DtChild> children)
+    public DtNode(object decidingAttribute, double information, IEnumerable<DtChild> children)
     {
       DecidingAttribute = decidingAttribute;
       Children = children.ToList();
+      InformationProvided = information;
     }
 
     public bool IsLeaf { get { return !Children.Any(); } }
@@ -29,6 +31,19 @@ namespace Quqe
     {
       DecidedAttribute = decidedAttribute;
       Child = child;
+    }
+  }
+
+  public class OutcomeValue
+  {
+    public readonly object Value;
+    public readonly double Strength;
+    public readonly int Count;
+    public OutcomeValue(object value, double strength, int count)
+    {
+      Value = value;
+      Strength = strength;
+      Count = count;
     }
   }
 
@@ -58,36 +73,45 @@ namespace Quqe
       return Learn(examples, examples.First().AttributesValues.Select(x => x.GetType()), defaultValue, minimumMajority);
     }
 
+    static object UnsureValue = "Unsure";
+
     static object Learn(IEnumerable<DtExample> examples, IEnumerable<Type> attribs, object defaultValue, double minimumMajority)
     {
-      if (!examples.Any())
-        return defaultValue;
-      else if (examples.GroupBy(x => x.Goal).Count() == 1)
-        return examples.First().Goal;
-      else if (!attribs.Any())
+      var exs = examples.ToList();
+      var attrs = attribs.ToList();
+
+      if (!exs.Any())
+        return new OutcomeValue(UnsureValue, 0, exs.Count);
+      else if (exs.GroupBy(x => x.Goal).Count() == 1)
+        return new OutcomeValue(exs.First().Goal, 1, exs.Count);
+      else if (!attrs.Any())
       {
         double strength;
-        var majorityValue = MajorityValue(examples, out strength);
+        var majorityValue = MajorityValue(exs, out strength);
         if (strength > minimumMajority)
-          return majorityValue;
+          return new OutcomeValue(majorityValue, strength, exs.Count);
         else
-          return "Unsure";
+          return new OutcomeValue(UnsureValue, strength, exs.Count);
       }
       else
       {
-        Type best = ChooseAttribute(attribs, examples);
-        return new DtNode(best, Values(best).Select(v => new DtChild(v, Learn(
-          ExamplesWithAttributeValue(examples, v),
-          attribs.Except(List.Create(best)),
-          MajorityValue(examples),
-          minimumMajority))));
+        double info;
+        Type best = ChooseAttribute(attrs, exs, out info);
+        return new DtNode(best, info, Values(best).Select(v => {
+          var subset = ExamplesWithAttributeValue(exs, v).ToList();
+          return new DtChild(v, Learn(
+          subset,
+          attrs.Except(List.Create(best)),
+          MajorityValue(exs),
+          minimumMajority));
+        }));
       }
     }
 
     public static object Decide(IEnumerable<object> attributeValues, object tree)
     {
-      if (!(tree is DtNode))
-        return tree;
+      if (tree is OutcomeValue)
+        return ((OutcomeValue)tree).Value;
 
       var path = ((DtNode)tree).Children.Single(c => attributeValues.Contains(c.DecidedAttribute));
       return Decide(attributeValues, path.Child);
@@ -115,7 +139,7 @@ namespace Quqe
       return majorityGroup.Key;
     }
 
-    static Type ChooseAttribute(IEnumerable<Type> attribs, IEnumerable<DtExample> examples)
+    static Type ChooseAttribute(IEnumerable<Type> attribs, IEnumerable<DtExample> examples, out double information)
     {
       var sortedAttribs = attribs.Select(attr => {
         var infoHere = Information(AttributeValueProbabilities(attr, examples));
@@ -126,8 +150,9 @@ namespace Quqe
             return 0;
           return (double)sc / examples.Count() * Information(AttributeValueProbabilities(attr, subset));
         });
-        return new { Attr = attr, Information = infoHere - remainder };
-      }).OrderByDescending(x => x.Information).ToList();
+        return new { Attr = attr, InformationGain = infoHere - remainder };
+      }).OrderByDescending(x => x.InformationGain).ToList();
+      information = sortedAttribs.First().InformationGain;
       return sortedAttribs.First().Attr;
     }
 
@@ -148,7 +173,7 @@ namespace Quqe
 
     public static void WriteDot(string fn, object tree)
     {
-      Func<DtNode, string> dName = n => ((Type)n.DecidingAttribute).Name + "?";
+      Func<DtNode, string> dName = n => "I: " + n.InformationProvided.ToString("N3") + "\\n" + ((Type)n.DecidingAttribute).Name + "?";
       Func<object, string> lName = n => n.ToString();
       using (var op = new StreamWriter(fn))
       {
@@ -159,7 +184,7 @@ namespace Quqe
           {
             var dtn = (DtNode)node;
             var gs = dtn.Children.Where(c => !(c.Child is DtNode)).Select(c => c.Child).GroupBy(x => x).ToList();
-            op.WriteLine(string.Format("n{0} [ label = \"{1}\" ]", dtn.GetHashCode(), dName(dtn)));
+            op.WriteLine(string.Format("n{0} [ label = \"{1}\", fillcolor={2}, style=filled ]", dtn.GetHashCode(), dName(dtn), dtn.InformationProvided == 0 ? "yellow" : "white"));
             foreach (var c in dtn.Children)
             {
               string dest;
@@ -171,8 +196,16 @@ namespace Quqe
               }
               else
               {
-                dest = gs.First(g => g.Key.ToString() == c.Child.ToString()).GetHashCode().ToString();
-                op.WriteLine(string.Format("n{0} [ label = \"{1}\", fillcolor=lightgray, style=filled ]", dest, lName(c.Child)));
+                var ov = ((OutcomeValue)c.Child);
+                //dest = gs.First(g => g.Key.ToString() == c.Child.ToString()).GetHashCode().ToString();
+                dest = new object().GetHashCode().ToString();
+                op.WriteLine(string.Format("n{0} [ label = \"{1}\", fillcolor={2}, style=filled ]",
+                  dest, lName(ov.Value) + "\\n" + (ov.Strength * 100).ToString("N1") + "% (" + ov.Count + ")",
+                  //c.Count < 3 ? "powderblue" :
+                  ov.Value.Equals(Quqe.DtSignals.Prediction.Green) ? "green" :
+                  ov.Value.Equals(Quqe.DtSignals.Prediction.Red) ? "tomato" :
+                  ov.Count == 0 ? "gray25" :
+                  "lightgray"));
                 op.WriteLine(string.Format("n{0} -> n{1} [ label = \"{2}\" ];", dtn.GetHashCode(), dest, lName(c.DecidedAttribute)));
               }
             }

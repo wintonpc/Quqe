@@ -151,6 +151,25 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<Value> Reversals2(this DataSeries<Bar> bars, int period, double k)
+    {
+      return bars.MapElements<Value>((s, v) => {
+        if (s.Pos == 0)
+          return 0;
+
+        var totalCount = Math.Min(s.Pos, period);
+        double reversal = 0;
+        double continuation = 0;
+        for (int i = totalCount - 1; i >= 0; i--)
+          if (s[i].IsGreen != s[i + 1].IsGreen)
+            reversal += (double)(totalCount - i) / totalCount;
+          else
+            continuation += (double)(totalCount - i) / totalCount;
+
+        return Math.Max(0, reversal - k * continuation);
+      });
+    }
+
     public static DataSeries<BiValue> Swing(this DataSeries<Bar> bars, int strength, bool revise = true)
     {
       DataSeries<Value> swingHighSwings = bars.MapElements<Value>((s, v) => 0);
@@ -459,6 +478,19 @@ namespace Quqe
       });
 
       return new DataSeries<Value>(bars.Symbol, newElements);
+    }
+
+    public static DataSeries<Value> ReversalProbability(this DataSeries<Bar> bars, int period,
+      double k, double thresh)
+    {
+      var rev = bars.Reversals2(period, k).Delay(1);
+      var bs = bars.From(rev.First().Timestamp);
+
+      return bs.ZipElements<Value, Value>(rev, (b, r, v) => {
+        if (b.Pos == 0)
+          return 0;
+        return r[0] >= thresh ? (b[1].IsGreen ? -1 : 1) : (b[1].IsGreen ? 1 : -1);
+      });
     }
   }
 
