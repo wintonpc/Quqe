@@ -336,6 +336,25 @@ namespace Quqe
       };
     }
 
+    static List<StrategyParameter> MutateSParams(IEnumerable<StrategyParameter> sParams, IEnumerable<OptimizerParameter> oParams, double temperature)
+    {
+      return sParams.Select(p => {
+        var op = oParams.First(x => x.Name == p.Name);
+        if (op.Low == op.High)
+          return new StrategyParameter(op.Name, op.Low);
+        else
+        {
+          var halfRange = (op.High - op.Low) / 2;
+          return new StrategyParameter(p.Name, Quantize(Clip(op.Low, op.High, p.Value + temperature * RandomDouble(-halfRange, halfRange)), op.Low, op.Granularity));
+        }
+      }).ToList();
+    }
+
+    public static double Quantize(double v, double min, double step)
+    {
+      return Math.Round((v - min) / step) * step + min;
+    }
+
     public static Func<double, double> MakeSMA(int period)
     {
       Queue<double> q = new Queue<double>();
@@ -395,7 +414,7 @@ namespace Quqe
       double averageEscapeCostPremium = 0;
       double bestCostStdDev;
       double bestCostAvg;
-      double bestCostThresh = 0.00001;
+      //double bestCostThresh = 0.00001;
       for (int i = 0; i < iterations /*|| averageEscapeCostPremium / bestCost > 0.0000005*/; i++)
       {
         var temperature = schedule((double)i / iterations);
@@ -404,14 +423,9 @@ namespace Quqe
 
         if (i % 50 == 0)
         {
-          //Console.WriteLine(string.Format("{0} / {1}  Temp = {2:N2}  Accept rate = {3}  ( {4} / {5} )  Cost = {6:N4}",
-          //  i, iterations, temperature, rejectCount == 0 ? "always" : ((double)acceptCount / (double)rejectCount).ToString("N3"),
-          //  acceptCount, rejectCount, currentCost));
           if (ShowTrace)
-            Console.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
+            Trace.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
               i, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
-          //acceptCount = 0;
-          //rejectCount = 0;
         }
 
         Action takeNext = () => {
@@ -446,6 +460,78 @@ namespace Quqe
       }
 
       return bestGenome;
+    }
+
+    public static IEnumerable<StrategyParameter> Anneal(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000)
+    {
+      Func<double, double> schedule = t => Math.Sqrt(Math.Exp(-11 * t));
+      var escapeCostPremiumSma = MakeSMA(25);
+      var costSma = MakeSMA(2000);
+      var costStdDev = MakeStdDev(2000);
+
+      var acceptCount = 0;
+      var rejectCount = 0;
+      double takeAnywayProbability = 0;
+      IEnumerable<StrategyParameter> currentSp = MakeSParamsSeed(oParams);
+      var currentCost = costFunc(currentSp);
+      var bestSp = currentSp;
+      var bestCost = currentCost;
+      double averageEscapeCostPremium = 0;
+      double bestCostStdDev;
+      double bestCostAvg;
+      //double bestCostThresh = 0.00001;
+      for (int i = 0; i < iterations /*|| averageEscapeCostPremium / bestCost > 0.0000005*/; i++)
+      {
+        var temperature = schedule((double)i / iterations);
+        var nextSParams = MutateSParams(currentSp, oParams, temperature * GeneMagnitude);
+        var nextCost = costFunc(nextSParams);
+
+        //if (i % 5 == 0)
+        {
+          if (ShowTrace)
+            Trace.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
+              i, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
+        }
+
+        Action takeNext = () => {
+          currentSp = nextSParams;
+          currentCost = nextCost;
+          if (currentCost < bestCost)
+          {
+            bestSp = currentSp.ToList();
+            bestCost = currentCost;
+          }
+          acceptCount++;
+        };
+
+        if (nextCost < currentCost)
+          takeNext();
+        else
+        {
+          var escapeCostPremium = (nextCost - currentCost);
+          averageEscapeCostPremium = escapeCostPremiumSma(escapeCostPremium);
+          takeAnywayProbability = temperature * Math.Exp(-(escapeCostPremium / averageEscapeCostPremium) + 1);
+          bool takeItAnyway = WithProb(takeAnywayProbability);
+          if (takeItAnyway)
+            takeNext();
+          else
+            rejectCount++;
+        }
+
+        bestCostStdDev = costStdDev(currentCost);
+        bestCostAvg = costSma(currentCost);
+        //if (i > 2000 && bestCostStdDev / bestCostAvg < bestCostThresh)
+        //  break;
+      }
+
+      if (ShowTrace)
+        Trace.WriteLine("Best cost: " + bestCost);
+      return bestSp;
+    }
+
+    private static IEnumerable<StrategyParameter> MakeSParamsSeed(IEnumerable<OptimizerParameter> oParams)
+    {
+      return oParams.Select(op => new StrategyParameter(op.Name, Quantize((op.Low + op.High) / 2.0, op.Low, op.Granularity)));
     }
 
     static double Clip(double min, double max, double x)

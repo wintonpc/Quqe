@@ -217,6 +217,15 @@ namespace QuqeTest
       Assert.AreEqual(n, 5);
     }
 
+    [TestMethod]
+    public void QuantizeTest()
+    {
+      Assert.IsTrue(Optimizer.Quantize(7, 2, 1) == 7);
+      Assert.IsTrue(Optimizer.Quantize(7, 0, 2) == 8);
+      Assert.IsTrue(Optimizer.Quantize(1.4, 1.3, 0.3) == 1.3);
+      Assert.IsTrue(Optimizer.Quantize(1.5, 1.3, 0.3) == 1.6);
+    }
+
     enum TipSize { None, Small, Large }
     enum FoodGood { Yes, No }
     enum ServiceGood { Yes, No }
@@ -386,11 +395,11 @@ namespace QuqeTest
           //Trace.WriteLine("Quality: " + quality);
           //Trace.WriteLine("---");
           //if (set == teachingSet)
-            return new StrategyOptimizerReport {
-              StrategyName = "DecisionTree",
-              StrategyParams = sParams,
-              GenomeFitness = accuracy * confidence + altAccuracy * (1 - confidence)
-            };
+          return new StrategyOptimizerReport {
+            StrategyName = "DecisionTree",
+            StrategyParams = sParams,
+            GenomeFitness = accuracy * confidence + altAccuracy * (1 - confidence)
+          };
         }
         throw new Exception();
       });
@@ -487,20 +496,107 @@ namespace QuqeTest
     }
 
     [TestMethod]
+    public void DecisionTree4b()
+    {
+      var oParams = List.Create(
+        new OptimizerParameter("TOPeriod", 3, 12, 1),
+        new OptimizerParameter("TOForecast", 0, 8, 1),
+        new OptimizerParameter("TCPeriod", 3, 15, 1),
+        new OptimizerParameter("TCForecast", 0, 8, 1),
+        new OptimizerParameter("VOPeriod", 3, 10, 1),
+        new OptimizerParameter("VOForecast", 0, 2, 1),
+        new OptimizerParameter("VCPeriod", 3, 10, 1),
+        new OptimizerParameter("VCForecast", 0, 2, 1),
+        new OptimizerParameter("ATRPeriod", 8, 12, 1),
+        new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1),
+        new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
+        );
+      //var oParams = List.Create(
+      //  new OptimizerParameter("TOPeriod", 9, 9, 1),
+      //  new OptimizerParameter("TOForecast", 8, 8, 1),
+      //  new OptimizerParameter("TCPeriod", 4, 4, 1),
+      //  new OptimizerParameter("TCForecast", 1, 1, 1),
+      //  new OptimizerParameter("VOPeriod", 9, 9, 1),
+      //  new OptimizerParameter("VOForecast", 2, 2, 1),
+      //  new OptimizerParameter("VCPeriod", 6, 6, 1),
+      //  new OptimizerParameter("VCForecast", 0, 0, 1),
+      //  new OptimizerParameter("ATRPeriod", 12, 12, 1),
+      //  new OptimizerParameter("ATRThresh", 2.1, 2.1, 0.1),
+      //  new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
+      //  );
+
+
+      //var teachingBars = Data.Get("TQQQ").To("12/31/2011");
+      //var validationBars = Data.Get("TQQQ").From("01/01/2012");
+      var teachingBars = Data.Get("TQQQ").From("03/01/2012");
+      var validationBars = teachingBars;
+
+      var bestSParams = Optimizer.Anneal(oParams, sParams => {
+
+        Func<DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = bars => {
+          return DtSignals.MakeExamples2(bars,
+            toPeriod: sParams.Get<int>("TOPeriod"),
+            toForecast: sParams.Get<int>("TOForecast"),
+            tcPeriod: sParams.Get<int>("TCPeriod"),
+            tcForecast: sParams.Get<int>("TCForecast"),
+            voPeriod: sParams.Get<int>("VOPeriod"),
+            voForecast: sParams.Get<int>("VOForecast"),
+            vcPeriod: sParams.Get<int>("VCPeriod"),
+            vcForecast: sParams.Get<int>("VCForecast"),
+            atrPeriod: sParams.Get<int>("ATRPeriod"),
+            atrThresh: sParams.Get<double>("ATRThresh"),
+            useYesterdaysOpen: sParams.Get<int>("UseYesterdaysOpen")
+          );
+        };
+
+        var teachingSet = makeExamples(teachingBars);
+        var validationSet = makeExamples(validationBars);
+
+        var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, 0);
+
+        var numCorrect = 0;
+        var numIncorrect = 0;
+        var numUnsure = 0;
+        foreach (var e in validationSet)
+        {
+          var decision = DecisionTree.Decide(e.AttributesValues, dt);
+          if (decision.Equals(e.Goal))
+            numCorrect++;
+          else if (decision is string && (string)decision == "Unsure")
+            numUnsure++;
+          else
+            numIncorrect++;
+        }
+
+        var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
+        var confidence = (double)(numCorrect + numIncorrect) / validationSet.Count();
+        var quality = accuracy * confidence;
+        return -quality;
+      }, iterations: 300);
+
+      var report = new StrategyOptimizerReport {
+        StrategyName = "DecisionTree",
+        StrategyParams = bestSParams.ToList()
+      };
+
+      Strategy.PrintStrategyOptimizerReports(List.Create(report));
+    }
+
+    [TestMethod]
     public void DecisionTree5()
     {
       Func<string, string, IEnumerable<DtExample>> makeExamples = (start, end) => {
         return DtSignals.MakeExamples2(Data.Get("TQQQ").From(start).To(end),
-          toPeriod: 7,
-          toForecast: 4,
-          tcPeriod: 7,
-          tcForecast: 2,
-          voPeriod: 6,
-          voForecast: 0,
+          toPeriod: 12,
+          toForecast: 2,
+          tcPeriod: 10,
+          tcForecast: 8,
+          voPeriod: 10,
+          voForecast: 2,
           vcPeriod: 4,
           vcForecast: 0,
-          atrPeriod: 10,
-          atrThresh: 1.6,
+          atrPeriod: 11,
+          atrThresh: 2,
           useYesterdaysOpen: 0
         );
       };
