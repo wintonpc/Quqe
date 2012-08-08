@@ -51,7 +51,7 @@ namespace Quqe
     public string GenomeName;
     public double GenomeFitness;
 
-    static readonly string StrategyDir = "Strategies";
+    static readonly string StrategyDir = @"c:\Users\Wintonpc\git\Quqe\Share\Strategies";
     public override string ToString()
     {
       var sb = new StringBuilder();
@@ -111,17 +111,6 @@ namespace Quqe
 
   public delegate StrategyOptimizerReport OptimizeKernelFunc(List<StrategyParameter> sParams);
 
-  public class EvolutionParams
-  {
-    public int GenerationSurvivorCount;
-    public int RandomAliensPerGeneration;
-    public double MutationRate;
-    //public double MaxMutation;
-    public double MaxMutationTimesVariance;
-    public int MaxOffspring;
-    public int NumGenerations;
-  }
-
   public class Genome
   {
     public List<double> Genes;
@@ -142,65 +131,17 @@ namespace Quqe
     }
   }
 
-  public enum OptimizationType { Genetic, Anneal }
-
   public static class Optimizer
   {
-    //public static IEnumerable<StrategyOptimizerReport> OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams, EvolutionParams eParams,
-    //  Func<IEnumerable<StrategyParameter>, List<DataSeries<Value>>> cookInputs,
-    //  Func<IEnumerable<StrategyParameter>, Genome, IEnumerable<DataSeries<Value>>, DataSeries<Value>> makeSignal,
-    //  Func<IEnumerable<StrategyParameter>, DataSeries<Value>> makeIdealSignal,
-    //  OptimizationType oType, DataSeries<Bar> bars)
-    //{
-    //  return Optimizer.OptimizeStrategyParameters(oParams, sParams => {
-    //    var inputs = cookInputs(sParams);
-
-    //    var idealSignal = makeIdealSignal(sParams);
-
-    //    Genome bestGenome;
-    //    if (oType == OptimizationType.Genetic)
-    //    {
-    //      bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)),
-    //        g => -1 * makeSignal(sParams, g, inputs).Variance(idealSignal));
-    //    }
-    //    else
-    //    {
-    //      bestGenome = Optimizer.Anneal(Optimizer.MakeRandomGenome(WardNet.GenomeSize(inputs.Count)), g => {
-    //        var signal = makeSignal(sParams, g, inputs);
-    //        return signal.Variance(idealSignal) * Math.Pow(signal.Sign().Variance(idealSignal), 1);
-    //      });
-    //    }
-
-    //    var genomeName = bestGenome.Save();
-    //    return new StrategyOptimizerReport {
-    //      StrategyParams = sParams,
-    //      GenomeName = genomeName,
-    //      GenomeFitness = bestGenome.Fitness ?? 0
-    //    };
-    //  }).OrderByDescending(x => x.GenomeFitness);
-    //}
-
     public static bool ShowTrace = true;
 
-    public static IEnumerable<StrategyOptimizerReport> OptimizeNeuralIndicator(IEnumerable<OptimizerParameter> oParams,
-      OptimizationType oType, EvolutionParams eParams, Func<IEnumerable<StrategyParameter>, Strategy> makeStrat)
+    public static IEnumerable<StrategyOptimizerReport> OptimizeNeuralStrategy(IEnumerable<OptimizerParameter> oParams,
+      Func<IEnumerable<StrategyParameter>, Strategy> makeStrat)
     {
       return Optimizer.OptimizeStrategyParameters(oParams, sParams => {
 
         var strat = makeStrat(sParams);
-
-        Genome bestGenome;
-        if (oType == OptimizationType.Genetic)
-        {
-          bestGenome = Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(strat.GenomeSize),
-            g => -1 * strat.MakeSignal(g).Variance(strat.IdealSignal));
-        }
-        else
-        {
-          bestGenome = Optimizer.Anneal(Optimizer.MakeRandomGenome(strat.GenomeSize), g =>
-          strat.CalculateError(g));
-        }
-
+        var bestGenome = OptimizeNeuralGenome(strat);
         var genomeName = bestGenome.Save();
         return new StrategyOptimizerReport {
           StrategyName = strat.Name,
@@ -211,21 +152,12 @@ namespace Quqe
       }).OrderByDescending(x => x.GenomeFitness);
     }
 
-    public static Genome OptimizeNeuralGenome(Strategy strat, OptimizationType oType, EvolutionParams eParams = null)
+    public static Genome OptimizeNeuralGenome(Strategy strat)
     {
-      if (oType == OptimizationType.Genetic)
-      {
-        return Optimizer.Evolve(eParams, Optimizer.MakeRandomGenome(strat.GenomeSize),
-          g => -1 * strat.MakeSignal(g).Variance(strat.IdealSignal));
-      }
-      else
-      {
-        return Optimizer.Anneal(Optimizer.MakeRandomGenome(strat.GenomeSize), g =>
-        strat.CalculateError(g));
-      }
+      return Optimizer.Anneal(Optimizer.MakeRandomGenome(strat.GenomeSize), g => strat.CalculateError(g)).Params;
     }
 
-    public static void OptimizeSignalAccuracy(string signalName, IEnumerable<OptimizerParameter> oParams, DataSeries<Bar> bars,
+    public static void OptimizeSignal(string signalName, IEnumerable<OptimizerParameter> oParams, DataSeries<Bar> bars,
       Func<IEnumerable<StrategyParameter>, DataSeries<Value>> makeSignal)
     {
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
@@ -240,93 +172,75 @@ namespace Quqe
       Strategy.PrintStrategyOptimizerReports(reports);
     }
 
-    public static Genome Evolve(EvolutionParams eParams, Genome seed, Func<Genome, double> fitnessFunc)
+    class ValidationWindow
     {
-      var population = new List<Genome>();
-      population.Add(seed);
-      population.AddRange(List.Repeat(eParams.GenerationSurvivorCount - 1, () => MakeRandomGenome(seed.Size)));
+      public DateTime First;
+      public DateTime Last;
+    }
 
-      Action updateFitness = () => {
-        var unmeasured = population.Where(g => g.Fitness == null).ToList();
-        //Trace.WriteLine("Calculating fitness for " + unmeasured.Count + " individuals");
-        if (ParallelStrategies)
-        {
-          foreach (var g in unmeasured)
-            g.Fitness = fitnessFunc(g);
-        }
-        else
-          Parallel.ForEach(unmeasured, g => { g.Fitness = fitnessFunc(g); });
+    public static StrategyOptimizerReport OptimizeDecisionTree(string name, IEnumerable<OptimizerParameter> oParams,
+      int numAnnealingIterations, DataSeries<Bar> bars,
+      TimeSpan validationWindowSize, Func<IEnumerable<StrategyParameter>, double> getMinMajority,
+      Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples)
+    {
+      List<ValidationWindow> validationWindows = new List<ValidationWindow>();
+      DateTime windowStart = bars.First().Timestamp;
+      for (windowStart = bars.First().Timestamp;
+        windowStart.Add(validationWindowSize) <= bars.Last().Timestamp;
+        windowStart = windowStart.Add(validationWindowSize))
+        validationWindows.Add(new ValidationWindow {
+          First = windowStart,
+          Last = windowStart.Add(validationWindowSize).AddDays(-1)
+        });
+      validationWindows.Add(new ValidationWindow {
+        First = bars.Last().Timestamp.Subtract(validationWindowSize).AddDays(1),
+        Last = bars.Last().Timestamp
+      });
+
+      var annealResult = Optimizer.Anneal(oParams, sParams => {
+        double costSum = 0.0;
+        Parallel.ForEach(validationWindows, vw => {
+          //foreach (var vw in validationWindows)
+          //{
+          var teachingSet = makeExamples(sParams, bars.To(vw.First.AddDays(-1)))
+            .Concat(makeExamples(sParams, bars.From(vw.Last.AddDays(1))));
+          var validationSet = makeExamples(sParams, bars.From(vw.First).To(vw.Last));
+
+          var dt = DecisionTree.Learn(teachingSet, Prediction.Green, getMinMajority(sParams));
+
+          var numCorrect = 0;
+          var numIncorrect = 0;
+          var numUnsure = 0;
+          foreach (var e in validationSet)
+          {
+            var decision = DecisionTree.Decide(e.AttributesValues, dt);
+            if (decision.Equals(e.Goal))
+              numCorrect++;
+            else if (decision is string && (string)decision == "Unsure")
+              numUnsure++;
+            else
+              numIncorrect++;
+          }
+
+          var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
+          var confidence = (double)(numCorrect + numIncorrect) / validationSet.Count();
+          var quality = accuracy * confidence;
+          lock (validationWindows)
+          {
+            costSum += -quality;
+          }
+        });
+
+        return costSum / validationWindows.Count;
+      }, numAnnealingIterations);
+
+      var report = new StrategyOptimizerReport {
+        StrategyName = name,
+        GenomeFitness = -annealResult.Cost,
+        StrategyParams = annealResult.Params.ToList()
       };
-
-      updateFitness();
-
-      double maxMutation = 0;
-
-      for (int gen = 0; gen < eParams.NumGenerations; gen++)
-      {
-        var maxFitness = population.Max(g => g.Fitness).Value;
-        var averageFitness = population.Average(g => g.Fitness).Value;
-        //Func<double, int> numOffspring = fitness => (int)Math.Max(0, (fitness - averageFitness) / (maxFitness - averageFitness) * eParams.MaxOffspring);
-        int maxOffspring = (gen < eParams.NumGenerations) ? eParams.MaxOffspring : eParams.MaxOffspring * 4;
-        int numAliens = (gen < eParams.NumGenerations) ? eParams.RandomAliensPerGeneration : eParams.RandomAliensPerGeneration / 4;
-
-        var z = gen % 100;
-        if (40 <= z && z < 45)
-        {
-          Trace.WriteLine("Radiation burst!");
-          maxMutation = 0.4;  // radiation burst
-          Trace.WriteLine("Alien invasion!");
-          numAliens = 200;  // alien invasion
-        }
-
-        // asexual reproduction
-        foreach (var g in population.ToList())
-          population.AddRange(List.Repeat(eParams.MaxOffspring /*numOffspring(g.Fitness.Value)*/, () => Breed(g, g, eParams, maxMutation)));
-        updateFitness();
-
-        //if (90 <= z && z < 95)
-        //{
-        //  Trace.WriteLine("Alien invasion!");
-        //  numAliens = 200;  // alien invasion
-        //}
-
-        // add random aliens
-        population.AddRange(List.Repeat(numAliens, () => MakeRandomGenome(seed.Size)));
-        updateFitness();
-
-        //// sexual reproduction
-        //foreach (var g in population.ToList())
-        //  population.AddRange(List.Repeat(numOffspring(g.Fitness.Value), () => Breed(g, population.RandomItem(), eParams)));
-        //updateFitness();
-
-        // kill off the unfit
-        population = population.OrderByDescending(g => g.Fitness).Take(eParams.GenerationSurvivorCount).ToList();
-        var variance = Variance(population.Select(g => g.Fitness.Value));
-        maxMutation = Math.Max(0.005, Math.Min(1, eParams.MaxMutationTimesVariance / variance));
-        Trace.WriteLine("Gen " + gen + ", fittest: " + population.First().Fitness.Value.ToString("N6") + "   Variance: " + variance.ToString("N6") + "   MaxMutation: " + maxMutation.ToString("N6"));
-      }
-      return population.First();
-    }
-
-    static double Variance(IEnumerable<double> xs)
-    {
-      var u = xs.Average();
-      return xs.Average(x => Math.Pow(x - u, 2));
-    }
-
-    static Genome Breed(Genome a, Genome b, EvolutionParams eParams, double maxMutation)
-    {
-      var c = new Genome { Genes = new List<double>() };
-      var m = RandomDouble(0, maxMutation);
-      for (int i = 0; i < a.Size; i++)
-      {
-        var p = Random.Next(2);
-        var gene = p == 0 ? a.Genes[i] : b.Genes[i];
-        if (WithProb(eParams.MutationRate))
-          gene += RandomDouble(-m, m);
-        c.Genes.Add(Clip(GeneMin, GeneMax, gene));
-      }
-      return c;
+      Strategy.PrintStrategyOptimizerReports(List.Create(report));
+      return report;
     }
 
     static Genome MutateGenome(Genome genome, double temperature)
@@ -396,73 +310,17 @@ namespace Quqe
       return Math.Sqrt(xs.Select(x => Math.Pow(x - avg, 2)).Sum() / xs.Count());
     }
 
-    public static Genome Anneal(Genome seed, Func<Genome, double> costFunc)
+    public static AnnealResult<Genome> Anneal(Genome seed, Func<Genome, double> costFunc)
     {
-      int iterations = 25000;
-      Func<double, double> schedule = t => Math.Sqrt(Math.Exp(-11 * t));
-      var escapeCostPremiumSma = MakeSMA(25);
-      var costSma = MakeSMA(2000);
-      var costStdDev = MakeStdDev(2000);
-
-      var acceptCount = 0;
-      var rejectCount = 0;
-      double takeAnywayProbability = 0;
-      var currentGenome = seed;
-      var currentCost = costFunc(currentGenome);
-      var bestGenome = currentGenome;
-      var bestCost = currentCost;
-      double averageEscapeCostPremium = 0;
-      double bestCostStdDev;
-      double bestCostAvg;
-      //double bestCostThresh = 0.00001;
-      for (int i = 0; i < iterations /*|| averageEscapeCostPremium / bestCost > 0.0000005*/; i++)
-      {
-        var temperature = schedule((double)i / iterations);
-        var nextGenome = MutateGenome(currentGenome, temperature * GeneMagnitude);
-        var nextCost = costFunc(nextGenome);
-
-        if (i % 50 == 0)
-        {
-          if (ShowTrace)
-            Trace.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
-              i, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
-        }
-
-        Action takeNext = () => {
-          currentGenome = nextGenome;
-          currentCost = nextCost;
-          if (currentCost < bestCost)
-          {
-            bestGenome = currentGenome;
-            bestCost = currentCost;
-          }
-          acceptCount++;
-        };
-
-        if (nextCost < currentCost)
-          takeNext();
-        else
-        {
-          var escapeCostPremium = (nextCost - currentCost);
-          averageEscapeCostPremium = escapeCostPremiumSma(escapeCostPremium);
-          takeAnywayProbability = temperature * Math.Exp(-(escapeCostPremium / averageEscapeCostPremium) + 1);
-          bool takeItAnyway = WithProb(takeAnywayProbability);
-          if (takeItAnyway)
-            takeNext();
-          else
-            rejectCount++;
-        }
-
-        bestCostStdDev = costStdDev(currentCost);
-        bestCostAvg = costSma(currentCost);
-        //if (i > 2000 && bestCostStdDev / bestCostAvg < bestCostThresh)
-        //  break;
-      }
-
-      return bestGenome;
+      return Anneal(seed, MutateGenome, costFunc, 25000);
     }
 
-    public static IEnumerable<StrategyParameter> Anneal(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000)
+    public static AnnealResult<IEnumerable<StrategyParameter>> Anneal(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000)
+    {
+      return Anneal(MakeSParamsSeed(oParams).ToList(), (sp, temp) => MutateSParams(sp, oParams, temp), costFunc, iterations);
+    }
+
+    static AnnealResult<TParams> Anneal<TParams>(TParams initialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc, int iterations = 25000)
     {
       Func<double, double> schedule = t => Math.Sqrt(Math.Exp(-11 * t));
       var escapeCostPremiumSma = MakeSMA(25);
@@ -472,9 +330,9 @@ namespace Quqe
       var acceptCount = 0;
       var rejectCount = 0;
       double takeAnywayProbability = 0;
-      IEnumerable<StrategyParameter> currentSp = MakeSParamsSeed(oParams);
-      var currentCost = costFunc(currentSp);
-      var bestSp = currentSp;
+      TParams currentParams = initialParams;
+      var currentCost = costFunc(currentParams);
+      var bestParams = currentParams;
       var bestCost = currentCost;
       double averageEscapeCostPremium = 0;
       double bestCostStdDev;
@@ -483,10 +341,10 @@ namespace Quqe
       for (int i = 0; i < iterations /*|| averageEscapeCostPremium / bestCost > 0.0000005*/; i++)
       {
         var temperature = schedule((double)i / iterations);
-        var nextSParams = MutateSParams(currentSp, oParams, temperature * GeneMagnitude);
-        var nextCost = costFunc(nextSParams);
+        var nextParams = mutate(currentParams, temperature * GeneMagnitude);
+        var nextCost = costFunc(nextParams);
 
-        //if (i % 5 == 0)
+        if (i % Math.Max(1, iterations / 250) == 0)
         {
           if (ShowTrace)
             Trace.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
@@ -494,11 +352,11 @@ namespace Quqe
         }
 
         Action takeNext = () => {
-          currentSp = nextSParams;
+          currentParams = nextParams;
           currentCost = nextCost;
           if (currentCost < bestCost)
           {
-            bestSp = currentSp.ToList();
+            bestParams = currentParams;
             bestCost = currentCost;
           }
           acceptCount++;
@@ -526,7 +384,10 @@ namespace Quqe
 
       if (ShowTrace)
         Trace.WriteLine("Best cost: " + bestCost);
-      return bestSp;
+      return new AnnealResult<TParams> {
+        Params = bestParams,
+        Cost = bestCost
+      };
     }
 
     private static IEnumerable<StrategyParameter> MakeSParamsSeed(IEnumerable<OptimizerParameter> oParams)
@@ -559,14 +420,6 @@ namespace Quqe
     {
       return new Genome { Genes = List.Repeat(length, () => RandomDouble(GeneMin, GeneMax)) };
     }
-
-    //public static List<StrategyOptimizerReport> OptimizeStrategyParameters(IEnumerable<OptimizerParameter> oParams, OptimizeKernelFunc optimizeKernel)
-    //{
-    //  return CrossProd(oParams.Select(op => Range(op.Low, op.High, op.Granularity).ToArray()).ToList())
-    //    .Select(sParamValues => oParams.Select(sp => sp.Name).Zip(sParamValues, (n, v) => new StrategyParameter(n, v)))
-    //    .Select(sParams => optimizeKernel(sParams.ToList()))
-    //    .ToList();
-    //}
 
     static bool ParallelStrategies;
 
@@ -603,19 +456,6 @@ namespace Quqe
               reports.Count, sParamsList.Count, eta(sw.Elapsed.TotalMinutes / reports.Count * sParamsList.Count).ToString("N1")));
           }
         });
-        //var slices = sParamsList.Slice(8);
-        //Parallel.ForEach(slices, new ParallelOptions { MaxDegreeOfParallelism = 8 }, slice => {
-        //  foreach (var sParams in slice)
-        //  {
-        //    var rpt = optimizeKernel(sParams.ToList());
-        //    lock (reports)
-        //    {
-        //      reports.Add(rpt);
-        //      Trace.WriteLine(string.Format("Completed {0} of {1}    ETA: {2} min",
-        //        reports.Count, sParamsList.Count, eta(sw.Elapsed.TotalMinutes / reports.Count * sParamsList.Count).ToString("N1")));
-        //    }
-        //  }
-        //});
         results = reports;
       }
       else
@@ -657,5 +497,11 @@ namespace Quqe
 
       return CrossProd(newAcc, rest);
     }
+  }
+
+  public class AnnealResult<TParams>
+  {
+    public TParams Params;
+    public double Cost;
   }
 }

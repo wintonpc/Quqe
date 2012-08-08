@@ -70,45 +70,42 @@ namespace Quqe
   {
     public static object Learn(IEnumerable<DtExample> examples, object defaultValue, double minimumMajority)
     {
-      return Learn(examples, examples.First().AttributesValues.Select(x => x.GetType()), defaultValue, minimumMajority);
+      return Learn(examples.ToList(), examples.First().AttributesValues.Select(x => x.GetType()).ToList(), defaultValue, minimumMajority);
     }
 
     static object UnsureValue = "Unsure";
 
-    static object Learn(IEnumerable<DtExample> examples, IEnumerable<Type> attribs, object defaultValue, double minimumMajority)
+    static object Learn(List<DtExample> examples, List<Type> attribs, object defaultValue, double minimumMajority)
     {
-      var exs = examples.ToList();
-      var attrs = attribs.ToList();
-
-      if (!exs.Any())
-        return new OutcomeValue(UnsureValue, 0, exs.Count);
-      else if (exs.GroupBy(x => x.Goal).Count() == 1)
-        return new OutcomeValue(exs.First().Goal, 1, exs.Count);
-      else if (!attrs.Any())
+      if (!examples.Any())
+        return new OutcomeValue(UnsureValue, 0, examples.Count);
+      else if (examples.GroupBy(x => x.Goal).Count() == 1)
+        return new OutcomeValue(examples.First().Goal, 1, examples.Count);
+      else if (!attribs.Any())
       {
         double strength;
-        var majorityValue = MajorityValue(exs, out strength);
+        var majorityValue = MajorityValue(examples, out strength);
         if (strength > minimumMajority)
-          return new OutcomeValue(majorityValue, strength, exs.Count);
+          return new OutcomeValue(majorityValue, strength, examples.Count);
         else
-          return new OutcomeValue(UnsureValue, strength, exs.Count);
+          return new OutcomeValue(UnsureValue, strength, examples.Count);
       }
       else
       {
         double info;
-        Type best = ChooseAttribute(attrs, exs, out info);
+        Type best = ChooseAttribute(attribs, examples, out info);
         return new DtNode(best, info, Values(best).Select(v => {
-          var subset = ExamplesWithAttributeValue(exs, v).ToList();
+          var subset = ExamplesWithAttributeValue(examples, v).ToList();
           return new DtChild(v, Learn(
           subset,
-          attrs.Except(List.Create(best)),
-          MajorityValue(exs),
+          attribs.Except(List.Create(best)).ToList(),
+          MajorityValue(examples),
           minimumMajority));
         }));
       }
     }
 
-    public static object Decide(IEnumerable<object> attributeValues, object tree)
+    public static object Decide(List<object> attributeValues, object tree)
     {
       if (tree is OutcomeValue)
         return ((OutcomeValue)tree).Value;
@@ -117,38 +114,38 @@ namespace Quqe
       return Decide(attributeValues, path.Child);
     }
 
-    static IEnumerable<DtExample> ExamplesWithAttributeValue(IEnumerable<DtExample> examples, object value)
+    static List<DtExample> ExamplesWithAttributeValue(List<DtExample> examples, object value)
     {
-      return examples.Where(x => x.AttributesValues.Contains(value));
+      return examples.Where(x => x.AttributesValues.Contains(value)).ToList();
     }
 
-    static IEnumerable<object> Values(Type attr)
+    static List<object> Values(Type attr)
     {
-      return Enum.GetValues(attr).Cast<object>();
+      return Enum.GetValues(attr).Cast<object>().ToList();
     }
 
-    static object MajorityValue(IEnumerable<DtExample> examples)
+    static object MajorityValue(List<DtExample> examples)
     {
       return examples.GroupBy(x => x.Goal).OrderByDescending(g => g.Count()).First().Key;
     }
 
-    static object MajorityValue(IEnumerable<DtExample> examples, out double strength)
+    static object MajorityValue(List<DtExample> examples, out double strength)
     {
       var majorityGroup = examples.GroupBy(x => x.Goal).OrderByDescending(g => g.Count()).First();
-      strength = (double)majorityGroup.Count() / examples.Count();
+      strength = (double)majorityGroup.Count() / examples.Count;
       return majorityGroup.Key;
     }
 
-    static Type ChooseAttribute(IEnumerable<Type> attribs, IEnumerable<DtExample> examples, out double information)
+    static Type ChooseAttribute(List<Type> attribs, List<DtExample> examples, out double information)
     {
       var sortedAttribs = attribs.Select(attr => {
         var infoHere = Information(AttributeValueProbabilities(attr, examples));
         var remainder = Values(attr).Sum(v => {
           var subset = ExamplesWithAttributeValue(examples, v);
-          var sc = subset.Count();
+          var sc = subset.Count;
           if (sc == 0)
             return 0;
-          return (double)sc / examples.Count() * Information(AttributeValueProbabilities(attr, subset));
+          return (double)sc / examples.Count * Information(AttributeValueProbabilities(attr, subset));
         });
         return new { Attr = attr, InformationGain = infoHere - remainder };
       }).OrderByDescending(x => x.InformationGain).ToList();
@@ -156,9 +153,9 @@ namespace Quqe
       return sortedAttribs.First().Attr;
     }
 
-    static IEnumerable<double> AttributeValueProbabilities(Type attr, IEnumerable<DtExample> examples)
+    static List<double> AttributeValueProbabilities(Type attr, List<DtExample> examples)
     {
-      return Values(attr).Select(v => (double)ExamplesWithAttributeValue(examples, v).Count() / examples.Count());
+      return Values(attr).Select(v => (double)ExamplesWithAttributeValue(examples, v).Count() / examples.Count()).ToList();
     }
 
     static double Log2(double x)
@@ -166,7 +163,7 @@ namespace Quqe
       return Math.Log(x) / Math.Log(2);
     }
 
-    static double Information(IEnumerable<double> ps)
+    static double Information(List<double> ps)
     {
       return ps.Sum(p => p == 0 ? 0 : -p * Log2(p));
     }
@@ -202,8 +199,8 @@ namespace Quqe
                 op.WriteLine(string.Format("n{0} [ label = \"{1}\", fillcolor={2}, style=filled ]",
                   dest, lName(ov.Value) + "\\n" + (ov.Strength * 100).ToString("N1") + "% (" + ov.Count + ")",
                   //c.Count < 3 ? "powderblue" :
-                  ov.Value.Equals(Quqe.DtSignals.Prediction.Green) ? "green" :
-                  ov.Value.Equals(Quqe.DtSignals.Prediction.Red) ? "tomato" :
+                  ov.Value.Equals(Prediction.Green) ? "green" :
+                  ov.Value.Equals(Prediction.Red) ? "tomato" :
                   ov.Count == 0 ? "gray25" :
                   "lightgray"));
                 op.WriteLine(string.Format("n{0} -> n{1} [ label = \"{2}\" ];", dtn.GetHashCode(), dest, lName(c.DecidedAttribute)));

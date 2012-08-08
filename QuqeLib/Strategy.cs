@@ -69,9 +69,9 @@ namespace Quqe
         throw new Exception("didn't expect " + strategyName);
     }
 
-    public static IEnumerable<StrategyOptimizerReport> Optimize(string strategyName, DataSeries<Bar> bars, IEnumerable<OptimizerParameter> oParams, OptimizationType oType, EvolutionParams eParams = null)
+    public static IEnumerable<StrategyOptimizerReport> Optimize(string strategyName, DataSeries<Bar> bars, IEnumerable<OptimizerParameter> oParams)
     {
-      var reports = Optimizer.OptimizeNeuralIndicator(oParams, oType, eParams, sParams => {
+      var reports = Optimizer.OptimizeNeuralStrategy(oParams, sParams => {
         var strat = Make(strategyName, sParams);
         strat.ApplyToBars(bars);
         return strat;
@@ -84,30 +84,35 @@ namespace Quqe
     {
       var signal = MakeSignal(g);
       var bs = Bars.From(signal.First().Timestamp);
-      var helper = BacktestHelper.Start(bs, account);
-      DataSeries.Walk(bs, signal, pos => {
+      return BacktestSignal(bs, signal, account, lookback, maxLossPct);
+    }
+
+    public static BacktestReport BacktestSignal(DataSeries<Bar> bars, DataSeries<Value> signal, Account account, int lookback, double? maxLossPct)
+    {
+      var helper = BacktestHelper.Start(bars, account);
+      DataSeries.Walk(bars, signal, pos => {
         if (pos < lookback)
           return;
 
         var shouldBuy = signal[0] >= 0;
-        Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
+        Trace.WriteLine(bars[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
 
         double? stopLimit = null;
         if (maxLossPct.HasValue)
         {
           if (shouldBuy)
-            stopLimit = (1 - maxLossPct) * bs[0].Open;
+            stopLimit = (1 - maxLossPct) * bars[0].Open;
           else
-            stopLimit = (1 + maxLossPct) * bs[0].Open;
+            stopLimit = (1 + maxLossPct) * bars[0].Open;
         }
 
-        var size = (long)((account.BuyingPower - account.Padding) / bs[0].Open);
+        var size = (long)((account.BuyingPower - account.Padding) / bars[0].Open);
         if (size > 0)
         {
           if (shouldBuy)
-            account.EnterLong(bs.Symbol, size, new ExitOnSessionClose(stopLimit), bs.FromHere());
+            account.EnterLong(bars.Symbol, size, new ExitOnSessionClose(stopLimit), bars.FromHere());
           else
-            account.EnterShort(bs.Symbol, size, new ExitOnSessionClose(stopLimit), bs.FromHere());
+            account.EnterShort(bars.Symbol, size, new ExitOnSessionClose(stopLimit), bars.FromHere());
         }
       });
       return helper.Stop();
@@ -268,7 +273,7 @@ namespace Quqe
           var trainingSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - size - 1).Take(size));
           var oStrat = new BuySellStrategy(Parameters);
           oStrat.ApplyToBars(trainingSet);
-          var genome = Optimizer.OptimizeNeuralGenome(oStrat, OptimizationType.Anneal);
+          var genome = Optimizer.OptimizeNeuralGenome(oStrat);
 
           // evaluate performance of each neural net in predicting bar i-1
           var validationSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - size - 1).Take(size + 1));
@@ -300,7 +305,7 @@ namespace Quqe
         var currentTrainingSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - sizeToUse).Take(sizeToUse));
         var bestStrat = new BuySellStrategy(Parameters);
         bestStrat.ApplyToBars(currentTrainingSet);
-        var bestGenome = Optimizer.OptimizeNeuralGenome(bestStrat, OptimizationType.Anneal);
+        var bestGenome = Optimizer.OptimizeNeuralGenome(bestStrat);
 
         var currentValidationSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - sizeToUse).Take(sizeToUse + 1));
         var finalStrat = new BuySellStrategy(Parameters);

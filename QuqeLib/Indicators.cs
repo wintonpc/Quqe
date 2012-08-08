@@ -494,9 +494,10 @@ namespace Quqe
     }
   }
 
+  public enum Prediction { Green, Red }
+
   public static class DtSignals
   {
-    public enum Prediction { Green, Red }
     public enum Last2BarColor { Green, Red }
     public enum LastBarColor { Green, Red }
     public enum LastBarSize { Small, Medium, Large }
@@ -597,7 +598,7 @@ namespace Quqe
         );
       };
 
-      var dt = DecisionTree.Learn(makeExamples(teachingSet), DtSignals.Prediction.Green, 0.50);
+      var dt = DecisionTree.Learn(makeExamples(teachingSet), Prediction.Green, 0.50);
       var exs = makeExamples(validationSet);
       var firstDate = exs.First().Timestamp.Value;
       var attribs = exs.Select(x => x.AttributesValues).ToList();
@@ -628,6 +629,9 @@ namespace Quqe
       int useYesterdaysOpen = 0
       )
     {
+      if (carefulBars.Length < 2)
+        return new List<DtExample>();
+
       List<DtExample> examples = new List<DtExample>();
       var tof = carefulBars.Opens().LinReg(toPeriod, toForecast);
       var tcf = carefulBars.Closes().LinReg(tcPeriod, tcForecast).Delay(1);

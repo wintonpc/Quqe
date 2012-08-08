@@ -276,7 +276,7 @@ namespace QuqeTest
       var teachingSet = makeExamples("02/11/2010", "12/31/2011");
       var validationSet = makeExamples("01/01/2012", "07/18/2012");
 
-      var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, 0.50);
+      var dt = DecisionTree.Learn(teachingSet, Prediction.Green, 0.51);
       DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
 
       foreach (var set in List.Create(teachingSet, validationSet))
@@ -297,7 +297,7 @@ namespace QuqeTest
 
         var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
         var confidence = (double)(numCorrect + numIncorrect) / set.Count();
-        var altAccuracy = 0.57;
+        var altAccuracy = 0.63;
         Trace.WriteLine("NumCorrect: " + numCorrect);
         Trace.WriteLine("NumIncorrect: " + numIncorrect);
         Trace.WriteLine("NumUnsure: " + numUnsure);
@@ -313,7 +313,7 @@ namespace QuqeTest
     public void DecisionTree2()
     {
       var oParams = List.Create(
-        new OptimizerParameter("MinMajority", 0.48, 0.52, 0.01),
+        new OptimizerParameter("MinMajority", 0.50, 0.54, 0.01),
         new OptimizerParameter("SmallMax", 0.65, 0.65, 0.01),
         new OptimizerParameter("MediumMax", 1.21, 1.21, 0.01),
         new OptimizerParameter("SmallMaxPct", -0.09, -0.09, 0.01),
@@ -363,7 +363,7 @@ namespace QuqeTest
         var teachingSet = makeExamples(teachingBars);
         var validationSet = makeExamples(validationBars);
 
-        var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, sParams.Get<double>("MinMajority"));
+        var dt = DecisionTree.Learn(teachingSet, Prediction.Green, sParams.Get<double>("MinMajority"));
 
         //DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
 
@@ -386,7 +386,7 @@ namespace QuqeTest
           var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
           var confidence = (double)(numCorrect + numIncorrect) / set.Count();
           var quality = accuracy * confidence;
-          var altAccuracy = 0.57;
+          var altAccuracy = 0.63;
           //Trace.WriteLine("NumCorrect: " + numCorrect);
           //Trace.WriteLine("NumIncorrect: " + numIncorrect);
           //Trace.WriteLine("NumUnsure: " + numUnsure);
@@ -451,7 +451,7 @@ namespace QuqeTest
         var teachingSet = makeExamples(teachingBars);
         var validationSet = makeExamples(validationBars);
 
-        var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, 0);
+        var dt = DecisionTree.Learn(teachingSet, Prediction.Green, 0);
 
         //DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
 
@@ -528,10 +528,10 @@ namespace QuqeTest
 
       //var teachingBars = Data.Get("TQQQ").To("12/31/2011");
       //var validationBars = Data.Get("TQQQ").From("01/01/2012");
-      var teachingBars = Data.Get("TQQQ").From("03/01/2012");
+      var teachingBars = Data.Get("TQQQ").From("05/01/2012");
       var validationBars = teachingBars;
 
-      var bestSParams = Optimizer.Anneal(oParams, sParams => {
+      var annealResult = Optimizer.Anneal(oParams, sParams => {
 
         Func<DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = bars => {
           return DtSignals.MakeExamples2(bars,
@@ -552,7 +552,7 @@ namespace QuqeTest
         var teachingSet = makeExamples(teachingBars);
         var validationSet = makeExamples(validationBars);
 
-        var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, 0);
+        var dt = DecisionTree.Learn(teachingSet, Prediction.Green, 0);
 
         var numCorrect = 0;
         var numIncorrect = 0;
@@ -576,10 +576,48 @@ namespace QuqeTest
 
       var report = new StrategyOptimizerReport {
         StrategyName = "DecisionTree",
-        StrategyParams = bestSParams.ToList()
+        StrategyParams = annealResult.Params.ToList()
       };
 
       Strategy.PrintStrategyOptimizerReports(List.Create(report));
+    }
+
+    [TestMethod]
+    public void DecisionTree4c()
+    {
+      var oParams = List.Create(
+        new OptimizerParameter("TOPeriod", 3, 12, 1),
+        new OptimizerParameter("TOForecast", 0, 8, 1),
+        new OptimizerParameter("TCPeriod", 3, 15, 1),
+        new OptimizerParameter("TCForecast", 0, 8, 1),
+        new OptimizerParameter("VOPeriod", 3, 10, 1),
+        new OptimizerParameter("VOForecast", 0, 2, 1),
+        new OptimizerParameter("VCPeriod", 3, 10, 1),
+        new OptimizerParameter("VCForecast", 0, 2, 1),
+        new OptimizerParameter("ATRPeriod", 8, 12, 1),
+        new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1),
+        new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
+        );
+
+      Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = (sParams, bars) => {
+        return DtSignals.MakeExamples2(bars,
+          toPeriod: sParams.Get<int>("TOPeriod"),
+          toForecast: sParams.Get<int>("TOForecast"),
+          tcPeriod: sParams.Get<int>("TCPeriod"),
+          tcForecast: sParams.Get<int>("TCForecast"),
+          voPeriod: sParams.Get<int>("VOPeriod"),
+          voForecast: sParams.Get<int>("VOForecast"),
+          vcPeriod: sParams.Get<int>("VCPeriod"),
+          vcForecast: sParams.Get<int>("VCForecast"),
+          atrPeriod: sParams.Get<int>("ATRPeriod"),
+          atrThresh: sParams.Get<double>("ATRThresh"),
+          useYesterdaysOpen: sParams.Get<int>("UseYesterdaysOpen")
+        );
+      };
+
+      Optimizer.OptimizeDecisionTree("DT4c", oParams, 5,
+        Data.Get("TQQQ").From("01/01/2012").To("04/01/2012"), TimeSpan.FromDays(30),
+        sParams => 0.0, makeExamples);
     }
 
     [TestMethod]
@@ -587,16 +625,16 @@ namespace QuqeTest
     {
       Func<string, string, IEnumerable<DtExample>> makeExamples = (start, end) => {
         return DtSignals.MakeExamples2(Data.Get("TQQQ").From(start).To(end),
-          toPeriod: 12,
-          toForecast: 2,
-          tcPeriod: 10,
-          tcForecast: 8,
-          voPeriod: 10,
+          toPeriod: 4,
+          toForecast: 1,
+          tcPeriod: 5,
+          tcForecast: 2,
+          voPeriod: 9,
           voForecast: 2,
-          vcPeriod: 4,
-          vcForecast: 0,
-          atrPeriod: 11,
-          atrThresh: 2,
+          vcPeriod: 5,
+          vcForecast: 2,
+          atrPeriod: 9,
+          atrThresh: 2.3,
           useYesterdaysOpen: 0
         );
       };
@@ -605,10 +643,12 @@ namespace QuqeTest
       //var validationSet = makeExamples("01/01/2012", "07/15/2012");
       //var teachingSet = makeExamples("02/11/2010", "07/18/2012");
       //var validationSet = makeExamples("02/11/2010", "07/18/2012");
-      var teachingSet = makeExamples("02/11/2010", "12/31/2011");
-      var validationSet = makeExamples("01/01/2012", "07/18/2012");
+      //var teachingSet = makeExamples("02/11/2010", "12/31/2011");
+      //var validationSet = makeExamples("01/01/2012", "07/18/2012");
+      var teachingSet = makeExamples("04/01/2012", "05/01/2012");
+      var validationSet = makeExamples("04/01/2012", "05/01/2012");
 
-      var dt = DecisionTree.Learn(teachingSet, DtSignals.Prediction.Green, 0);
+      var dt = DecisionTree.Learn(teachingSet, Prediction.Green, 0);
       DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
 
       foreach (var set in List.Create(teachingSet, validationSet))

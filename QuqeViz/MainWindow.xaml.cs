@@ -32,7 +32,7 @@ namespace QuqeViz
         new OptimizerParameter("Lookback", 6, 6, 1)
         };
 
-      var reports = Strategy.Optimize("Midpoint", bars, oParams, OptimizationType.Anneal);
+      var reports = Strategy.Optimize("Midpoint", bars, oParams);
     }
 
     public static void OptimizeBuySell(string symbol, string startDate, string endDate)
@@ -43,7 +43,7 @@ namespace QuqeViz
         new OptimizerParameter("Activation2", 0, 0, 1),
         new OptimizerParameter("MomentumPeriod", 14, 14, 1)
       };
-      var reports = Strategy.Optimize("BuySell", bars, oParams, OptimizationType.Anneal);
+      var reports = Strategy.Optimize("BuySell", bars, oParams);
     }
 
     public static void DoBacktest(string symbol, string startDate, string endDate, string reportName, double initialValue, int marginFactor, bool isValidation)
@@ -544,7 +544,7 @@ namespace QuqeViz
         new OptimizerParameter("Thresh", 1.7, 2.7, 0.1) // 1.9
         );
 
-      Optimizer.OptimizeSignalAccuracy("ReversalProbability", oParams, bars, sParams => {
+      Optimizer.OptimizeSignal("ReversalProbability", oParams, bars, sParams => {
         return bars.ReversalProbability(
           sParams.Get<int>("Period"),
           sParams.Get<double>("K"),
