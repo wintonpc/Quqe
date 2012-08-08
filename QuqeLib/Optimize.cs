@@ -49,15 +49,15 @@ namespace Quqe
     public string StrategyName;
     public List<StrategyParameter> StrategyParams;
     public string GenomeName;
-    public double GenomeFitness;
+    public double Fitness;
 
-    static readonly string StrategyDir = @"c:\Users\Wintonpc\git\Quqe\Share\Strategies";
+    public static readonly string StrategyDir = @"c:\Users\Wintonpc\git\Quqe\Share\Strategies";
     public override string ToString()
     {
       var sb = new StringBuilder();
       sb.AppendLine("Strategy : " + StrategyName);
-      sb.AppendLine("Genome   : " + GenomeName);
-      sb.AppendLine("Fitness  : " + GenomeFitness);
+      sb.AppendLine("Genome   : " + (GenomeName ?? "(none)"));
+      sb.AppendLine("Fitness  : " + Fitness);
       foreach (var sp in StrategyParams)
         sb.AppendLine(sp.Name + ": " + sp.Value);
       return sb.ToString();
@@ -82,7 +82,7 @@ namespace Quqe
         var r = new StrategyOptimizerReport();
         r.StrategyName = nextLine()[1];
         r.GenomeName = nextLine()[1];
-        r.GenomeFitness = double.Parse(nextLine()[1]);
+        r.Fitness = double.Parse(nextLine()[1]);
 
         var sParams = new List<StrategyParameter>();
         string[] lin;
@@ -91,6 +91,12 @@ namespace Quqe
         r.StrategyParams = sParams;
         return r;
       }
+    }
+
+    public static BasicStrategy CreateStrategy(string name)
+    {
+      var report = Load(name);
+      return BasicStrategy.Make(report.StrategyName, report.StrategyParams);
     }
   }
 
@@ -147,9 +153,9 @@ namespace Quqe
           StrategyName = strat.Name,
           StrategyParams = strat.Parameters,
           GenomeName = genomeName,
-          GenomeFitness = bestGenome.Fitness ?? 0
+          Fitness = bestGenome.Fitness ?? 0
         };
-      }).OrderByDescending(x => x.GenomeFitness);
+      }).OrderByDescending(x => x.Fitness);
     }
 
     public static Genome OptimizeNeuralGenome(Strategy strat)
@@ -163,11 +169,11 @@ namespace Quqe
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
         var sig = makeSignal(sParams);
         return new StrategyOptimizerReport {
-          GenomeFitness = bars.SignalAccuracyPercent(sig),
+          Fitness = bars.SignalAccuracyPercent(sig),
           StrategyParams = sParams,
           StrategyName = signalName
         };
-      }).OrderByDescending(x => x.GenomeFitness);
+      }).OrderByDescending(x => x.Fitness);
 
       Strategy.PrintStrategyOptimizerReports(reports);
     }
@@ -236,7 +242,7 @@ namespace Quqe
 
       var report = new StrategyOptimizerReport {
         StrategyName = name,
-        GenomeFitness = -annealResult.Cost,
+        Fitness = -annealResult.Cost,
         StrategyParams = annealResult.Params.ToList()
       };
       Strategy.PrintStrategyOptimizerReports(List.Create(report));
@@ -348,7 +354,7 @@ namespace Quqe
         {
           if (ShowTrace)
             Trace.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
-              i, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
+              i + 1, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
         }
 
         Action takeNext = () => {
@@ -461,7 +467,7 @@ namespace Quqe
       else
         results = sParamsList.Select(sParams => optimizeKernel(sParams.ToList())).ToList();
 
-      return results.OrderByDescending(x => x.GenomeFitness).ToList();
+      return results.OrderByDescending(x => x.Fitness).ToList();
     }
 
     static IEnumerable<double> Range(double low, double high, double step)

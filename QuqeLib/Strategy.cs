@@ -7,6 +7,7 @@ using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using System.IO;
 
 namespace Quqe
 {
@@ -61,12 +62,10 @@ namespace Quqe
 
     public static Strategy Make(string strategyName, IEnumerable<StrategyParameter> sParams)
     {
-      if (strategyName == "BuySell")
-        return new BuySellStrategy(sParams);
-      if (strategyName == "Combo")
-        return new ComboStrategy(sParams);
-      else
-        throw new Exception("didn't expect " + strategyName);
+      var className = "Quqe." + strategyName + "Strategy";
+      var type = typeof(Strategy).Assembly.GetType(className);
+      var ctor = type.GetConstructor(new[] { typeof(IEnumerable<StrategyParameter>) });
+      return (Strategy)ctor.Invoke(new object[] { sParams });
     }
 
     public static IEnumerable<StrategyOptimizerReport> Optimize(string strategyName, DataSeries<Bar> bars, IEnumerable<OptimizerParameter> oParams)
@@ -90,6 +89,7 @@ namespace Quqe
     public static BacktestReport BacktestSignal(DataSeries<Bar> bars, DataSeries<Value> signal, Account account, int lookback, double? maxLossPct)
     {
       var helper = BacktestHelper.Start(bars, account);
+      bars = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
       DataSeries.Walk(bars, signal, pos => {
         if (pos < lookback)
           return;
@@ -116,6 +116,27 @@ namespace Quqe
         }
       });
       return helper.Stop();
+    }
+
+    public static void WriteTrades(List<TradeRecord> trades, DateTime now, string genomeName)
+    {
+      var dirName = "Trades";
+      if (!Directory.Exists(dirName))
+        Directory.CreateDirectory(dirName);
+
+      var fn = Path.Combine(dirName, string.Format("{0:yyyy-MM-dd-hh-mm-ss} {1}.csv", now, genomeName));
+
+      using (var op = new StreamWriter(fn))
+      {
+        Action<IEnumerable<object>> writeRow = list => op.WriteLine(list.Join(","));
+
+        writeRow(List.Create("Symbol", "Size", "EntryTime", "ExitTime", "Position", "Entry", "StopLimit", "Exit",
+          "Profit", "Loss", "PercentProfit", "PercentLoss"));
+
+        foreach (var t in trades)
+          writeRow(List.Create<object>(t.Symbol, t.Size, t.EntryTime, t.ExitTime, t.PositionDirection, t.Entry, t.StopLimit, t.Exit,
+            t.Profit, t.Loss, t.PercentProfit, t.PercentLoss));
+      }
     }
 
     protected static List<DataSeries<T>> TrimInputs<T>(IEnumerable<DataSeries<T>> inputs)
@@ -224,137 +245,6 @@ namespace Quqe
     }
   }
 
-  public class UpdatingBuySellStrategy : Strategy
-  {
-    public override string Name { get { return "UpdatingBuySell"; } }
-
-    int MinTrainingSize = 15;
-    int MaxTrainingSize = 39;
-    //int MinTrainingSize = 30;
-    //int MaxTrainingSize = 30;
-    int WindowStepSize = 4;
-
-    public UpdatingBuySellStrategy(IEnumerable<StrategyParameter> sParams)
-      : base(sParams)
-    {
-    }
-
-    class Trial
-    {
-      public int WindowSize;
-      public double PredictionError;
-    }
-
-    public override DataSeries<Value> MakeSignal(Genome notUsed)
-    {
-      List<Value> signalElements = new List<Value>();
-      for (int i = 0; i <= MaxTrainingSize; i++)
-        signalElements.Add(new Value(Bars[i].Timestamp, 0));
-
-      Optimizer.ShowTrace = false;
-
-      int bestTrainingSize = 0;
-
-      var sizeSma = Optimizer.MakeSMA(5);
-
-      for (int i = MaxTrainingSize + 1; i < Bars.Length; i++)
-      {
-        Trace.WriteLine("UpdateBuySell [ " + i + " / " + Bars.Length + " ]    bestTrainingSize = " + bestTrainingSize);
-
-        // optimize and evaluate various windows sizes for the last known bar
-        var trials = new List<Trial>();
-        Parallel.For(0, (MaxTrainingSize - MinTrainingSize) / WindowStepSize + 1, j => {
-          //for (int size = MinTrainingSize; size<=MaxTrainingSize; size += WindowStepSize)
-          //{
-
-          var size = MinTrainingSize + j * WindowStepSize;
-
-          // optimize a neural net for each training size with i-2 as the last training bar
-          var trainingSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - size - 1).Take(size));
-          var oStrat = new BuySellStrategy(Parameters);
-          oStrat.ApplyToBars(trainingSet);
-          var genome = Optimizer.OptimizeNeuralGenome(oStrat);
-
-          // evaluate performance of each neural net in predicting bar i-1
-          var validationSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - size - 1).Take(size + 1));
-          var vStrat = new BuySellStrategy(Parameters);
-          vStrat.ApplyToBars(validationSet);
-          var vSignalAll = vStrat.MakeSignal(genome);
-          double correctPct = (double)validationSet.From(vSignalAll.First().Timestamp)
-            .ZipElements<Value, Value>(vSignalAll, (v, s, x) =>
-            ((s[0] > 0) == v[0].IsGreen) ? 1 : 0).Sum(x => x.Val) / validationSet.Length;
-          double vSignal = vSignalAll.Last().Val;
-
-          lock (trials)
-          {
-            trials.Add(new Trial {
-              WindowSize = size,
-              PredictionError = Math.Pow(vSignal - (validationSet.Last().IsGreen ? 1 : -1), 2)
-            });
-          }
-        });
-
-        // bestTrainingSize = training size of best performing neural net
-        bestTrainingSize = trials.OrderBy(t => t.PredictionError).First().WindowSize;
-
-        //bestTrainingSize = 30;
-
-        int sizeToUse = (int)sizeSma(bestTrainingSize);
-
-        // let bestNet = optimize a neural net on bars i-bestTrainingSize..i-1
-        var currentTrainingSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - sizeToUse).Take(sizeToUse));
-        var bestStrat = new BuySellStrategy(Parameters);
-        bestStrat.ApplyToBars(currentTrainingSet);
-        var bestGenome = Optimizer.OptimizeNeuralGenome(bestStrat);
-
-        var currentValidationSet = new DataSeries<Bar>(Bars.Symbol, Bars.Skip(i - sizeToUse).Take(sizeToUse + 1));
-        var finalStrat = new BuySellStrategy(Parameters);
-        finalStrat.ApplyToBars(currentValidationSet);
-        var sig = finalStrat.MakeSignal(bestGenome).Last();
-        signalElements.Add(new Value(Bars[i].Timestamp, sig.Val));
-
-        Trace.WriteLine("got it right? " + (Bars[i].IsGreen == (sig.Val > 0)));
-      }
-      Optimizer.ShowTrace = true;
-
-      return new DataSeries<Value>(Bars.Symbol, signalElements);
-    }
-
-    public override BacktestReport Backtest(Genome g, Account account)
-    {
-      return GenericBacktest(g, account, MaxTrainingSize + 1, null);
-    }
-
-    #region not implemented
-
-    public override int GenomeSize
-    {
-      get { throw new NotImplementedException(); }
-    }
-
-    public override double CalculateError(Genome g)
-    {
-      throw new NotImplementedException();
-    }
-
-    public override double Normalize(double value, DataSeries<Bar> ds)
-    {
-      throw new NotImplementedException();
-    }
-
-    public override double Denormalize(double value, DataSeries<Bar> ds)
-    {
-      throw new NotImplementedException();
-    }
-
-    protected override NeuralNet MakeNeuralNet(Genome g)
-    {
-      throw new NotImplementedException();
-    }
-
-    #endregion
-  }
-
   public class ComboStrategy : Strategy
   {
     public override string Name { get { return "Combo"; } }
@@ -416,5 +306,35 @@ namespace Quqe
     }
 
     #endregion
+  }
+
+  public abstract class BasicStrategy
+  {
+    protected readonly List<StrategyParameter> SParams;
+
+    protected BasicStrategy(IEnumerable<StrategyParameter> sParams)
+    {
+      SParams = sParams.ToList();
+    }
+
+    public abstract DataSeries<Value> MakeSignal(DataSeries<Bar> bars);
+
+    public static BasicStrategy Make(string strategyName, IEnumerable<StrategyParameter> sParams)
+    {
+      var className = "Quqe." + strategyName + "Strategy";
+      var type = typeof(Strategy).Assembly.GetType(className);
+      var ctor = type.GetConstructor(new[] { typeof(IEnumerable<StrategyParameter>) });
+      return (BasicStrategy)ctor.Invoke(new object[] { sParams });
+    }
+  }
+
+  public class DTLRR2Strategy : BasicStrategy
+  {
+    public DTLRR2Strategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
+
+    public override DataSeries<Value> MakeSignal(DataSeries<Bar> bars)
+    {
+      return bars.DecisionTreeSignal(SParams, 0, DtSignals.MakeExamples2);
+    }
   }
 }

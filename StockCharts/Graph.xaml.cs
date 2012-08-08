@@ -297,8 +297,8 @@ namespace StockCharts
     Line CrosshairLineH;
     public void DrawCrosshairs(Point canvasPoint, int slotNumber)
     {
-      //var lineColor = new SolidColorBrush(Color.FromRgb(173, 40, 230));
-      var lineColor = new SolidColorBrush(Color.FromRgb(80, 175, 185));
+      //var lineColor = new SolidColorBrush(Color.FromArgb(128, 80, 175, 185));
+      var lineColor = new SolidColorBrush(Color.FromArgb(110, 60, 145, 145));
 
       var snappedPoint = PointToCanvas(slotNumber, 0, ViewRegion);
       CrosshairLineV = new Line {

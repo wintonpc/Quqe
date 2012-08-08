@@ -398,105 +398,17 @@ namespace QuqeTest
           return new StrategyOptimizerReport {
             StrategyName = "DecisionTree",
             StrategyParams = sParams,
-            GenomeFitness = accuracy * confidence + altAccuracy * (1 - confidence)
+            Fitness = accuracy * confidence + altAccuracy * (1 - confidence)
           };
         }
         throw new Exception();
       });
 
-      Strategy.PrintStrategyOptimizerReports(reports.OrderByDescending(x => x.GenomeFitness));
+      Strategy.PrintStrategyOptimizerReports(reports.OrderByDescending(x => x.Fitness));
     }
 
     [TestMethod]
-    public void DecisionTree4()
-    {
-      var oParams = List.Create(
-        new OptimizerParameter("TOPeriod", 6, 10, 2),
-        new OptimizerParameter("TOForecast", 0, 4, 2),
-        new OptimizerParameter("TCPeriod", 6, 10, 2),
-        new OptimizerParameter("TCForecast", 0, 4, 2),
-        new OptimizerParameter("VOPeriod", 4, 6, 2),
-        new OptimizerParameter("VOForecast", 0, 0, 1),
-        new OptimizerParameter("VCPeriod", 4, 6, 2),
-        new OptimizerParameter("VCForecast", 0, 0, 1),
-        new OptimizerParameter("ATRPeriod", 10, 10, 1),
-        new OptimizerParameter("ATRThresh", 1.4, 2.0, 0.3),
-        new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
-        );
-
-
-      //var learningSet = DtSignals.MakeExamples(Data.Get("TQQQ").To("12/31/2011"));
-      //var validationSet = DtSignals.MakeExamples(Data.Get("TQQQ").From("01/01/2012"));
-      //var teachingBars = Data.Get("TQQQ").To("12/31/2011");
-      var teachingBars = Data.Get("TQQQ").From("01/01/2012");
-      var validationBars = Data.Get("TQQQ").From("01/01/2012");
-
-      var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
-
-        Func<DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = bars =>
-          DtSignals.MakeExamples2(bars,
-            toPeriod: sParams.Get<int>("TOPeriod"),
-            toForecast: sParams.Get<int>("TOForecast"),
-            tcPeriod: sParams.Get<int>("TCPeriod"),
-            tcForecast: sParams.Get<int>("TCForecast"),
-            voPeriod: sParams.Get<int>("VOPeriod"),
-            voForecast: sParams.Get<int>("VOForecast"),
-            vcPeriod: sParams.Get<int>("VCPeriod"),
-            vcForecast: sParams.Get<int>("VCForecast"),
-            atrPeriod: sParams.Get<int>("ATRPeriod"),
-            atrThresh: sParams.Get<double>("ATRThresh"),
-            useYesterdaysOpen: sParams.Get<int>("UseYesterdaysOpen")
-          );
-
-        var teachingSet = makeExamples(teachingBars);
-        var validationSet = makeExamples(validationBars);
-
-        var dt = DecisionTree.Learn(teachingSet, Prediction.Green, 0);
-
-        //DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
-
-        foreach (var set in List.Create(/*teachingSet,*/ validationSet))
-        {
-          var numCorrect = 0;
-          var numIncorrect = 0;
-          var numUnsure = 0;
-          foreach (var e in set)
-          {
-            var decision = DecisionTree.Decide(e.AttributesValues, dt);
-            if (decision.Equals(e.Goal))
-              numCorrect++;
-            else if (decision is string && (string)decision == "Unsure")
-              numUnsure++;
-            else
-              numIncorrect++;
-          }
-
-          var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
-          var confidence = (double)(numCorrect + numIncorrect) / set.Count();
-          var quality = accuracy * confidence;
-          var altAccuracy = 0.5;
-          //Trace.WriteLine("NumCorrect: " + numCorrect);
-          //Trace.WriteLine("NumIncorrect: " + numIncorrect);
-          //Trace.WriteLine("NumUnsure: " + numUnsure);
-          //Trace.WriteLine("Accuracy: " + accuracy);
-          //Trace.WriteLine("Confidence: " + confidence);
-          //Trace.WriteLine("Quality: " + quality);
-          //Trace.WriteLine("---");
-          //if (set == teachingSet)
-          return new StrategyOptimizerReport {
-            StrategyName = "DecisionTree",
-            StrategyParams = sParams,
-            GenomeFitness = accuracy * confidence + altAccuracy * (1 - confidence)
-          };
-        }
-        throw new Exception();
-      });
-
-      Strategy.PrintStrategyOptimizerReports(reports.OrderByDescending(x => x.GenomeFitness));
-    }
-
-    [TestMethod]
-    public void DecisionTree4b()
+    public void OptimizeDTLRR2()
     {
       var oParams = List.Create(
         new OptimizerParameter("TOPeriod", 3, 12, 1),
@@ -511,173 +423,22 @@ namespace QuqeTest
         new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1),
         new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
         );
-      //var oParams = List.Create(
-      //  new OptimizerParameter("TOPeriod", 9, 9, 1),
-      //  new OptimizerParameter("TOForecast", 8, 8, 1),
-      //  new OptimizerParameter("TCPeriod", 4, 4, 1),
-      //  new OptimizerParameter("TCForecast", 1, 1, 1),
-      //  new OptimizerParameter("VOPeriod", 9, 9, 1),
-      //  new OptimizerParameter("VOForecast", 2, 2, 1),
-      //  new OptimizerParameter("VCPeriod", 6, 6, 1),
-      //  new OptimizerParameter("VCForecast", 0, 0, 1),
-      //  new OptimizerParameter("ATRPeriod", 12, 12, 1),
-      //  new OptimizerParameter("ATRThresh", 2.1, 2.1, 0.1),
-      //  new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
-      //  );
-
-
-      //var teachingBars = Data.Get("TQQQ").To("12/31/2011");
-      //var validationBars = Data.Get("TQQQ").From("01/01/2012");
-      var teachingBars = Data.Get("TQQQ").From("05/01/2012");
-      var validationBars = teachingBars;
-
-      var annealResult = Optimizer.Anneal(oParams, sParams => {
-
-        Func<DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = bars => {
-          return DtSignals.MakeExamples2(bars,
-            toPeriod: sParams.Get<int>("TOPeriod"),
-            toForecast: sParams.Get<int>("TOForecast"),
-            tcPeriod: sParams.Get<int>("TCPeriod"),
-            tcForecast: sParams.Get<int>("TCForecast"),
-            voPeriod: sParams.Get<int>("VOPeriod"),
-            voForecast: sParams.Get<int>("VOForecast"),
-            vcPeriod: sParams.Get<int>("VCPeriod"),
-            vcForecast: sParams.Get<int>("VCForecast"),
-            atrPeriod: sParams.Get<int>("ATRPeriod"),
-            atrThresh: sParams.Get<double>("ATRThresh"),
-            useYesterdaysOpen: sParams.Get<int>("UseYesterdaysOpen")
-          );
-        };
-
-        var teachingSet = makeExamples(teachingBars);
-        var validationSet = makeExamples(validationBars);
-
-        var dt = DecisionTree.Learn(teachingSet, Prediction.Green, 0);
-
-        var numCorrect = 0;
-        var numIncorrect = 0;
-        var numUnsure = 0;
-        foreach (var e in validationSet)
-        {
-          var decision = DecisionTree.Decide(e.AttributesValues, dt);
-          if (decision.Equals(e.Goal))
-            numCorrect++;
-          else if (decision is string && (string)decision == "Unsure")
-            numUnsure++;
-          else
-            numIncorrect++;
-        }
-
-        var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
-        var confidence = (double)(numCorrect + numIncorrect) / validationSet.Count();
-        var quality = accuracy * confidence;
-        return -quality;
-      }, iterations: 300);
-
-      var report = new StrategyOptimizerReport {
-        StrategyName = "DecisionTree",
-        StrategyParams = annealResult.Params.ToList()
-      };
-
-      Strategy.PrintStrategyOptimizerReports(List.Create(report));
-    }
-
-    [TestMethod]
-    public void DecisionTree4c()
-    {
-      var oParams = List.Create(
-        new OptimizerParameter("TOPeriod", 3, 12, 1),
-        new OptimizerParameter("TOForecast", 0, 8, 1),
-        new OptimizerParameter("TCPeriod", 3, 15, 1),
-        new OptimizerParameter("TCForecast", 0, 8, 1),
-        new OptimizerParameter("VOPeriod", 3, 10, 1),
-        new OptimizerParameter("VOForecast", 0, 2, 1),
-        new OptimizerParameter("VCPeriod", 3, 10, 1),
-        new OptimizerParameter("VCForecast", 0, 2, 1),
-        new OptimizerParameter("ATRPeriod", 8, 12, 1),
-        new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1),
-        new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
-        );
-
-      Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = (sParams, bars) => {
-        return DtSignals.MakeExamples2(bars,
-          toPeriod: sParams.Get<int>("TOPeriod"),
-          toForecast: sParams.Get<int>("TOForecast"),
-          tcPeriod: sParams.Get<int>("TCPeriod"),
-          tcForecast: sParams.Get<int>("TCForecast"),
-          voPeriod: sParams.Get<int>("VOPeriod"),
-          voForecast: sParams.Get<int>("VOForecast"),
-          vcPeriod: sParams.Get<int>("VCPeriod"),
-          vcForecast: sParams.Get<int>("VCForecast"),
-          atrPeriod: sParams.Get<int>("ATRPeriod"),
-          atrThresh: sParams.Get<double>("ATRThresh"),
-          useYesterdaysOpen: sParams.Get<int>("UseYesterdaysOpen")
-        );
-      };
 
       Optimizer.OptimizeDecisionTree("DT4c", oParams, 5,
-        Data.Get("TQQQ").From("01/01/2012").To("04/01/2012"), TimeSpan.FromDays(30),
-        sParams => 0.0, makeExamples);
+        Data.Get("TQQQ").From("10/01/2011").To("04/01/2012"), TimeSpan.FromDays(30),
+        sParams => 0.0, DtSignals.MakeExamples2);
     }
 
     [TestMethod]
-    public void DecisionTree5()
+    public void BacktestDTLRR2()
     {
-      Func<string, string, IEnumerable<DtExample>> makeExamples = (start, end) => {
-        return DtSignals.MakeExamples2(Data.Get("TQQQ").From(start).To(end),
-          toPeriod: 4,
-          toForecast: 1,
-          tcPeriod: 5,
-          tcForecast: 2,
-          voPeriod: 9,
-          voForecast: 2,
-          vcPeriod: 5,
-          vcForecast: 2,
-          atrPeriod: 9,
-          atrThresh: 2.3,
-          useYesterdaysOpen: 0
-        );
-      };
+      var sParams = StrategyOptimizerReport.Load("DT4c-001168").StrategyParams;
+      var bars = Data.Get("TQQQ").From("10/01/2011").To("04/01/2012");
+      var signal = bars.DecisionTreeSignal(sParams, 0, DtSignals.MakeExamples2);
+      var bs = bars.From(signal.First().Timestamp);
 
-      //var teachingSet = makeExamples("02/12/2010", "12/31/2011");
-      //var validationSet = makeExamples("01/01/2012", "07/15/2012");
-      //var teachingSet = makeExamples("02/11/2010", "07/18/2012");
-      //var validationSet = makeExamples("02/11/2010", "07/18/2012");
-      //var teachingSet = makeExamples("02/11/2010", "12/31/2011");
-      //var validationSet = makeExamples("01/01/2012", "07/18/2012");
-      var teachingSet = makeExamples("04/01/2012", "05/01/2012");
-      var validationSet = makeExamples("04/01/2012", "05/01/2012");
-
-      var dt = DecisionTree.Learn(teachingSet, Prediction.Green, 0);
-      DecisionTree.WriteDot(@"c:\Users\Wintonpc\git\Quqe\Share\dt.dot", dt);
-
-      foreach (var set in List.Create(teachingSet, validationSet))
-      {
-        var numCorrect = 0;
-        var numIncorrect = 0;
-        var numUnsure = 0;
-        foreach (var e in set)
-        {
-          var decision = DecisionTree.Decide(e.AttributesValues, dt);
-          if (decision.Equals(e.Goal))
-            numCorrect++;
-          else if (decision is string && (string)decision == "Unsure")
-            numUnsure++;
-          else
-            numIncorrect++;
-        }
-
-        var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
-        var confidence = (double)(numCorrect + numIncorrect) / set.Count();
-        var altAccuracy = 0.50;
-        Trace.WriteLine("NumCorrect: " + numCorrect);
-        Trace.WriteLine("NumIncorrect: " + numIncorrect);
-        Trace.WriteLine("NumUnsure: " + numUnsure);
-        Trace.WriteLine("Accuracy: " + accuracy);
-        Trace.WriteLine("Confidence: " + confidence);
-        Trace.WriteLine("Overall Quality: " + (accuracy * confidence + altAccuracy * (1 - confidence)));
-        Trace.WriteLine("---");
-      }
+      var report = Strategy.BacktestSignal(bs, signal, new Account { Equity = 10000, MarginFactor = 1, Padding = 20 }, 2, null);
+      Trace.WriteLine(report.ToString());
     }
   }
 }

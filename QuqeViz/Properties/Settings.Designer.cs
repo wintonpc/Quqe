@@ -8,23 +8,67 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace QuqeViz.Properties
-{
-
-
-  [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-  [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "10.0.0.0")]
-  internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase
-  {
-
-    private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
-
-    public static Settings Default
-    {
-      get
-      {
-        return defaultInstance;
-      }
+namespace QuqeViz.Properties {
+    
+    
+    [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "10.0.0.0")]
+    internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
+        
+        private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
+        
+        public static Settings Default {
+            get {
+                return defaultInstance;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string RecentTrainingStartDates {
+            get {
+                return ((string)(this["RecentTrainingStartDates"]));
+            }
+            set {
+                this["RecentTrainingStartDates"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string RecentTrainingEndDates {
+            get {
+                return ((string)(this["RecentTrainingEndDates"]));
+            }
+            set {
+                this["RecentTrainingEndDates"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string RecentValidationStartDates {
+            get {
+                return ((string)(this["RecentValidationStartDates"]));
+            }
+            set {
+                this["RecentValidationStartDates"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string RecentValidationEndDates {
+            get {
+                return ((string)(this["RecentValidationEndDates"]));
+            }
+            set {
+                this["RecentValidationEndDates"] = value;
+            }
+        }
     }
-  }
 }
