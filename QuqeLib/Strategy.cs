@@ -310,7 +310,7 @@ namespace Quqe
 
   public abstract class BasicStrategy
   {
-    protected readonly List<StrategyParameter> SParams;
+    public readonly List<StrategyParameter> SParams;
 
     protected BasicStrategy(IEnumerable<StrategyParameter> sParams)
     {

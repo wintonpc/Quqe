@@ -32,7 +32,7 @@ namespace QuqeViz
       var backtestReport = Strategy.BacktestSignal(bars, strat.MakeSignal(bars),
         new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 50 }, 2, null);
       Trace.WriteLine(backtestReport.ToString());
-      ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation);
+      ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
     }
 
     public static void DoGenomelessBacktest(string symbol, string startDate, string endDate, Strategy strat, double initialValue, int marginFactor, bool isValidation)
@@ -42,10 +42,11 @@ namespace QuqeViz
       var backtestReport = strat.Backtest(null, new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 50 });
       Trace.WriteLine(backtestReport.ToString());
       Strategy.WriteTrades(backtestReport.Trades, DateTime.Now, "no-genome");
-      ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation);
+      ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation, strat.Name, null);
     }
 
-    static void ShowBacktestChart(DataSeries<Bar> bars, List<TradeRecord> trades, double initialValue, int marginFactor, bool isValidation)
+    static void ShowBacktestChart(DataSeries<Bar> bars, List<TradeRecord> trades, double initialValue, int marginFactor,
+      bool isValidation, string strategyName, IEnumerable<StrategyParameter> sParams)
     {
       var profitPctPerTrade = trades.ToDataSeries(t => t.PercentProfit * 100.0);
       var accountValue = trades.ToDataSeries(t => t.AccountValueAfterTrade);
@@ -74,6 +75,36 @@ namespace QuqeViz
         Color = Brushes.Green,
         LineThickness = 2
       });
+
+      if (strategyName.Split('-')[0] == "DTLRR2")
+      {
+        g1.Plots.Add(new Plot {
+          Title = "TO",
+          DataSeries = bars.Opens().LinReg(sParams.Get<int>("TOPeriod"), sParams.Get<int>("TOForecast")).Trim(0),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Blue
+        });
+        g1.Plots.Add(new Plot {
+          Title = "TC",
+          DataSeries = bars.Closes().LinReg(sParams.Get<int>("TCPeriod"), sParams.Get<int>("TCForecast")).Delay(1).Trim(0),
+          Type = PlotType.ValueLine,
+          Color = Brushes.OrangeRed
+        });
+        g1.Plots.Add(new Plot {
+          Title = "VO",
+          DataSeries = bars.Opens().LinReg(sParams.Get<int>("VOPeriod"), sParams.Get<int>("VOForecast")).Trim(0),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Aqua,
+          LineStyle = LineStyle.Dashed
+        });
+        g1.Plots.Add(new Plot {
+          Title = "VC",
+          DataSeries = bars.Closes().LinReg(sParams.Get<int>("VCPeriod"), sParams.Get<int>("VCForecast")).Delay(1).Trim(0),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Orange,
+          LineStyle = LineStyle.Dashed
+        });
+      }
 
       w.Show();
     }
@@ -138,8 +169,8 @@ namespace QuqeViz
 
     private void ValidateButton_Click(object sender, RoutedEventArgs e)
     {
-      //DoBacktest(SymbolBox.Text, ValidationStartBox.Text, ValidationEndBox.Text, BuySellBox.Text,
-      //  double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), true);
+      DoBacktest(SymbolBox.Text, ValidationStartBox.Text, ValidationEndBox.Text, (string)StrategiesBox.SelectedItem,
+        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), true);
       Update();
     }
 
@@ -218,7 +249,7 @@ namespace QuqeViz
         new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1)
         );
 
-      Optimizer.OptimizeDecisionTree("DTLRR2", oParams, 10,
+      Optimizer.OptimizeDecisionTree("DTLRR2", oParams, 100,
         Data.Get("TQQQ").From(TrainingStartBox.Text).To(TrainingEndBox.Text), TimeSpan.FromDays(30),
         sParams => 0.0, DtSignals.MakeExamples2);
 

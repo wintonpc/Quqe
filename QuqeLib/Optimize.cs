@@ -246,6 +246,12 @@ namespace Quqe
         StrategyParams = annealResult.Params.ToList()
       };
       Strategy.PrintStrategyOptimizerReports(List.Create(report));
+      DecisionTree.WriteDot("dt.dot",
+        DecisionTree.Learn(makeExamples(annealResult.Params, bars),
+        Prediction.Green, getMinMajority(annealResult.Params)));
+      var p = Process.Start(@"C:\Program Files (x86)\Graphviz 2.28\bin\dot.exe", "-Tpng -o dt.png dt.dot");
+      p.EnableRaisingEvents = true;
+      p.WaitForExit();
       return report;
     }
 

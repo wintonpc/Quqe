@@ -813,6 +813,13 @@ namespace Quqe
       return x.ZipElements<Value, Value>(y, (xs, ys, vs) => Math.Pow(xs[0] - ys[0], 2)).Sum(a => a.Val);
     }
 
+    public static DataSeries<Value> Trim(this DataSeries<Value> values, double value)
+    {
+      var first = values.First(x => x.Val != value).Timestamp;
+      var last = values.Reverse().First(x => x.Val != value).Timestamp;
+      return values.From(first).To(last);
+    }
+
     public static DataSeries<Value> ToDataSeries(this IEnumerable<TradeRecord> trades, Func<TradeRecord, double> getValue)
     {
       return new DataSeries<Value>(trades.First().Symbol, trades.Select(t => new Value(t.EntryTime.Date, getValue(t))));
