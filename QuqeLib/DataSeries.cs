@@ -125,98 +125,22 @@ namespace Quqe
     public string Tag { get; protected set; }
     public abstract int Length { get; }
 
-    [ThreadStatic]
-    static CookieBag<Stack<Frame>> ThreadFrames;
-
-    //protected bool IsFramed { get { return ThreadFrames != null && ThreadFrames.ContainsKey(this); } }
-    protected int FrameStackCookie = -1;
-    public int Pos
-    {
-      get
-      {
-        //if (!IsFramed)
-        //  throw new InvalidOperationException("Pos can only be accessed when the DataSet is framed.");
-
-        var frames = ThreadFrames.Get(FrameStackCookie);
-        var frame = frames.Peek();
-        var pos = frame.Pos;
-        return pos;
-      }
-    }
+    protected int _Pos = 0;
+    public int Pos { get { return _Pos; } }
+    protected bool IsWalking = false;
 
     public abstract IEnumerable<DataSeriesElement> Elements { get; }
 
+    readonly Thread OwnerThread;
     public DataSeries(string symbol)
+      : this(symbol, Thread.CurrentThread) { }
+    protected DataSeries(string symbol, Thread ownerThread)
     {
       Symbol = symbol;
-    }
-
-    void PushFrame(Frame f)
-    {
-      if (ThreadFrames == null)
-        ThreadFrames = new CookieBag<Stack<Frame>>();
-
-      Stack<Frame> frames;
-      if (!ThreadFrames.TryGet(FrameStackCookie, out frames))
-      {
-        frames = new Stack<Frame>();
-        FrameStackCookie = ThreadFrames.Add(frames);
-      }
-
-      frames.Push(f);
-    }
-
-    void PopFrame(Frame f)
-    {
-      var frames = ThreadFrames.Get(FrameStackCookie);
-
-      frames.Pop();
-
-      if (!frames.Any())
-      {
-        ThreadFrames.Remove(FrameStackCookie);
-        FrameStackCookie = -1;
-        if (ThreadFrames.Count == 0)
-          ThreadFrames = null;
-      }
+      OwnerThread = ownerThread;
     }
 
     public abstract DataSeries FromDate(DateTime timestamp);
-
-    class Frame : IDisposable
-    {
-      public int Pos;
-      readonly DataSeries[] Series;
-      readonly int Length;
-      public Frame(params DataSeries[] series)
-      {
-        Series = series;
-        Length = series.Min(s => s.Length);
-        Debug.Assert(Length == series.Max(s => s.Length));
-        foreach (var s in Series)
-          s.PushFrame(this);
-      }
-
-      bool IsDisposed;
-      public void Dispose()
-      {
-        if (IsDisposed) return;
-        IsDisposed = true;
-        foreach (var s in Series)
-          s.PopFrame(this);
-      }
-
-      public bool Advance()
-      {
-        if (Pos == Length - 1)
-          return false;
-        else
-        {
-          Pos++;
-          return true;
-        }
-      }
-    }
 
     public static void Walk(DataSeries s1, Action<int> onBar) { Walk(List.Create(s1), onBar); }
     public static void Walk(DataSeries s1, DataSeries s2, Action<int> onBar) { Walk(List.Create(s1, s2), onBar); }
@@ -226,12 +150,35 @@ namespace Quqe
 
     public static void Walk(IEnumerable<DataSeries> series, Action<int> onBar)
     {
-      using (var f = new Frame(series.ToArray()))
+      int lastLength = -1;
+      foreach (var ds in series)
       {
-        do
+        if (ds.IsWalking)
+          throw new InvalidOperationException("DataSeries is already being walked.");
+        if (ds.OwnerThread != null && ds.OwnerThread != Thread.CurrentThread)
+          throw new InvalidOperationException("DataSeries can only be walked on its owner thread.");
+        if (lastLength >= 0 && ds.Length != lastLength)
+          throw new InvalidOperationException("All series to be walked must be the same length.");
+        if (lastLength == -1)
+          lastLength = ds.Length;
+      }
+
+      foreach (var ds in series)
+        ds.IsWalking = true;
+
+      try
+      {
+        for (int i = 0; i < lastLength; i++)
         {
-          onBar(f.Pos);
-        } while (f.Advance());
+          foreach (var ds in series)
+            ds._Pos = i;
+          onBar(i);
+        }
+      }
+      finally
+      {
+        foreach (var ds in series)
+          ds.IsWalking = false;
       }
     }
   }
@@ -253,22 +200,33 @@ namespace Quqe
       _Elements = elements;
     }
 
+    public DataSeries(string symbol, T[] elements, Thread ownerThread)
+      : base(symbol, ownerThread)
+    {
+      _Elements = elements;
+    }
+
     public DataSeries<T> Clone()
     {
       return new DataSeries<T>(Symbol, _Elements);
+    }
+
+    public DataSeries CloneForWorkerThread()
+    {
+      return new DataSeries<T>(Symbol, _Elements, null);
     }
 
     public T this[int offset]
     {
       get
       {
-        if (FrameStackCookie == -1)
+        if (!IsWalking)
           return _Elements[offset];
         else
         {
           if (offset < 0)
             throw new ArgumentException("Offset cannot be negative. Can\'t look forward.");
-          var k = Pos - offset;
+          var k = _Pos - offset;
           if (k < 0)
             throw new LookedBackTooFarException();
           return _Elements[k];
@@ -276,13 +234,13 @@ namespace Quqe
       }
       set
       {
-        if (FrameStackCookie == -1)
+        if (!IsWalking)
           _Elements[offset] = value;
         else
         {
           if (offset < 0)
             throw new ArgumentException("Offset cannot be negative. Can\'t look forward.");
-          var k = Pos - offset;
+          var k = _Pos - offset;
           if (k < 0)
             throw new LookedBackTooFarException();
           _Elements[k] = value;
@@ -352,7 +310,7 @@ namespace Quqe
 
     public IEnumerable<T> FromHere()
     {
-      return _Elements.Skip(Pos);
+      return _Elements.Skip(_Pos);
     }
 
     public DataSeries<T> SetTag(string tag)
@@ -401,13 +359,16 @@ namespace Quqe
     static List<DataSeries<Bar>> Series = new List<DataSeries<Bar>>();
     public static DataSeries<Bar> Get(string symbol)
     {
-      var s = Series.FirstOrDefault(x => x.Symbol == symbol);
-      if (s == null)
+      lock (Series)
       {
-        s = Load(symbol);
-        Series.Add(s);
+        var s = Series.FirstOrDefault(x => x.Symbol == symbol);
+        if (s == null)
+        {
+          s = Load(symbol);
+          Series.Add(s);
+        }
+        return s;
       }
-      return s;
     }
   }
 }

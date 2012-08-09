@@ -205,12 +205,12 @@ namespace Quqe
 
       var annealResult = Optimizer.Anneal(oParams, sParams => {
         double costSum = 0.0;
-        //Parallel.ForEach(validationWindows, vw => {
-        foreach (var vw in validationWindows)
-        {
+        Parallel.ForEach(validationWindows, vw => {
+          //foreach (var vw in validationWindows)
+          //{
           var teachingSet = makeExamples(sParams, bars.To(vw.First.AddDays(-1)))
             .Concat(makeExamples(sParams, bars.From(vw.Last.AddDays(1))));
-          var validationSet = makeExamples(sParams, bars.From(vw.First).To(vw.Last));
+          var validationSet = makeExamples(sParams, bars.From(vw.First).To(vw.Last)).ToList();
 
           var dt = DecisionTree.Learn(teachingSet, Prediction.Green, getMinMajority(sParams));
 
@@ -229,13 +229,13 @@ namespace Quqe
           }
 
           var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
-          var confidence = (double)(numCorrect + numIncorrect) / validationSet.Count();
+          var confidence = (double)(numCorrect + numIncorrect) / validationSet.Count;
           var quality = accuracy * confidence;
           lock (validationWindows)
           {
             costSum += -quality;
           }
-        }//);
+        });
 
         return costSum / validationWindows.Count;
       }, numAnnealingIterations);
@@ -348,20 +348,18 @@ namespace Quqe
       var bestParams = currentParams;
       var bestCost = currentCost;
       double averageEscapeCostPremium = 0;
-      double bestCostStdDev;
-      double bestCostAvg;
-      //double bestCostThresh = 0.00001;
-      for (int i = 0; i < iterations /*|| averageEscapeCostPremium / bestCost > 0.0000005*/; i++)
+      for (int i = 0; i < iterations; i++)
       {
         var temperature = schedule((double)i / iterations);
         var nextParams = mutate(currentParams, temperature * GeneMagnitude);
         var nextCost = costFunc(nextParams);
 
-        if (i % Math.Max(1, iterations / 250) == 0)
+        var divisor = Math.Max(1, iterations / 250);
+        if (i % divisor == 0)
         {
           if (ShowTrace)
             Trace.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
-              i + 1, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
+              i + divisor, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
         }
 
         Action takeNext = () => {
@@ -388,11 +386,6 @@ namespace Quqe
           else
             rejectCount++;
         }
-
-        bestCostStdDev = costStdDev(currentCost);
-        bestCostAvg = costSma(currentCost);
-        //if (i > 2000 && bestCostStdDev / bestCostAvg < bestCostThresh)
-        //  break;
       }
 
       if (ShowTrace)

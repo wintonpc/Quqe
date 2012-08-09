@@ -58,11 +58,11 @@ namespace Quqe
       Goal = goal;
       AttributesValues = attributeValues.ToList();
     }
-    public DtExample(DateTime? timestamp, object goal, IEnumerable<object> attributeValues)
+    public DtExample(DateTime? timestamp, object goal, List<object> attributeValues)
     {
       Timestamp = timestamp;
       Goal = goal;
-      AttributesValues = attributeValues.ToList();
+      AttributesValues = attributeValues;
     }
   }
 
@@ -70,9 +70,7 @@ namespace Quqe
   {
     public static object Learn(IEnumerable<DtExample> examples, object defaultValue, double minimumMajority)
     {
-      var exs = examples.ToList();
-      var vs = examples.First().AttributesValues.Select(x => x.GetType()).ToList();
-      return Learn(exs, vs, defaultValue, minimumMajority);
+      return Learn(examples.ToList(), examples.First().AttributesValues.Select(x => x.GetType()).ToList(), defaultValue, minimumMajority);
     }
 
     static object UnsureValue = "Unsure";
@@ -82,7 +80,7 @@ namespace Quqe
       if (!examples.Any())
         return new OutcomeValue(UnsureValue, 0, examples.Count);
       else if (examples.GroupBy(x => x.Goal).Count() == 1)
-        return new OutcomeValue(examples.First().Goal, 1, examples.Count);
+        return new OutcomeValue(examples[0].Goal, 1, examples.Count);
       else if (!attribs.Any())
       {
         double strength;
@@ -97,7 +95,7 @@ namespace Quqe
         double info;
         Type best = ChooseAttribute(attribs, examples, out info);
         return new DtNode(best, info, Values(best).Select(v => {
-          var subset = ExamplesWithAttributeValue(examples, v).ToList();
+          var subset = ExamplesWithAttributeValue(examples, v);
           return new DtChild(v, Learn(
           subset,
           attribs.Except(List.Create(best)).ToList(),
@@ -123,7 +121,7 @@ namespace Quqe
 
     static List<object> Values(Type attr)
     {
-      return Enum.GetValues(attr).Cast<object>().ToList();
+      return EnumCache.GetValues(attr);
     }
 
     static object MajorityValue(List<DtExample> examples)
@@ -133,9 +131,9 @@ namespace Quqe
 
     static object MajorityValue(List<DtExample> examples, out double strength)
     {
-      var majorityGroup = examples.GroupBy(x => x.Goal).OrderByDescending(g => g.Count()).First();
-      strength = (double)majorityGroup.Count() / examples.Count;
-      return majorityGroup.Key;
+      var majorityGroup = examples.GroupBy(x => x.Goal).Select(g => new { Goal = g.Key, Count = g.Count() }).OrderByDescending(z => z.Count).First();
+      strength = (double)majorityGroup.Count / examples.Count;
+      return majorityGroup.Goal;
     }
 
     static Type ChooseAttribute(List<Type> attribs, List<DtExample> examples, out double information)
@@ -151,13 +149,13 @@ namespace Quqe
         });
         return new { Attr = attr, InformationGain = infoHere - remainder };
       }).OrderByDescending(x => x.InformationGain).ToList();
-      information = sortedAttribs.First().InformationGain;
-      return sortedAttribs.First().Attr;
+      information = sortedAttribs[0].InformationGain;
+      return sortedAttribs[0].Attr;
     }
 
     static List<double> AttributeValueProbabilities(Type attr, List<DtExample> examples)
     {
-      return Values(attr).Select(v => (double)ExamplesWithAttributeValue(examples, v).Count() / examples.Count()).ToList();
+      return Values(attr).Select(v => (double)ExamplesWithAttributeValue(examples, v).Count / examples.Count).ToList();
     }
 
     static double Log2(double x)
@@ -196,11 +194,9 @@ namespace Quqe
               else
               {
                 var ov = ((OutcomeValue)c.Child);
-                //dest = gs.First(g => g.Key.ToString() == c.Child.ToString()).GetHashCode().ToString();
                 dest = new object().GetHashCode().ToString();
                 op.WriteLine(string.Format("n{0} [ label = \"{1}\", fillcolor={2}, style=filled ]",
                   dest, lName(ov.Value) + "\\n" + (ov.Strength * 100).ToString("N1") + "% (" + ov.Count + ")",
-                  //c.Count < 3 ? "powderblue" :
                   ov.Value.Equals(Prediction.Green) ? "green" :
                   ov.Value.Equals(Prediction.Red) ? "tomato" :
                   ov.Count == 0 ? "gray25" :
@@ -212,6 +208,25 @@ namespace Quqe
         }, tree);
         op.WriteLine("}");
       }
+    }
+  }
+
+  public static class EnumCache
+  {
+    [ThreadStatic]
+    static Dictionary<Type, List<object>> Values;
+
+    public static List<object> GetValues(Type t)
+    {
+      if (Values == null)
+        Values = new Dictionary<Type, List<object>>();
+      List<object> result;
+      if (!Values.TryGetValue(t, out result))
+      {
+        result = Enum.GetValues(t).Cast<object>().ToList();
+        Values.Add(t, result);
+      }
+      return result;
     }
   }
 }
