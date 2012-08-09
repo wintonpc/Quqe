@@ -310,6 +310,1222 @@ SuperGapPadding: 0.4
 EnableEma: 0
 EmaPeriod: 3
 
+linregrel2 decision tree
+
+-- DecisionTree --------------
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.614814814814815
+TOPeriod: 5
+TOForecast: 6
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 3
+VOForecast: 6
+VCPeriod: 7
+VCForecast: 0
+ATRPeriod: 9
+ATRThresh: 0.8
+UseYesterdaysOpen: 0
+
+top DecisionTree4 parameters (first pass):
+
+=== ALL ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.637037037037037
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 12
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 15
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 1.4
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 15
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 12
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.4
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 15
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.4
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 15
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.4
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 15
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.4
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 15
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 1.4
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 15
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 6
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 1.4
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 15
+TCForecast: 0
+VOPeriod: 2
+VOForecast: 9
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 1.4
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 15
+TCForecast: 0
+VOPeriod: 8
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.4
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 8
+TCPeriod: 15
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 3
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 1.4
+UseYesterdaysOpen: 0
+
+
+further optimization... (gets worse??)
+
+=== ALL ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 7
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 3
+VOForecast: 6
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 13
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 7
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 3
+VOForecast: 8
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 13
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 7
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 3
+VOForecast: 12
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 11
+ATRThresh: 2.1
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 7
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 7
+VOForecast: 12
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 11
+ATRThresh: 2.1
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 7
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 3
+VOForecast: 6
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 11
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 7
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 3
+VOForecast: 6
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 11
+ATRThresh: 2.1
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 7
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 5
+VOForecast: 10
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 11
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 7
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 7
+VOForecast: 6
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 11
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 7
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 7
+VOForecast: 12
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 13
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.62962962962963
+TOPeriod: 8
+TOForecast: 7
+TCPeriod: 11
+TCForecast: 0
+VOPeriod: 3
+VOForecast: 8
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 11
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+keep forecasts low...
+
+=== ALL ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 7
+TOForecast: 4
+TCPeriod: 7
+TCForecast: 2
+VOPeriod: 6
+VOForecast: 0
+VCPeriod: 4
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.6
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 7
+TOForecast: 4
+TCPeriod: 7
+TCForecast: 2
+VOPeriod: 6
+VOForecast: 1
+VCPeriod: 4
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.6
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 7
+TOForecast: 4
+TCPeriod: 9
+TCForecast: 0
+VOPeriod: 4
+VOForecast: 0
+VCPeriod: 4
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.6
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 7
+TOForecast: 4
+TCPeriod: 9
+TCForecast: 0
+VOPeriod: 6
+VOForecast: 0
+VCPeriod: 4
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.6
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 7
+TOForecast: 4
+TCPeriod: 9
+TCForecast: 0
+VOPeriod: 6
+VOForecast: 1
+VCPeriod: 4
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.6
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 9
+TOForecast: 2
+TCPeriod: 9
+TCForecast: 4
+VOPeriod: 4
+VOForecast: 1
+VCPeriod: 6
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 7
+TOForecast: 4
+TCPeriod: 9
+TCForecast: 0
+VOPeriod: 4
+VOForecast: 1
+VCPeriod: 4
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.6
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 9
+TOForecast: 2
+TCPeriod: 9
+TCForecast: 4
+VOPeriod: 6
+VOForecast: 1
+VCPeriod: 6
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 9
+TOForecast: 2
+TCPeriod: 9
+TCForecast: 4
+VOPeriod: 4
+VOForecast: 0
+VCPeriod: 6
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 7
+TOForecast: 4
+TCPeriod: 7
+TCForecast: 2
+VOPeriod: 4
+VOForecast: 1
+VCPeriod: 4
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.6
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 9
+TOForecast: 2
+TCPeriod: 9
+TCForecast: 4
+VOPeriod: 6
+VOForecast: 0
+VCPeriod: 6
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.8
+UseYesterdaysOpen: 0
+
+
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 7
+TOForecast: 4
+TCPeriod: 7
+TCForecast: 2
+VOPeriod: 4
+VOForecast: 0
+VCPeriod: 4
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.6
+UseYesterdaysOpen: 0
 
 
 
+
+
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 7
+TOForecast: 4
+TCPeriod: 7
+TCForecast: 1
+VOPeriod: 6
+VOForecast: 0
+VCPeriod: 4
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 1.6
+UseYesterdaysOpen: 0
+
+taught on validation set:
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0.644444444444444
+TOPeriod: 8
+TOForecast: 0
+TCPeriod: 8
+TCForecast: 0
+VOPeriod: 6
+VOForecast: 0
+VCPeriod: 4
+VCForecast: 0
+ATRPeriod: 10
+ATRThresh: 2
+UseYesterdaysOpen: 0
+
+using annealing...
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0
+TOPeriod: 5
+TOForecast: 5
+TCPeriod: 6
+TCForecast: 7
+VOPeriod: 7
+VOForecast: 0
+VCPeriod: 10
+VCForecast: 0
+ATRPeriod: 11
+ATRThresh: 2.1
+UseYesterdaysOpen: 0
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0
+TOPeriod: 11
+TOForecast: 7
+TCPeriod: 7
+TCForecast: 8
+VOPeriod: 9
+VOForecast: 2
+VCPeriod: 9
+VCForecast: 0
+ATRPeriod: 8
+ATRThresh: 1.7
+UseYesterdaysOpen: 0
+
+=== BEST ===
+Strategy : DecisionTree
+Genome   : 
+Fitness  : 0
+TOPeriod: 9
+TOForecast: 8
+TCPeriod: 4
+TCForecast: 1
+VOPeriod: 9
+VOForecast: 2
+VCPeriod: 6
+VCForecast: 0
+ATRPeriod: 12
+ATRThresh: 2.1
+UseYesterdaysOpen: 0
+
+
+!! NEW BEST: -0.674074074074074
+Strategy : 
+Genome   : 
+Fitness  : 0
+TOPeriod: 5
+TOForecast: 3
+TCPeriod: 4
+TCForecast: 3
+VOPeriod: 10
+VOForecast: 1
+VCPeriod: 10
+VCForecast: 1
+ATRPeriod: 9
+ATRThresh: 2.5
+UseYesterdaysOpen: 0

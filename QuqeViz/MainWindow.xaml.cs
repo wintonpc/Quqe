@@ -250,9 +250,8 @@ namespace QuqeViz
         );
 
       Optimizer.OptimizeDecisionTree("DTLRR2", oParams, 25000,
-        Data.Get("TQQQ").To(TrainingEndBox.Text),
-        DateTime.Parse(TrainingStartBox.Text), TimeSpan.FromDays(30), TimeSpan.FromDays(25),
-        sParams => 0.0, DtSignals.MakeExamples2);
+        DateTime.Parse(TrainingStartBox.Text), Data.Get("TQQQ").To(TrainingEndBox.Text),
+        TimeSpan.FromDays(30), TimeSpan.FromDays(25), sParams => 0.0, DtSignals.MakeExamples2);
 
       Update();
     }

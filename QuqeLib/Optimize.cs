@@ -186,10 +186,11 @@ namespace Quqe
     }
 
     public static StrategyOptimizerReport OptimizeDecisionTree(string name, IEnumerable<OptimizerParameter> oParams,
-      int numAnnealingIterations, DataSeries<Bar> bars,
-      DateTime startDate, TimeSpan validationWindowSize, TimeSpan frontPadding,
+      int numAnnealingIterations, DateTime startDate, DataSeries<Bar> bars,
+      TimeSpan validationWindowSize, TimeSpan frontPadding,
       Func<IEnumerable<StrategyParameter>, double> getMinMajority,
-      Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples)
+      Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples,
+      bool silent = false)
     {
       Func<DateTime, DateTime, DateTime> maxDate = (a, b) => a > b ? a : b;
 
@@ -216,38 +217,17 @@ namespace Quqe
         Parallel.ForEach(validationWindows, vw => {
         //foreach (var vw in validationWindows)
         //{
-          //Trace.WriteLine(string.Format("ValidationWindow: {0}, {1}, {2}", vw.PadFirst, vw.First, vw.Last));
           var teachingSet1 =
             makeExamples(sParams, bars.From(padDate).To(vw.First.AddDays(-1)))
               .Where(x => x.Timestamp >= startDate);
-          //Trace.WriteLine(string.Format("Teaching bars: {0} - {1}",
-          //  padDate, vw.First.AddDays(-1)));
-          //if (!teachingSet1.Any())
-          //  Trace.WriteLine("Teaching examples: (none)");
-          //else
-          //  Trace.WriteLine(string.Format("Teaching examples: {0} - {1}",
-          //    teachingSet1.First().Timestamp, teachingSet1.Last().Timestamp));
-
+          
           var teachingSet2 =
             makeExamples(sParams, bars.From(maxDate(bars.First().Timestamp, vw.Last.AddDays(1).Subtract(frontPadding))))
                      .Where(x => x.Timestamp >= vw.Last.AddDays(1));
-          //Trace.WriteLine(string.Format("Teaching bars: {0} - {1}",
-          //  maxDate(bars.First().Timestamp, vw.Last.AddDays(1).Subtract(frontPadding)), bars.Last().Timestamp));
-          //if (!teachingSet2.Any())
-          //  Trace.WriteLine("Teaching examples: (none)");
-          //else
-          //  Trace.WriteLine(string.Format("Teaching examples: {0} - {1}",
-          //    teachingSet2.First().Timestamp, teachingSet2.Last().Timestamp));
-
+          
           var validationSet =
             makeExamples(sParams, bars.From(vw.PadFirst).To(vw.Last)).Where(x => x.Timestamp >= vw.First).ToList();
-          //Trace.WriteLine(string.Format("Validation bars: {0} - {1}",
-          //  vw.PadFirst, vw.Last));
-          //Trace.WriteLine(string.Format("Validation examples: {0} - {1}",
-          //  validationSet.First().Timestamp, validationSet.Last().Timestamp));
-
-          //Trace.WriteLine("");
-
+          
           var teachingSet = teachingSet1.Concat(teachingSet2);
           var dt = DecisionTree.Learn(teachingSet, Prediction.Green, getMinMajority(sParams));
 
@@ -282,14 +262,17 @@ namespace Quqe
         Fitness = -annealResult.Cost,
         StrategyParams = annealResult.Params.ToList()
       };
-      Strategy.PrintStrategyOptimizerReports(List.Create(report));
-      DecisionTree.WriteDot("dt.dot",
-        DecisionTree.Learn(makeExamples(annealResult.Params, bars),
-        Prediction.Green, getMinMajority(annealResult.Params)));
-      var p = Process.Start(@"C:\Program Files (x86)\Graphviz 2.28\bin\dot.exe", "-Tpng -o dt.png dt.dot");
-      p.EnableRaisingEvents = true;
-      p.WaitForExit();
-      Process.Start("dt.png");
+      if (!silent)
+      {
+        Strategy.PrintStrategyOptimizerReports(List.Create(report));
+        DecisionTree.WriteDot("dt.dot",
+          DecisionTree.Learn(makeExamples(annealResult.Params, bars),
+          Prediction.Green, getMinMajority(annealResult.Params)));
+        var p = Process.Start(@"C:\Program Files (x86)\Graphviz 2.28\bin\dot.exe", "-Tpng -o dt.png dt.dot");
+        p.EnableRaisingEvents = true;
+        p.WaitForExit();
+        Process.Start("dt.png");
+      }
       return report;
     }
 

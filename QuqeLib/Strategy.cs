@@ -88,31 +88,31 @@ namespace Quqe
 
     public static BacktestReport BacktestSignal(DataSeries<Bar> bars, DataSeries<Value> signal, Account account, int lookback, double? maxLossPct)
     {
-      var helper = BacktestHelper.Start(bars, account);
-      bars = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
-      DataSeries.Walk(bars, signal, pos => {
+      var bs = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
+      var helper = BacktestHelper.Start(bs, account);
+      DataSeries.Walk(bs, signal, pos => {
         if (pos < lookback)
           return;
 
         var shouldBuy = signal[0] >= 0;
-        Trace.WriteLine(bars[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
+        Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
 
         double? stopLimit = null;
         if (maxLossPct.HasValue)
         {
           if (shouldBuy)
-            stopLimit = (1 - maxLossPct) * bars[0].Open;
+            stopLimit = (1 - maxLossPct) * bs[0].Open;
           else
-            stopLimit = (1 + maxLossPct) * bars[0].Open;
+            stopLimit = (1 + maxLossPct) * bs[0].Open;
         }
 
-        var size = (long)((account.BuyingPower - account.Padding) / bars[0].Open);
+        var size = (long)((account.BuyingPower - account.Padding) / bs[0].Open);
         if (size > 0)
         {
           if (shouldBuy)
-            account.EnterLong(bars.Symbol, size, new ExitOnSessionClose(stopLimit), bars.FromHere());
+            account.EnterLong(bs.Symbol, size, new ExitOnSessionClose(stopLimit), bs.FromHere());
           else
-            account.EnterShort(bars.Symbol, size, new ExitOnSessionClose(stopLimit), bars.FromHere());
+            account.EnterShort(bs.Symbol, size, new ExitOnSessionClose(stopLimit), bs.FromHere());
         }
       });
       return helper.Stop();
@@ -140,7 +140,7 @@ namespace Quqe
     }
 
     protected static List<DataSeries<T>> TrimInputs<T>(IEnumerable<DataSeries<T>> inputs)
-      where T: DataSeriesElement
+      where T : DataSeriesElement
     {
       var firstDate = inputs.Select(x => x.Elements.First().Timestamp).Max();
       return inputs.Select(x => x.From(firstDate)).ToList();
@@ -335,6 +335,62 @@ namespace Quqe
     public override DataSeries<Value> MakeSignal(DataSeries<Bar> bars)
     {
       return bars.DecisionTreeSignal(SParams, 0, DtSignals.MakeExamples2);
+    }
+  }
+
+  public class UDTLRR2Strategy : BasicStrategy
+  {
+    public UDTLRR2Strategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
+
+    int WindowSize = 40;
+    int WindowPadding = 25;
+    int ReteachInterval = 8;
+    int NumIterations = 15000;
+
+    public override DataSeries<Value> MakeSignal(DataSeries<Bar> bars)
+    {
+      var oParams = List.Create(
+        new OptimizerParameter("TOPeriod", 3, 12, 1),
+        new OptimizerParameter("TOForecast", 0, 8, 1),
+        new OptimizerParameter("TCPeriod", 3, 15, 1),
+        new OptimizerParameter("TCForecast", 0, 8, 1),
+        new OptimizerParameter("VOPeriod", 3, 10, 1),
+        new OptimizerParameter("VOForecast", 0, 2, 1),
+        new OptimizerParameter("VCPeriod", 3, 10, 1),
+        new OptimizerParameter("VCForecast", 0, 2, 1),
+        new OptimizerParameter("ATRPeriod", 8, 12, 1),
+        new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1)
+        );
+
+      Func<int, DateTime> offset = n => bars.First().Timestamp.AddDays(n);
+
+      var newElements = new List<Value>();
+
+      Optimizer.ShowTrace = false;
+      //for (int w = WindowSize; w < bars.Length - 1; w += ReteachInterval)
+      //{
+      Parallel.For(0, (bars.Length-WindowSize-WindowPadding) / ReteachInterval, n => {
+        var w = WindowPadding + WindowSize + n * ReteachInterval;
+        var report = Optimizer.OptimizeDecisionTree("DTLRR2", oParams, NumIterations,
+          bars[w - WindowSize].Timestamp, bars.To(bars[w - 1].Timestamp),
+          TimeSpan.FromDays(21), TimeSpan.FromDays(WindowPadding), sParams => 0.0, DtSignals.MakeExamples2, true);
+
+        var weekBars = new DataSeries<Bar>(bars.Symbol, bars.Skip(w - WindowPadding).Take(ReteachInterval + WindowPadding));
+        var paddedSignal = weekBars.DecisionTreeSignal(report.StrategyParams, 0, DtSignals.MakeExamples2);
+        var weekSignal = paddedSignal.Skip(paddedSignal.Length - ReteachInterval);
+        lock (newElements)
+        {
+          newElements.AddRange(weekSignal);
+          Trace.WriteLine(string.Format("{0} / {1}", newElements.Count, bars.Length - WindowSize));
+        }
+      });
+
+      Optimizer.ShowTrace = true;
+
+      foreach (var x in newElements.OrderBy(x => x.Timestamp))
+        Trace.WriteLine(x.Timestamp);
+
+      return new DataSeries<Value>(bars.Symbol, newElements.OrderBy(x => x.Timestamp));
     }
   }
 }
