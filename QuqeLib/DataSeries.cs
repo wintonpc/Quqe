@@ -126,17 +126,21 @@ namespace Quqe
     public abstract int Length { get; }
 
     [ThreadStatic]
-    static Dictionary<DataSeries, Stack<Frame>> ThreadFrames;
+    static CookieBag<Stack<Frame>> ThreadFrames;
 
-    protected bool IsFramed { get { return ThreadFrames != null && ThreadFrames.ContainsKey(this); } }
+    //protected bool IsFramed { get { return ThreadFrames != null && ThreadFrames.ContainsKey(this); } }
+    protected int FrameStackCookie = -1;
     public int Pos
     {
       get
       {
-        if (!IsFramed)
-          throw new InvalidOperationException("Pos can only be accessed when the DataSet is framed.");
+        //if (!IsFramed)
+        //  throw new InvalidOperationException("Pos can only be accessed when the DataSet is framed.");
 
-        return ThreadFrames[this].Peek().Pos;
+        var frames = ThreadFrames.Get(FrameStackCookie);
+        var frame = frames.Peek();
+        var pos = frame.Pos;
+        return pos;
       }
     }
 
@@ -150,13 +154,13 @@ namespace Quqe
     void PushFrame(Frame f)
     {
       if (ThreadFrames == null)
-        ThreadFrames = new Dictionary<DataSeries, Stack<Frame>>();
+        ThreadFrames = new CookieBag<Stack<Frame>>();
 
       Stack<Frame> frames;
-      if (!ThreadFrames.TryGetValue(this, out frames))
+      if (!ThreadFrames.TryGet(FrameStackCookie, out frames))
       {
         frames = new Stack<Frame>();
-        ThreadFrames.Add(this, frames);
+        FrameStackCookie = ThreadFrames.Add(frames);
       }
 
       frames.Push(f);
@@ -164,18 +168,15 @@ namespace Quqe
 
     void PopFrame(Frame f)
     {
-      Debug.Assert(ThreadFrames != null);
-
-      var frames = ThreadFrames[this];
-
-      Debug.Assert(frames.Peek() == f);
+      var frames = ThreadFrames.Get(FrameStackCookie);
 
       frames.Pop();
 
       if (!frames.Any())
       {
-        ThreadFrames.Remove(this);
-        if (!ThreadFrames.Any())
+        ThreadFrames.Remove(FrameStackCookie);
+        FrameStackCookie = -1;
+        if (ThreadFrames.Count == 0)
           ThreadFrames = null;
       }
     }
@@ -184,7 +185,7 @@ namespace Quqe
 
     class Frame : IDisposable
     {
-      public int Pos { get; private set; }
+      public int Pos;
       readonly DataSeries[] Series;
       readonly int Length;
       public Frame(params DataSeries[] series)
@@ -261,7 +262,7 @@ namespace Quqe
     {
       get
       {
-        if (!IsFramed)
+        if (FrameStackCookie == -1)
           return _Elements[offset];
         else
         {
@@ -275,7 +276,7 @@ namespace Quqe
       }
       set
       {
-        if (!IsFramed)
+        if (FrameStackCookie == -1)
           _Elements[offset] = value;
         else
         {

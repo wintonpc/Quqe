@@ -205,9 +205,9 @@ namespace Quqe
 
       var annealResult = Optimizer.Anneal(oParams, sParams => {
         double costSum = 0.0;
-        Parallel.ForEach(validationWindows, vw => {
-          //foreach (var vw in validationWindows)
-          //{
+        //Parallel.ForEach(validationWindows, vw => {
+        foreach (var vw in validationWindows)
+        {
           var teachingSet = makeExamples(sParams, bars.To(vw.First.AddDays(-1)))
             .Concat(makeExamples(sParams, bars.From(vw.Last.AddDays(1))));
           var validationSet = makeExamples(sParams, bars.From(vw.First).To(vw.Last));
@@ -235,7 +235,7 @@ namespace Quqe
           {
             costSum += -quality;
           }
-        });
+        }//);
 
         return costSum / validationWindows.Count;
       }, numAnnealingIterations);
@@ -252,6 +252,7 @@ namespace Quqe
       var p = Process.Start(@"C:\Program Files (x86)\Graphviz 2.28\bin\dot.exe", "-Tpng -o dt.png dt.dot");
       p.EnableRaisingEvents = true;
       p.WaitForExit();
+      Process.Start("dt.png");
       return report;
     }
 

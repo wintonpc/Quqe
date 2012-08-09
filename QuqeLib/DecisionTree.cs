@@ -70,7 +70,9 @@ namespace Quqe
   {
     public static object Learn(IEnumerable<DtExample> examples, object defaultValue, double minimumMajority)
     {
-      return Learn(examples.ToList(), examples.First().AttributesValues.Select(x => x.GetType()).ToList(), defaultValue, minimumMajority);
+      var exs = examples.ToList();
+      var vs = examples.First().AttributesValues.Select(x => x.GetType()).ToList();
+      return Learn(exs, vs, defaultValue, minimumMajority);
     }
 
     static object UnsureValue = "Unsure";

@@ -440,5 +440,25 @@ namespace QuqeTest
       var report = Strategy.BacktestSignal(bs, signal, new Account { Equity = 10000, MarginFactor = 1, Padding = 20 }, 2, null);
       Trace.WriteLine(report.ToString());
     }
+
+    [TestMethod]
+    public void CookieBagTest()
+    {
+      var cb = new CookieBag<string>();
+      var a = cb.Add("A");
+      var b = cb.Add("B");
+      var c = cb.Add("C");
+      Assert.IsTrue(a == 0);
+      Assert.IsTrue(b == 1);
+      Assert.IsTrue(c == 2);
+      Assert.IsTrue(cb.Get(a) == "A");
+      Assert.IsTrue(cb.Get(b) == "B");
+      Assert.IsTrue(cb.Get(c) == "C");
+      cb.Remove(b);
+      var d = cb.Add("D");
+      Assert.IsTrue(d == 1);
+      var e = cb.Add("E");
+      Assert.IsTrue(e == 3);
+    }
   }
 }

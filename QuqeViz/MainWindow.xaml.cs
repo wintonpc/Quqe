@@ -249,7 +249,7 @@ namespace QuqeViz
         new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1)
         );
 
-      Optimizer.OptimizeDecisionTree("DTLRR2", oParams, 100,
+      Optimizer.OptimizeDecisionTree("DTLRR2", oParams, 25000,
         Data.Get("TQQQ").From(TrainingStartBox.Text).To(TrainingEndBox.Text), TimeSpan.FromDays(30),
         sParams => 0.0, DtSignals.MakeExamples2);
 

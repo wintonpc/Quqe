@@ -349,11 +349,16 @@ namespace Quqe
       double sumX = (double)period * (period - 1) * 0.5;
       double divisor = sumX * sumX - (double)period * period * (period - 1) * (2 * period - 1) / 6;
       double sumXY = 0;
+      double backBarsSum = 0;
 
       for (int count = 0; count < period && s.Pos - count >= 0; count++)
-        sumXY += count * s[count];
+      {
+        double sc = s[count];
+        sumXY += count * sc;
+        backBarsSum += sc;
+      }
 
-      double backBarsSum = s.BackBars(period).Sum(x => x.Val);
+      //double backBarsSum = s.BackBars(period).Sum(x => x.Val);
       slope = ((double)period * sumXY - sumX * backBarsSum /*SUM(Inputs[0], period)[0]*/) / divisor;
       intercept = (backBarsSum /*SUM(Inputs[0], period)[0]*/ - slope * sumX) / period;
     }
@@ -637,10 +642,12 @@ namespace Quqe
         return new List<DtExample>();
 
       List<DtExample> examples = new List<DtExample>();
-      var tof = carefulBars.Opens().LinReg(toPeriod, toForecast);
-      var tcf = carefulBars.Closes().LinReg(tcPeriod, tcForecast).Delay(1);
-      var vof = carefulBars.Opens().LinReg(voPeriod, voForecast);
-      var vcf = carefulBars.Closes().LinReg(vcPeriod, vcForecast).Delay(1);
+      var opens = carefulBars.Opens();
+      var closes = carefulBars.Closes();
+      var tof = opens.LinReg(toPeriod, toForecast);
+      var tcf = closes.LinReg(tcPeriod, tcForecast).Delay(1);
+      var vof = opens.LinReg(voPeriod, voForecast);
+      var vcf = closes.LinReg(vcPeriod, vcForecast).Delay(1);
       var atr = carefulBars.ATR(atrPeriod).Delay(1);
 
       tof = tof.From(atr.First().Timestamp);
@@ -679,11 +686,13 @@ namespace Quqe
   {
     public static DataSeries<Value> Closes(this DataSeries<Bar> bars)
     {
-      return bars.MapElements<Value>((s, v) => s[0].Close);
+      return new DataSeries<Value>(bars.Symbol, bars.Elements.Cast<Bar>()
+        .Select(x => new Value(x.Timestamp, x.Close)));
     }
     public static DataSeries<Value> Opens(this DataSeries<Bar> bars)
     {
-      return bars.MapElements<Value>((s, v) => s[0].Open);
+      return new DataSeries<Value>(bars.Symbol, bars.Elements.Cast<Bar>()
+        .Select(x => new Value(x.Timestamp, x.Open)));
     }
 
     public static DataSeries<Value> Derivative(this DataSeries<Value> values)
