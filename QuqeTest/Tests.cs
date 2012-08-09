@@ -408,28 +408,6 @@ namespace QuqeTest
     }
 
     [TestMethod]
-    public void OptimizeDTLRR2()
-    {
-      var oParams = List.Create(
-        new OptimizerParameter("TOPeriod", 3, 12, 1),
-        new OptimizerParameter("TOForecast", 0, 8, 1),
-        new OptimizerParameter("TCPeriod", 3, 15, 1),
-        new OptimizerParameter("TCForecast", 0, 8, 1),
-        new OptimizerParameter("VOPeriod", 3, 10, 1),
-        new OptimizerParameter("VOForecast", 0, 2, 1),
-        new OptimizerParameter("VCPeriod", 3, 10, 1),
-        new OptimizerParameter("VCForecast", 0, 2, 1),
-        new OptimizerParameter("ATRPeriod", 8, 12, 1),
-        new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1),
-        new OptimizerParameter("UseYesterdaysOpen", 0, 0, 1)
-        );
-
-      Optimizer.OptimizeDecisionTree("DT4c", oParams, 5,
-        Data.Get("TQQQ").From("10/01/2011").To("04/01/2012"), TimeSpan.FromDays(30),
-        sParams => 0.0, DtSignals.MakeExamples2);
-    }
-
-    [TestMethod]
     public void BacktestDTLRR2()
     {
       var sParams = StrategyOptimizerReport.Load("DT4c-001168").StrategyParams;

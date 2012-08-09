@@ -180,38 +180,75 @@ namespace Quqe
 
     class ValidationWindow
     {
+      public DateTime PadFirst;
       public DateTime First;
       public DateTime Last;
     }
 
     public static StrategyOptimizerReport OptimizeDecisionTree(string name, IEnumerable<OptimizerParameter> oParams,
       int numAnnealingIterations, DataSeries<Bar> bars,
-      TimeSpan validationWindowSize, Func<IEnumerable<StrategyParameter>, double> getMinMajority,
+      DateTime startDate, TimeSpan validationWindowSize, TimeSpan frontPadding,
+      Func<IEnumerable<StrategyParameter>, double> getMinMajority,
       Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples)
     {
+      Func<DateTime, DateTime, DateTime> maxDate = (a, b) => a > b ? a : b;
+
       List<ValidationWindow> validationWindows = new List<ValidationWindow>();
-      DateTime windowStart = bars.First().Timestamp;
-      for (windowStart = bars.First().Timestamp;
+      for (DateTime windowStart = startDate;
         windowStart.Add(validationWindowSize) <= bars.Last().Timestamp;
         windowStart = windowStart.Add(validationWindowSize))
         validationWindows.Add(new ValidationWindow {
           First = windowStart,
+          PadFirst = maxDate(bars.First().Timestamp, windowStart.Subtract(frontPadding)),
           Last = windowStart.Add(validationWindowSize).AddDays(-1)
         });
+      var lastFirst = bars.Last().Timestamp.Subtract(validationWindowSize).AddDays(1);
       validationWindows.Add(new ValidationWindow {
-        First = bars.Last().Timestamp.Subtract(validationWindowSize).AddDays(1),
+        First = lastFirst,
+        PadFirst = maxDate(bars.First().Timestamp, lastFirst.Subtract(frontPadding)),
         Last = bars.Last().Timestamp
       });
+
+      var padDate = maxDate(bars.First().Timestamp, startDate.Subtract(frontPadding));
 
       var annealResult = Optimizer.Anneal(oParams, sParams => {
         double costSum = 0.0;
         Parallel.ForEach(validationWindows, vw => {
-          //foreach (var vw in validationWindows)
-          //{
-          var teachingSet = makeExamples(sParams, bars.To(vw.First.AddDays(-1)))
-            .Concat(makeExamples(sParams, bars.From(vw.Last.AddDays(1))));
-          var validationSet = makeExamples(sParams, bars.From(vw.First).To(vw.Last)).ToList();
+        //foreach (var vw in validationWindows)
+        //{
+          //Trace.WriteLine(string.Format("ValidationWindow: {0}, {1}, {2}", vw.PadFirst, vw.First, vw.Last));
+          var teachingSet1 =
+            makeExamples(sParams, bars.From(padDate).To(vw.First.AddDays(-1)))
+              .Where(x => x.Timestamp >= startDate);
+          //Trace.WriteLine(string.Format("Teaching bars: {0} - {1}",
+          //  padDate, vw.First.AddDays(-1)));
+          //if (!teachingSet1.Any())
+          //  Trace.WriteLine("Teaching examples: (none)");
+          //else
+          //  Trace.WriteLine(string.Format("Teaching examples: {0} - {1}",
+          //    teachingSet1.First().Timestamp, teachingSet1.Last().Timestamp));
 
+          var teachingSet2 =
+            makeExamples(sParams, bars.From(maxDate(bars.First().Timestamp, vw.Last.AddDays(1).Subtract(frontPadding))))
+                     .Where(x => x.Timestamp >= vw.Last.AddDays(1));
+          //Trace.WriteLine(string.Format("Teaching bars: {0} - {1}",
+          //  maxDate(bars.First().Timestamp, vw.Last.AddDays(1).Subtract(frontPadding)), bars.Last().Timestamp));
+          //if (!teachingSet2.Any())
+          //  Trace.WriteLine("Teaching examples: (none)");
+          //else
+          //  Trace.WriteLine(string.Format("Teaching examples: {0} - {1}",
+          //    teachingSet2.First().Timestamp, teachingSet2.Last().Timestamp));
+
+          var validationSet =
+            makeExamples(sParams, bars.From(vw.PadFirst).To(vw.Last)).Where(x => x.Timestamp >= vw.First).ToList();
+          //Trace.WriteLine(string.Format("Validation bars: {0} - {1}",
+          //  vw.PadFirst, vw.Last));
+          //Trace.WriteLine(string.Format("Validation examples: {0} - {1}",
+          //  validationSet.First().Timestamp, validationSet.Last().Timestamp));
+
+          //Trace.WriteLine("");
+
+          var teachingSet = teachingSet1.Concat(teachingSet2);
           var dt = DecisionTree.Learn(teachingSet, Prediction.Green, getMinMajority(sParams));
 
           var numCorrect = 0;

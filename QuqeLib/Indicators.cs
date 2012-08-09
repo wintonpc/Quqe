@@ -368,8 +368,11 @@ namespace Quqe
       return values.MapElements<Value>((s, v) => {
         double slope;
         double intercept;
-        LinRegInternal(s, period, out slope, out intercept);
-        return intercept + slope * (period - 1 + forecast);
+        int trimmedPeriod = Math.Min(period, s.Pos + 1);
+        if (trimmedPeriod < 2)
+          return s[0];
+        LinRegInternal(s, trimmedPeriod, out slope, out intercept);
+        return intercept + slope * (trimmedPeriod - 1 + forecast);
       });
     }
 
@@ -378,7 +381,12 @@ namespace Quqe
       return values.MapElements<Value>((s, v) => {
         double slope;
         double intercept;
-        LinRegInternal(s, period, out slope, out intercept);
+        int trimmedPeriod = Math.Min(period, s.Pos + 1);
+        if (trimmedPeriod < 2)
+          return s[0];
+        if (trimmedPeriod < 2)
+          return 0;
+        LinRegInternal(s, trimmedPeriod, out slope, out intercept);
         return slope;
       });
     }
