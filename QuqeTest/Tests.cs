@@ -251,7 +251,7 @@ namespace QuqeTest
     public void DecisionTree3()
     {
       Func<string, string, IEnumerable<DtExample>> makeExamples = (start, end) => {
-        return DtSignals.MakeExamples(Data.Get("TQQQ").From(start).To(end),
+        return DtSignals.MakeCandleExamples(Data.Get("TQQQ").From(start).To(end),
         smallMax: 0.65,
         mediumMax: 1.21,
         gapPadding: 0,
@@ -297,7 +297,7 @@ namespace QuqeTest
 
         var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
         var confidence = (double)(numCorrect + numIncorrect) / set.Count();
-        var altAccuracy = 0.63;
+        var altAccuracy = 0.50;
         Trace.WriteLine("NumCorrect: " + numCorrect);
         Trace.WriteLine("NumIncorrect: " + numIncorrect);
         Trace.WriteLine("NumUnsure: " + numUnsure);
@@ -340,7 +340,7 @@ namespace QuqeTest
         var validationBars = Data.Get("TQQQ").From("01/01/2012");
 
         Func<DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = bars =>
-          DtSignals.MakeExamples(bars,
+          DtSignals.MakeCandleExamples(bars,
           smallMax: sParams.Get<double>("SmallMax"),
           mediumMax: sParams.Get<double>("MediumMax"),
           enableBarSizeAveraging: sParams.Get<int>("EnableBarSizeAveraging"),
@@ -386,7 +386,7 @@ namespace QuqeTest
           var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
           var confidence = (double)(numCorrect + numIncorrect) / set.Count();
           var quality = accuracy * confidence;
-          var altAccuracy = 0.63;
+          var altAccuracy = 0.57;
           //Trace.WriteLine("NumCorrect: " + numCorrect);
           //Trace.WriteLine("NumIncorrect: " + numIncorrect);
           //Trace.WriteLine("NumUnsure: " + numUnsure);
@@ -405,18 +405,6 @@ namespace QuqeTest
       });
 
       Strategy.PrintStrategyOptimizerReports(reports.OrderByDescending(x => x.Fitness));
-    }
-
-    [TestMethod]
-    public void BacktestDTLRR2()
-    {
-      var sParams = StrategyOptimizerReport.Load("DT4c-001168").StrategyParams;
-      var bars = Data.Get("TQQQ").From("10/01/2011").To("04/01/2012");
-      var signal = bars.DecisionTreeSignal(sParams, 0, DtSignals.MakeExamples2);
-      var bs = bars.From(signal.First().Timestamp);
-
-      var report = Strategy.BacktestSignal(bs, signal, new Account { Equity = 10000, MarginFactor = 1, Padding = 20 }, 2, null);
-      Trace.WriteLine(report.ToString());
     }
 
     [TestMethod]

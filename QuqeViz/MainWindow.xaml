@@ -6,7 +6,7 @@
     <StackPanel Width="438">
       <Button x:Name="TQQQButton" Click="TQQQButton_Click">TQQQ</Button>
       <Button x:Name="ContributionsButton" Click="ContributionsButton_Click">Contributions</Button>
-      <Button x:Name="OptimizeDTLRR2Button" Click="OptimizeDTLRR2Button_Click">Optimize DTLRR2</Button>
+      <Button x:Name="OptimizeDTCandlesButton" Click="OptimizeDTCandlesButton_Click">Optimize DTCandles</Button>
       <StackPanel Orientation="Horizontal">
         <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
         <TextBox x:Name="SymbolBox">TQQQ</TextBox>
@@ -30,6 +30,7 @@
         <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">End:</TextBlock>
         <ComboBox x:Name="ValidationEndBox" IsEditable="True" Width="100"></ComboBox>
       </StackPanel>
+      <CheckBox x:Name="ParallelCheckBox" Checked="ParallelCheckBox_Checked">Parallelize Strategy Optimization</CheckBox>
     </StackPanel>
     <StackPanel HorizontalAlignment="Stretch">
       <ListBox x:Name="StrategiesBox" Height="182" HorizontalAlignment="Stretch" Width="187"></ListBox>

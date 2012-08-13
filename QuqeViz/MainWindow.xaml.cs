@@ -234,24 +234,28 @@ namespace QuqeViz
       drawIt();
     }
 
-    private void OptimizeDTLRR2Button_Click(object sender, RoutedEventArgs e)
+    private void ParallelCheckBox_Checked(object sender, RoutedEventArgs e)
+    {
+      Optimizer.ParallelizeStrategyOptimization = ParallelCheckBox.IsChecked.Value;
+    }
+
+    private void OptimizeDTCandlesButton_Click(object sender, RoutedEventArgs e)
     {
       var oParams = List.Create(
-        new OptimizerParameter("TOPeriod", 3, 12, 1),
-        new OptimizerParameter("TOForecast", 0, 8, 1),
-        new OptimizerParameter("TCPeriod", 3, 15, 1),
-        new OptimizerParameter("TCForecast", 0, 8, 1),
-        new OptimizerParameter("VOPeriod", 3, 10, 1),
-        new OptimizerParameter("VOForecast", 0, 2, 1),
-        new OptimizerParameter("VCPeriod", 3, 10, 1),
-        new OptimizerParameter("VCForecast", 0, 2, 1),
-        new OptimizerParameter("ATRPeriod", 8, 12, 1),
-        new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1)
+        new OptimizerParameter("MinMajority", 0.50, 0.70, 0.01),
+        new OptimizerParameter("SmallMax", 0.0, 1.00, 0.02),
+        new OptimizerParameter("MediumMax", 0.0, 2.00, 0.02),
+        new OptimizerParameter("GapPadding", 0.0, 0.15, 0.01),
+        new OptimizerParameter("SuperGapPadding", 0.0, 0.50, 0.01),
+        new OptimizerParameter("EnableEma", 1, 1, 1),
+        new OptimizerParameter("EmaPeriod", 3, 13, 1)
         );
 
-      Optimizer.OptimizeDecisionTree("DTLRR2", oParams, 25000,
-        DateTime.Parse(TrainingStartBox.Text), Data.Get("TQQQ").To(TrainingEndBox.Text),
-        TimeSpan.FromDays(30), TimeSpan.FromDays(25), sParams => 0.0, DtSignals.MakeExamples2);
+      int lookback = oParams.Where(x => x.Name.EndsWith("Period")).Max(x => (int)x.High) + 1;
+
+      Optimizer.OptimizeDecisionTree("DTCandles", oParams, 25000,
+        DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
+        TimeSpan.FromDays(lookback), sParams => sParams.Get<double>("MinMajority"), DTCandlesStrategy.MakeExamples);
 
       Update();
     }

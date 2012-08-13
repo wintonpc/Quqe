@@ -95,7 +95,7 @@ namespace Quqe
           return;
 
         var shouldBuy = signal[0] >= 0;
-        Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
+        //Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
 
         double? stopLimit = null;
         if (maxLossPct.HasValue)
@@ -328,13 +328,122 @@ namespace Quqe
     }
   }
 
+  public class DTCandlesStrategy : BasicStrategy
+  {
+    public DTCandlesStrategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
+
+    public override DataSeries<Value> MakeSignal(DataSeries<Bar> bars)
+    {
+      var examples = MakeExamples(SParams, bars);
+      var dt = DecisionTree.Learn(examples, Prediction.Green, 0);
+      return Transforms.DecisionTreeSignal(dt, examples, 0);
+    }
+
+    public enum Last2BarColor { Green, Red }
+    public enum LastBarColor { Green, Red }
+    public enum LastBarSize { Small, Medium, Large }
+    public enum GapType { NoneLower, NoneUpper, Up, SuperUp, Down, SuperDown }
+    public enum EmaSlope { Up, Down }
+    public enum Momentum { Positive, Negative }
+    public enum Lrr2 { Buy, Sell }
+    public enum RSquared { Linear, Nonlinear }
+    public enum LinRegSlope { Positive, Negative }
+
+    public static IEnumerable<DtExample> MakeExamples(IEnumerable<StrategyParameter> sParams, DataSeries<Bar> carefulBars)
+    {
+      double smallMax = sParams.Get<double>("SmallMax");
+      double mediumMax = sParams.Get<double>("MediumMax");
+      double gapPadding = sParams.Get<double>("GapPadding");
+      double superGapPadding = sParams.Get<double>("SuperGapPadding");
+
+      int enableBarSizeAveraging = sParams.Get<int>("EnableBarSizeAveraging");
+      double smallMaxPct = sParams.Get<double>("SmallMaxPct");
+      double largeMinPct = sParams.Get<double>("LargeMinPct");
+      int sizeAvgPeriod = sParams.Get<int>("SizeAvgPeriod");
+
+      int enableEma = sParams.Get<int>("EnableEma");
+      int emaPeriod = sParams.Get<int>("EmaPeriod");
+
+      int enableMomentum = sParams.Get<int>("EnableMomentum");
+      int momentumPeriod = sParams.Get<int>("MomentumPeriod");
+
+      int enableRSquared = sParams.Get<int>("EnableRSquared");
+      int rSquaredPeriod = sParams.Get<int>("RSquaredPeriod");
+      double rSquaredThresh = sParams.Get<double>("RSquaredThresh");
+
+      int enableLinRegSlope = sParams.Get<int>("EnableLinRegSlope");
+      int linRegSlopePeriod = sParams.Get<int>("LinRegSlopePeriod");
+
+      int enableLrr2 = sParams.Get<int>("EnableLrr2");
+
+      List<DtExample> examples = new List<DtExample>();
+      var emaSlope = carefulBars.Closes().ZLEMA(emaPeriod).Derivative().Delay(1);
+      var momo = carefulBars.Closes().Momentum(momentumPeriod).Delay(1);
+      var rsquared = carefulBars.Closes().RSquared(rSquaredPeriod).Delay(1);
+      var linRegSlope = carefulBars.Closes().LinRegSlope(linRegSlopePeriod).Delay(1);
+      var lrr2 = carefulBars.LinRegRel2(); // already delayed!
+      var bs = carefulBars.From(emaSlope.First().Timestamp);
+      DataSeries.Walk(
+        List.Create<DataSeries>(bs, emaSlope, momo, lrr2), pos => {
+          if (pos < 2)
+            return;
+          var a = new List<object>();
+          a.Add(bs[1].IsGreen ? LastBarColor.Green : LastBarColor.Red);
+          a.Add(bs[2].IsGreen ? Last2BarColor.Green : Last2BarColor.Red);
+          if (enableBarSizeAveraging > 0)
+          {
+            var avgHeight = bs.BackBars(Math.Min(pos, sizeAvgPeriod + 1)).Skip(1).Average(x => x.WaxHeight());
+            var r = (bs[0].WaxHeight() - avgHeight) / avgHeight;
+            a.Add(
+              r < smallMaxPct ? LastBarSize.Small :
+              r > largeMinPct ? LastBarSize.Large :
+              LastBarSize.Medium);
+          }
+          else
+          {
+            a.Add(
+              bs[1].WaxHeight() < smallMax ? LastBarSize.Small :
+              bs[1].WaxHeight() < mediumMax ? LastBarSize.Medium :
+              LastBarSize.Large);
+          }
+          a.Add(
+            Between(bs[0].Open, bs[1].WaxBottom, bs[1].WaxMid()) ? GapType.NoneLower :
+            Between(bs[0].Open, bs[1].WaxMid(), bs[1].WaxTop) ? GapType.NoneUpper :
+            Between(bs[0].Open, bs[1].WaxTop + gapPadding, bs[1].High) ? GapType.Up :
+            Between(bs[0].Open, bs[1].Low, bs[1].WaxBottom - gapPadding) ? GapType.Down :
+            bs[0].Open > bs[1].High + superGapPadding ? GapType.SuperUp :
+            bs[0].Open < bs[1].Low - superGapPadding ? GapType.SuperDown :
+            GapType.NoneLower);
+          if (enableEma > 0)
+            a.Add(emaSlope[0] >= 0 ? EmaSlope.Up : EmaSlope.Down);
+          if (enableMomentum > 0)
+            a.Add(momo[0] >= 0 ? Momentum.Positive : Momentum.Negative);
+          if (enableLrr2 > 0)
+            a.Add(lrr2[0] >= 0 ? Lrr2.Buy : Lrr2.Sell);
+          if (enableLinRegSlope > 0)
+            a.Add(linRegSlope[0] >= 0 ? LinRegSlope.Positive : LinRegSlope.Negative);
+          if (enableRSquared > 0)
+            a.Add(rsquared[0] >= rSquaredThresh ? RSquared.Linear : RSquared.Nonlinear);
+          examples.Add(new DtExample(bs[0].Timestamp, bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
+        });
+      return examples;
+    }
+
+    static bool Between(double v, double low, double high)
+    {
+      return low <= v && v <= high;
+    }
+  }
+
   public class DTLRR2Strategy : BasicStrategy
   {
     public DTLRR2Strategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
 
     public override DataSeries<Value> MakeSignal(DataSeries<Bar> bars)
     {
-      return bars.DecisionTreeSignal(SParams, 0, DtSignals.MakeExamples2);
+      var examples = DtSignals.MakeExamples2(SParams, bars);
+      var dt = DecisionTree.Learn(examples, Prediction.Green, 0);
+      return Transforms.DecisionTreeSignal(dt, examples, 0);
     }
   }
 
@@ -342,23 +451,75 @@ namespace Quqe
   {
     public UDTLRR2Strategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
 
-    int WindowSize = 40;
+    public int WindowSize = 30;
     int WindowPadding = 25;
-    int ReteachInterval = 8;
-    int NumIterations = 15000;
+    public int ReteachInterval = 1;
+    public int NumIterations = 5000;
+
+    //public override DataSeries<Value> MakeSignal(DataSeries<Bar> bars)
+    //{
+    //  var oParams = List.Create(
+    //    new OptimizerParameter("TOPeriod", 3, 15, 1),
+    //    new OptimizerParameter("TOForecast", 0, 8, 1),
+    //    new OptimizerParameter("TCPeriod", 3, 15, 1),
+    //    new OptimizerParameter("TCForecast", 0, 8, 1),
+    //    new OptimizerParameter("VOPeriod", 3, 12, 1),
+    //    new OptimizerParameter("VOForecast", 0, 2, 1),
+    //    new OptimizerParameter("VCPeriod", 3, 12, 1),
+    //    new OptimizerParameter("VCForecast", 0, 2, 1),
+    //    new OptimizerParameter("ATRPeriod", 7, 15, 1),
+    //    new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1)
+    //    );
+
+    //  int maxBad = 2;
+    //  int evalWindowSize = 6;
+
+    //  var firstOffset = WindowPadding + WindowSize;
+    //  List<StrategyParameter> currentSParams = null;
+    //  object currentDt = null;
+    //  List<Value> signalElements = new List<Value>();
+
+    //  Func<int, bool> tooManyBad = i => {
+    //    var numBad = 0;
+    //    for (int j = i - evalWindowSize; j < i; j++)
+    //      if ((signalElements[i - j - 1] >= 0) != bars[j].IsGreen)
+    //        numBad++;
+    //    return numBad > maxBad;
+    //  };
+
+    //  for (int i = firstOffset; i < bars.Length; i++)
+    //  {
+    //    if (currentSParams == null || (i >= evalWindowSize + firstOffset && tooManyBad(i)))
+    //    {
+    //      var report = Optimizer.OptimizeDecisionTree("DTLRR2", oParams, NumIterations,
+    //        bars[i - WindowSize].Timestamp, bars.To(bars[i - 1].Timestamp),
+    //        TimeSpan.FromDays(WindowPadding), sParams => 0.0, DtSignals.MakeExamples2, true);
+    //      currentSParams = report.StrategyParams;
+
+    //      currentDt = DecisionTree.Learn(
+    //        DtSignals.MakeExamples2(currentSParams, bars.From(bars[i - WindowSize].Timestamp).To(bars[i - 1].Timestamp)),
+    //        Prediction.Green, 0);
+    //    }
+
+    //    signalElements.Add(Transforms.DecisionTreeSignal(currentDt,
+    //      DtSignals.MakeExamples2(currentSParams, new DataSeries<Bar>("DT", bars.Skip(i - 2).Take(3))), 0).First());
+    //  }
+
+    //  return new DataSeries<Value>(bars.Symbol, signalElements);
+    //}
 
     public override DataSeries<Value> MakeSignal(DataSeries<Bar> bars)
     {
       var oParams = List.Create(
-        new OptimizerParameter("TOPeriod", 3, 12, 1),
+        new OptimizerParameter("TOPeriod", 3, 15, 1),
         new OptimizerParameter("TOForecast", 0, 8, 1),
         new OptimizerParameter("TCPeriod", 3, 15, 1),
         new OptimizerParameter("TCForecast", 0, 8, 1),
-        new OptimizerParameter("VOPeriod", 3, 10, 1),
+        new OptimizerParameter("VOPeriod", 3, 12, 1),
         new OptimizerParameter("VOForecast", 0, 2, 1),
-        new OptimizerParameter("VCPeriod", 3, 10, 1),
+        new OptimizerParameter("VCPeriod", 3, 12, 1),
         new OptimizerParameter("VCForecast", 0, 2, 1),
-        new OptimizerParameter("ATRPeriod", 8, 12, 1),
+        new OptimizerParameter("ATRPeriod", 7, 15, 1),
         new OptimizerParameter("ATRThresh", 1.0, 2.5, 0.1)
         );
 
@@ -366,29 +527,41 @@ namespace Quqe
 
       var newElements = new List<Value>();
 
-      Optimizer.ShowTrace = false;
-      //for (int w = WindowSize; w < bars.Length - 1; w += ReteachInterval)
-      //{
-      Parallel.For(0, (bars.Length-WindowSize-WindowPadding) / ReteachInterval, n => {
+      var numIterations = (bars.Length - WindowSize - WindowPadding) / ReteachInterval;
+
+      Action<int> iterate = n => {
         var w = WindowPadding + WindowSize + n * ReteachInterval;
         var report = Optimizer.OptimizeDecisionTree("DTLRR2", oParams, NumIterations,
           bars[w - WindowSize].Timestamp, bars.To(bars[w - 1].Timestamp),
-          TimeSpan.FromDays(21), TimeSpan.FromDays(WindowPadding), sParams => 0.0, DtSignals.MakeExamples2, true);
+          TimeSpan.FromDays(WindowPadding), sParams => 0.0, DtSignals.MakeExamples2, true);
 
         var weekBars = new DataSeries<Bar>(bars.Symbol, bars.Skip(w - WindowPadding).Take(ReteachInterval + WindowPadding));
-        var paddedSignal = weekBars.DecisionTreeSignal(report.StrategyParams, 0, DtSignals.MakeExamples2);
+        var dt = DecisionTree.Learn(
+          DtSignals.MakeExamples2(report.StrategyParams, bars.From(bars[w - WindowSize].Timestamp).To(bars[w - 1].Timestamp)),
+          Prediction.Green, 0);
+        var paddedSignal = Transforms.DecisionTreeSignal(dt, DtSignals.MakeExamples2(report.StrategyParams, weekBars), 0);
         var weekSignal = paddedSignal.Skip(paddedSignal.Length - ReteachInterval);
         lock (newElements)
         {
           newElements.AddRange(weekSignal);
-          Trace.WriteLine(string.Format("{0} / {1}", newElements.Count, bars.Length - WindowSize));
+          if (!Optimizer.ParallelizeStrategyOptimization)
+            Trace.WriteLine(string.Format("Signal {0} / {1}", newElements.Count, numIterations * ReteachInterval));
         }
-      });
+      };
 
-      Optimizer.ShowTrace = true;
+      var oldTrace = Optimizer.ShowTrace;
+      Optimizer.ShowTrace = false;
+      if (Optimizer.ParallelizeStrategyOptimization)
+      {
+        for (int n = 0; n < numIterations; n++)
+          iterate(n);
+      }
+      else
+      {
+        Parallel.For(0, numIterations, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, iterate);
+      }
 
-      foreach (var x in newElements.OrderBy(x => x.Timestamp))
-        Trace.WriteLine(x.Timestamp);
+      Optimizer.ShowTrace = oldTrace;
 
       return new DataSeries<Value>(bars.Symbol, newElements.OrderBy(x => x.Timestamp));
     }

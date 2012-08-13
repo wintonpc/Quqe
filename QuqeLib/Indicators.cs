@@ -521,7 +521,7 @@ namespace Quqe
     public enum RSquared { Linear, Nonlinear }
     public enum LinRegSlope { Positive, Negative }
 
-    public static IEnumerable<DtExample> MakeExamples(DataSeries<Bar> carefulBars,
+    public static IEnumerable<DtExample> MakeCandleExamples(DataSeries<Bar> carefulBars,
       double smallMax = 0.65, double mediumMax = 1.20,
       double gapPadding = 0, double superGapPadding = 0,
       double smallMaxPct = -0.1, double largeMinPct = 0.1, int sizeAvgPeriod = 10, int enableBarSizeAveraging = 0,
@@ -593,7 +593,7 @@ namespace Quqe
     public static DataSeries<Value> DtCombo(DataSeries<Bar> teachingSet, DataSeries<Bar> validationSet)
     {
       Func<DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = bs => {
-        return MakeExamples(bs,
+        return MakeCandleExamples(bs,
         smallMax: 0.65,
         mediumMax: 1.21,
         gapPadding: 0,
@@ -842,13 +842,9 @@ namespace Quqe
       return new DataSeries<Value>(trades.First().Symbol, trades.Select(t => new Value(t.EntryTime.Date, getValue(t))));
     }
 
-    public static DataSeries<Value> DecisionTreeSignal(this DataSeries<Bar> bars,
-      IEnumerable<StrategyParameter> sParams, double minMajority, Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples)
+    public static DataSeries<Value> DecisionTreeSignal(object dt, IEnumerable<DtExample> examples, double minMajority)
     {
-      var examples = makeExamples(sParams, bars);
-      var dt = DecisionTree.Learn(examples, Prediction.Green, minMajority);
-
-      return new DataSeries<Value>(bars.Symbol, examples.Select(x => {
+      return new DataSeries<Value>("DT", examples.Select(x => {
         var d = DecisionTree.Decide(x.AttributesValues, dt);
         double v;
         if (d.Equals("Unsure"))
@@ -860,6 +856,25 @@ namespace Quqe
         return new Value(x.Timestamp.Value, v);
       }));
     }
+
+    //public static DataSeries<Value> DecisionTreeSignal(this DataSeries<Bar> bars,
+    //  IEnumerable<StrategyParameter> sParams, double minMajority, Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples)
+    //{
+    //  var examples = makeExamples(sParams, bars);
+    //  var dt = DecisionTree.Learn(examples, Prediction.Green, minMajority);
+
+    //  return new DataSeries<Value>(bars.Symbol, examples.Select(x => {
+    //    var d = DecisionTree.Decide(x.AttributesValues, dt);
+    //    double v;
+    //    if (d.Equals("Unsure"))
+    //      v = 0;
+    //    else if (d.Equals(Prediction.Green))
+    //      v = 1;
+    //    else
+    //      v = -1;
+    //    return new Value(x.Timestamp.Value, v);
+    //  }));
+    //}
   }
 
   public static class BarHelpers
