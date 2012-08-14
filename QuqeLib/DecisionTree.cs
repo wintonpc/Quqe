@@ -114,6 +114,11 @@ namespace Quqe
       return Decide(attributeValues, path.Child);
     }
 
+    static List<DtExample> ExamplesWithGoal(List<DtExample> examples, object goal)
+    {
+      return examples.Where(x => x.Goal.Equals(goal)).ToList();
+    }
+
     static List<DtExample> ExamplesWithAttributeValue(List<DtExample> examples, object value)
     {
       return examples.Where(x => x.AttributesValues.Contains(value)).ToList();
@@ -138,19 +143,34 @@ namespace Quqe
 
     static Type ChooseAttribute(List<Type> attribs, List<DtExample> examples, out double information)
     {
-      var sortedAttribs = attribs.Select(attr => {
-        var infoHere = Information(AttributeValueProbabilities(attr, examples));
-        var remainder = Values(attr).Sum(v => {
+      var q = attribs.Select(attr => {
+        var infoRequiredHere = Information(GoalProbabilities(examples));
+        var remainingInformationRequired = Values(attr).Sum(v => {
           var subset = ExamplesWithAttributeValue(examples, v);
           var sc = subset.Count;
           if (sc == 0)
             return 0;
-          return (double)sc / examples.Count * Information(AttributeValueProbabilities(attr, subset));
+          return (double)sc / examples.Count * Information(GoalProbabilities(subset));
         });
-        return new { Attr = attr, InformationGain = infoHere - remainder };
-      }).OrderByDescending(x => x.InformationGain).ToList();
-      information = sortedAttribs[0].InformationGain;
-      return sortedAttribs[0].Attr;
+        var infoProvidedByAttribute = Information(AttributeValueProbabilities(attr, examples));
+        var gain = infoRequiredHere - remainingInformationRequired;
+        return new {
+          Attr = attr,
+          InformationGain = gain,
+          GainRatio = infoProvidedByAttribute == 0 ? 0 : gain / infoProvidedByAttribute
+        };
+      });
+      var averageGain = q.Average(x => x.InformationGain);
+      var aboveAverageGain = q.Where(x => x.InformationGain >= averageGain).ToList();
+      var bestRoot = aboveAverageGain.OrderByDescending(x => x.GainRatio).ToList()[0];
+      information = bestRoot.GainRatio;
+      return bestRoot.Attr;
+    }
+
+    static List<double> GoalProbabilities(List<DtExample> examples)
+    {
+      var goalType = examples.First().Goal.GetType();
+      return Values(goalType).Select(v => (double)ExamplesWithGoal(examples, v).Count / examples.Count).ToList();
     }
 
     static List<double> AttributeValueProbabilities(Type attr, List<DtExample> examples)
