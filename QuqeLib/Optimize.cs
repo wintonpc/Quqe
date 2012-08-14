@@ -193,73 +193,75 @@ namespace Quqe
       Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples,
       bool silent = false)
     {
-      var annealResult = Optimizer.Anneal(oParams, sParams => {
+      var annealResult = Optimizer.AnnealParallel(oParams, sParams => {
         var trainingSet = makeExamples(sParams, trainingBars.From(startDate.Subtract(frontPadding))).Where(x => x.Timestamp >= startDate).ToList();
         var dt = DecisionTree.Learn(trainingSet, Prediction.Green, getMinMajority(sParams));
-        return -Quality(dt, trainingSet);
+        return -DTQuality(dt, trainingSet);
       }, numAnnealingIterations);
 
       return MakeReport(name, trainingBars, getMinMajority, makeExamples, silent, annealResult);
     }
 
-    //public static StrategyOptimizerReport OptimizeDecisionTree(string name, IEnumerable<OptimizerParameter> oParams,
-    //  int numAnnealingIterations, DateTime startDate, DataSeries<Bar> bars,
-    //  TimeSpan validationWindowSize, TimeSpan frontPadding,
-    //  Func<IEnumerable<StrategyParameter>, double> getMinMajority,
-    //  Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples,
-    //  bool silent = false)
-    //{
-    //  Func<DateTime, DateTime, DateTime> maxDate = (a, b) => a > b ? a : b;
+    public static StrategyOptimizerReport OptimizeDecisionTree(string name, IEnumerable<OptimizerParameter> oParams,
+      int numAnnealingIterations, DateTime startDate, DataSeries<Bar> bars,
+      TimeSpan validationWindowSize, TimeSpan frontPadding,
+      Func<IEnumerable<StrategyParameter>, double> getMinMajority,
+      Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples,
+      bool silent = false)
+    {
+      Func<DateTime, DateTime, DateTime> maxDate = (a, b) => a > b ? a : b;
 
-    //  List<ValidationWindow> validationWindows = new List<ValidationWindow>();
-    //  for (DateTime windowStart = startDate;
-    //    windowStart.Add(validationWindowSize) <= bars.Last().Timestamp;
-    //    windowStart = windowStart.Add(validationWindowSize))
-    //    validationWindows.Add(new ValidationWindow {
-    //      First = windowStart,
-    //      PadFirst = maxDate(bars.First().Timestamp, windowStart.Subtract(frontPadding)),
-    //      Last = windowStart.Add(validationWindowSize).AddDays(-1)
-    //    });
-    //  var lastFirst = bars.Last().Timestamp.Subtract(validationWindowSize).AddDays(1);
-    //  validationWindows.Add(new ValidationWindow {
-    //    First = lastFirst,
-    //    PadFirst = maxDate(bars.First().Timestamp, lastFirst.Subtract(frontPadding)),
-    //    Last = bars.Last().Timestamp
-    //  });
+      List<ValidationWindow> validationWindows = new List<ValidationWindow>();
+      for (DateTime windowStart = startDate;
+        windowStart.Add(validationWindowSize) <= bars.Last().Timestamp;
+        windowStart = windowStart.Add(validationWindowSize))
+        validationWindows.Add(new ValidationWindow {
+          First = windowStart,
+          PadFirst = maxDate(bars.First().Timestamp, windowStart.Subtract(frontPadding)),
+          Last = windowStart.Add(validationWindowSize).AddDays(-1)
+        });
+      var lastFirst = bars.Last().Timestamp.Subtract(validationWindowSize).AddDays(1);
+      validationWindows.Add(new ValidationWindow {
+        First = lastFirst,
+        PadFirst = maxDate(bars.First().Timestamp, lastFirst.Subtract(frontPadding)),
+        Last = bars.Last().Timestamp
+      });
 
-    //  var padDate = maxDate(bars.First().Timestamp, startDate.Subtract(frontPadding));
+      var padDate = maxDate(bars.First().Timestamp, startDate.Subtract(frontPadding));
 
-    //  var annealResult = Optimizer.Anneal(oParams, sParams => {
-    //    double costSum = 0.0;
-    //    Parallel.ForEach(validationWindows, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, vw => {
-    //      //foreach (var vw in validationWindows)
-    //      //{
-    //      var teachingSet1 =
-    //        makeExamples(sParams, bars.From(padDate).To(vw.First.AddDays(-1)))
-    //          .Where(x => x.Timestamp >= startDate);
+      var annealResult = Optimizer.Anneal(oParams, sParams => {
+        double costSum = 0.0;
+        Parallel.ForEach(validationWindows, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, vw => {
+          //foreach (var vw in validationWindows)
+          //{
+          var teachingSet1 =
+            makeExamples(sParams, bars.From(padDate).To(vw.First.AddDays(-1)))
+              .Where(x => x.Timestamp >= startDate);
 
-    //      var teachingSet2 =
-    //        makeExamples(sParams, bars.From(maxDate(bars.First().Timestamp, vw.Last.AddDays(1).Subtract(frontPadding))))
-    //                 .Where(x => x.Timestamp >= vw.Last.AddDays(1));
+          var teachingSet2 =
+            makeExamples(sParams, bars.From(maxDate(bars.First().Timestamp, vw.Last.AddDays(1).Subtract(frontPadding))))
+                     .Where(x => x.Timestamp >= vw.Last.AddDays(1));
 
-    //      var validationSet =
-    //        makeExamples(sParams, bars.From(vw.PadFirst).To(vw.Last)).Where(x => x.Timestamp >= vw.First).ToList();
+          var validationSet =
+            makeExamples(sParams, bars.From(vw.PadFirst).To(vw.Last)).Where(x => x.Timestamp >= vw.First).ToList();
 
-    //      var teachingSet = teachingSet1.Concat(teachingSet2);
-    //      var dt = DecisionTree.Learn(teachingSet, Prediction.Green, getMinMajority(sParams));
+          var teachingSet = teachingSet1.Concat(teachingSet2);
+          if (teachingSet.Any(t => validationSet.Any(v => t.Timestamp == v.Timestamp)))
+            throw new Exception("Validation set contains a teaching sample!!");
+          var dt = DecisionTree.Learn(teachingSet, Prediction.Green, getMinMajority(sParams));
 
-    //      var quality = ValidationSetQuality(dt, validationSet);
-    //      lock (validationWindows)
-    //      {
-    //        costSum += -quality;
-    //      }
-    //    });
+          var quality = DTQuality(dt, validationSet);
+          lock (validationWindows)
+          {
+            costSum += -quality;
+          }
+        });
 
-    //    return costSum / validationWindows.Count;
-    //  }, numAnnealingIterations);
+        return costSum / validationWindows.Count;
+      }, numAnnealingIterations);
 
-    //  return MakeReport(name, bars, getMinMajority, makeExamples, silent, annealResult);
-    //}
+      return MakeReport(name, bars, getMinMajority, makeExamples, silent, annealResult);
+    }
 
     static StrategyOptimizerReport MakeReport(string name, DataSeries<Bar> bars,
       Func<IEnumerable<StrategyParameter>, double> getMinMajority,
@@ -285,7 +287,7 @@ namespace Quqe
       return report;
     }
 
-    static double Quality(object dt, List<DtExample> set)
+    public static double DTQuality(object dt, List<DtExample> set, bool dump = false)
     {
       var numCorrect = 0;
       var numIncorrect = 0;
@@ -303,7 +305,21 @@ namespace Quqe
 
       var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
       var confidence = (double)(numCorrect + numIncorrect) / set.Count;
-      return accuracy * confidence;
+
+      if (dump)
+      {
+        var altAccuracy = 0.5;
+        Trace.WriteLine("---");
+        Trace.WriteLine("NumCorrect: " + numCorrect);
+        Trace.WriteLine("NumIncorrect: " + numIncorrect);
+        Trace.WriteLine("NumUnsure: " + numUnsure);
+        Trace.WriteLine("Accuracy: " + accuracy);
+        Trace.WriteLine("Confidence: " + confidence);
+        Trace.WriteLine("Overall Quality: " + (accuracy * confidence + altAccuracy * (1 - confidence)));
+        Trace.WriteLine("---");
+      }
+
+      return Math.Pow(accuracy, 2) * confidence;
     }
 
     static Genome MutateGenome(Genome genome, double temperature)
@@ -383,8 +399,17 @@ namespace Quqe
       return Anneal(MakeSParamsSeed(oParams).ToList(), (sp, temp) => MutateSParams(sp, oParams, temp), costFunc, iterations);
     }
 
-    static AnnealResult<TParams> Anneal<TParams>(TParams initialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc, int iterations = 25000)
+    public static AnnealResult<IEnumerable<StrategyParameter>> AnnealParallel(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000)
     {
+      return AnnealParallel(() => MakeSParamsSeed(oParams).ToList(), (sp, temp) => MutateSParams(sp, oParams, temp), costFunc, iterations);
+    }
+
+    static AnnealResult<TParams> Anneal<TParams>(TParams initialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc, int iterations = 25000,
+      int? firstIteration = null, int? lastIteration = null)
+    {
+      firstIteration = firstIteration ?? 0;
+      lastIteration = lastIteration ?? iterations;
+
       Func<double, double> schedule = t => Math.Sqrt(Math.Exp(-11 * t));
       var escapeCostPremiumSma = MakeSMA(25);
       var costSma = MakeSMA(2000);
@@ -398,7 +423,7 @@ namespace Quqe
       var bestParams = currentParams;
       var bestCost = currentCost;
       double averageEscapeCostPremium = 0;
-      for (int i = 0; i < iterations; i++)
+      for (int i = firstIteration.Value; i < lastIteration.Value; i++)
       {
         var temperature = schedule((double)i / iterations);
         var nextParams = mutate(currentParams, temperature * GeneMagnitude);
@@ -446,9 +471,37 @@ namespace Quqe
       };
     }
 
+    static AnnealResult<TParams> AnnealParallel<TParams>(Func<TParams> makeInitialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc, int iterations = 25000)
+    {
+      int parallelism = 16;
+      int numRejoins = 12;
+      var modifiedNumIterations = (int)((double)iterations / parallelism);
+      int iterationsBeforeRejoin = modifiedNumIterations / numRejoins;
+
+      var oldShowTrace = ShowTrace;
+      ShowTrace = false;
+      AnnealResult<TParams> best = null;
+      for (int j = 0; j < numRejoins; j++)
+      {
+        var results = new List<AnnealResult<TParams>>();
+        Parallel.For(0, parallelism, new ParallelOptions { MaxDegreeOfParallelism = parallelism }, z => {
+          var ar = Anneal(best != null ? best.Params : makeInitialParams(), mutate, costFunc, modifiedNumIterations, j * iterationsBeforeRejoin, (j+1) * iterationsBeforeRejoin);
+          lock (results)
+          {
+            results.Add(ar);
+          }
+        });
+        best = results.OrderBy(x => x.Cost).First();
+        Trace.WriteLine(string.Format("{0} / {1}  Cost = {2}", j + 1, numRejoins, best.Cost));
+      }
+      ShowTrace = true;
+      return best;
+    }
+
     private static IEnumerable<StrategyParameter> MakeSParamsSeed(IEnumerable<OptimizerParameter> oParams)
     {
-      return oParams.Select(op => new StrategyParameter(op.Name, Quantize((op.Low + op.High) / 2.0, op.Low, op.Granularity)));
+      //return oParams.Select(op => new StrategyParameter(op.Name, Quantize((op.Low + op.High) / 2.0, op.Low, op.Granularity)));
+      return oParams.Select(op => new StrategyParameter(op.Name, Quantize(RandomDouble(op.Low, op.High), op.Low, op.Granularity)));
     }
 
     static double Clip(double min, double max, double x)

@@ -16,7 +16,7 @@
         <TextBox x:Name="MarginFactorBox">1</TextBox>
       </StackPanel>
       <StackPanel Orientation="Horizontal">
-        <Button x:Name="BacktestButton" Width="85" Click="BacktestButton_Click">Backtest</Button>
+        <Button Visibility="Hidden" x:Name="BacktestButton" Width="85">Backtest</Button>
         <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Teaching Start:</TextBlock>
         <!--<TextBox x:Name="TeachStartBox">02/11/2010</TextBox>-->
         <ComboBox x:Name="TrainingStartBox" IsEditable="True" Width="106"></ComboBox>

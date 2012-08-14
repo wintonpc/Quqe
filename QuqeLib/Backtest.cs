@@ -175,8 +175,7 @@ namespace Quqe
       sb.AppendLine("");
       sb.AppendLine("NumWinningTrades: " + NumWinningTrades);
       sb.AppendLine("NumLosingTrades: " + NumLosingTrades);
-      sb.AppendLine("TotalTrades1: " + Trades.Count);
-      sb.AppendLine("TotalTrades2: " + (NumWinningTrades + NumLosingTrades));
+      sb.AppendLine("TotalTrades: " + Trades.Count);
       sb.AppendLine("WinningTradeFraction: " + WinningTradeFraction);
       sb.AppendLine("");
       sb.AppendLine("AverageWin: " + AverageWin);

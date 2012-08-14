@@ -25,14 +25,31 @@ namespace QuqeViz
       Update();
     }
 
-    public static void DoBacktest(string symbol, string startDate, string endDate, string strategyName, double initialValue, int marginFactor, bool isValidation)
+    public void DoBacktest(string symbol, string strategyName, double initialValue, int marginFactor, bool isValidation)
     {
-      var bars = Data.Get(symbol).From(startDate).To(endDate);
+      var bars = Data.Get(symbol);
       var strat = StrategyOptimizerReport.CreateStrategy(strategyName);
-      var backtestReport = Strategy.BacktestSignal(bars, strat.MakeSignal(bars),
-        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 50 }, 2, null);
+      var backtestReport = Strategy.BacktestSignal(bars,
+        strat.MakeSignal(
+          DateTime.Parse(TrainingStartBox.Text), bars.To(TrainingEndBox.Text),
+          DateTime.Parse(ValidationStartBox.Text), bars.To(ValidationEndBox.Text)),
+        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 20 }, 2, null);
+      Trace.WriteLine(string.Format("Training  :  {0}  -  {1}", TrainingStartBox.Text, TrainingEndBox.Text));
+      bool validationWarning = DateTime.Parse(ValidationStartBox.Text) <= DateTime.Parse(TrainingEndBox.Text);
+      Trace.WriteLine(string.Format("Validation:  {0}  -  {1}{2}",
+        ValidationStartBox.Text, ValidationEndBox.Text, validationWarning ? " !!!!!" : ""));
+      if (strat is DTStrategy)
+        EvalAndDumpDTStrategy((DTStrategy)strat);
       Trace.WriteLine(backtestReport.ToString());
       ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
+    }
+
+    public void EvalAndDumpDTStrategy(DTStrategy strat)
+    {
+      var bars = Data.Get(SymbolBox.Text);
+      var dt = strat.MakeDt(DateTime.Parse(TrainingStartBox.Text), bars.To(TrainingEndBox.Text));
+      var validationSet = strat.MakeDtExamples(DateTime.Parse(ValidationStartBox.Text), bars.To(ValidationEndBox.Text)).ToList();
+      Optimizer.DTQuality(dt, validationSet, true);
     }
 
     public static void DoGenomelessBacktest(string symbol, string startDate, string endDate, Strategy strat, double initialValue, int marginFactor, bool isValidation)
@@ -160,16 +177,16 @@ namespace QuqeViz
       Settings.Default.Save();
     }
 
-    private void BacktestButton_Click(object sender, RoutedEventArgs e)
-    {
-      DoBacktest(SymbolBox.Text, TrainingStartBox.Text, TrainingEndBox.Text, (string)StrategiesBox.SelectedItem,
-        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
-      Update();
-    }
+    //private void BacktestButton_Click(object sender, RoutedEventArgs e)
+    //{
+    //  DoBacktest(SymbolBox.Text, TrainingStartBox.Text, TrainingEndBox.Text, (string)StrategiesBox.SelectedItem,
+    //    double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
+    //  Update();
+    //}
 
     private void ValidateButton_Click(object sender, RoutedEventArgs e)
     {
-      DoBacktest(SymbolBox.Text, ValidationStartBox.Text, ValidationEndBox.Text, (string)StrategiesBox.SelectedItem,
+      DoBacktest(SymbolBox.Text, (string)StrategiesBox.SelectedItem,
         double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), true);
       Update();
     }
@@ -242,19 +259,25 @@ namespace QuqeViz
     private void OptimizeDTCandlesButton_Click(object sender, RoutedEventArgs e)
     {
       var oParams = List.Create(
-        new OptimizerParameter("MinMajority", 0.50, 0.70, 0.01),
-        new OptimizerParameter("SmallMax", 0.0, 1.00, 0.02),
-        new OptimizerParameter("MediumMax", 0.0, 2.00, 0.02),
-        new OptimizerParameter("GapPadding", 0.0, 0.15, 0.01),
-        new OptimizerParameter("SuperGapPadding", 0.0, 0.50, 0.01),
+        new OptimizerParameter("MinMajority", 0.50, 0.60, 0.01),
+        new OptimizerParameter("SmallMax", 0.0, 2.00, 0.01),
+        new OptimizerParameter("MediumMax", 0.0, 4.00, 0.01),
+        new OptimizerParameter("GapPadding", 0.0, 1.00, 0.01),
+        new OptimizerParameter("SuperGapPadding", 0.0, 1.00, 0.01),
         new OptimizerParameter("EnableEma", 1, 1, 1),
         new OptimizerParameter("EmaPeriod", 3, 13, 1)
         );
 
-      int lookback = oParams.Where(x => x.Name.EndsWith("Period")).Max(x => (int)x.High) + 1;
+      var periodParams = oParams.Where(x => x.Name.EndsWith("Period"));
+      int lookback = !periodParams.Any() ? 2 : (int)(periodParams.Max(x => (int)x.High) * 7.0 / 5.0 + 2);
 
-      Optimizer.OptimizeDecisionTree("DTCandles", oParams, 25000,
+      //Optimizer.OptimizeDecisionTree("DTCandles", oParams, 25000,
+      //  DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
+      //  TimeSpan.FromDays(lookback), sParams => sParams.Get<double>("MinMajority"), DTCandlesStrategy.MakeExamples);
+
+      Optimizer.OptimizeDecisionTree("DTCandles", oParams, 1000,
         DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
+        TimeSpan.FromDays(45),
         TimeSpan.FromDays(lookback), sParams => sParams.Get<double>("MinMajority"), DTCandlesStrategy.MakeExamples);
 
       Update();

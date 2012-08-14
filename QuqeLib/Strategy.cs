@@ -317,7 +317,7 @@ namespace Quqe
       SParams = sParams.ToList();
     }
 
-    public abstract DataSeries<Value> MakeSignal(DataSeries<Bar> bars);
+    public abstract DataSeries<Value> MakeSignal(DateTime trainingStart, DataSeries<Bar> trainingBars, DateTime validationStart, DataSeries<Bar> validationBars);
 
     public static BasicStrategy Make(string strategyName, IEnumerable<StrategyParameter> sParams)
     {
@@ -328,15 +328,22 @@ namespace Quqe
     }
   }
 
-  public class DTCandlesStrategy : BasicStrategy
+  public abstract class DTStrategy : BasicStrategy
+  {
+    protected DTStrategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
+    public abstract IEnumerable<DtExample> MakeDtExamples(DateTime start, DataSeries<Bar> bars);
+    public abstract object MakeDt(DateTime trainingStart, DataSeries<Bar> trainingBars);
+  }
+
+  public class DTCandlesStrategy : DTStrategy
   {
     public DTCandlesStrategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
 
-    public override DataSeries<Value> MakeSignal(DataSeries<Bar> bars)
+    public override DataSeries<Value> MakeSignal(DateTime trainingStart, DataSeries<Bar> trainingBars, DateTime validationStart, DataSeries<Bar> validationBars)
     {
-      var examples = MakeExamples(SParams, bars);
-      var dt = DecisionTree.Learn(examples, Prediction.Green, 0);
-      return Transforms.DecisionTreeSignal(dt, examples, 0);
+      var dt = MakeDt(trainingStart, trainingBars);
+      var validationExamples = MakeExamples(SParams, validationBars).Where(x => x.Timestamp >= validationStart);
+      return Transforms.DecisionTreeSignal(dt, validationExamples);
     }
 
     public enum Last2BarColor { Green, Red }
@@ -348,6 +355,17 @@ namespace Quqe
     public enum Lrr2 { Buy, Sell }
     public enum RSquared { Linear, Nonlinear }
     public enum LinRegSlope { Positive, Negative }
+
+    public override object MakeDt(DateTime trainingStart, DataSeries<Bar> trainingBars)
+    {
+      var trainingExamples = MakeExamples(SParams, trainingBars).Where(x => x.Timestamp >= trainingStart);
+      return DecisionTree.Learn(trainingExamples, Prediction.Green, SParams.Get<double>("MinMajority"));
+    }
+
+    public override IEnumerable<DtExample> MakeDtExamples(DateTime start, DataSeries<Bar> bars)
+    {
+      return MakeExamples(SParams, bars).Where(x => x.Timestamp >= start);
+    }
 
     public static IEnumerable<DtExample> MakeExamples(IEnumerable<StrategyParameter> sParams, DataSeries<Bar> carefulBars)
     {
@@ -375,6 +393,9 @@ namespace Quqe
       int linRegSlopePeriod = sParams.Get<int>("LinRegSlopePeriod");
 
       int enableLrr2 = sParams.Get<int>("EnableLrr2");
+
+      if (carefulBars.Length < 3)
+        return new List<DtExample>();
 
       List<DtExample> examples = new List<DtExample>();
       var emaSlope = carefulBars.Closes().ZLEMA(emaPeriod).Derivative().Delay(1);
@@ -434,6 +455,8 @@ namespace Quqe
       return low <= v && v <= high;
     }
   }
+   
+  /*
 
   public class DTLRR2Strategy : BasicStrategy
   {
@@ -566,4 +589,5 @@ namespace Quqe
       return new DataSeries<Value>(bars.Symbol, newElements.OrderBy(x => x.Timestamp));
     }
   }
+   */
 }

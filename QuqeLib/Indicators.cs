@@ -842,7 +842,7 @@ namespace Quqe
       return new DataSeries<Value>(trades.First().Symbol, trades.Select(t => new Value(t.EntryTime.Date, getValue(t))));
     }
 
-    public static DataSeries<Value> DecisionTreeSignal(object dt, IEnumerable<DtExample> examples, double minMajority)
+    public static DataSeries<Value> DecisionTreeSignal(object dt, IEnumerable<DtExample> examples)
     {
       return new DataSeries<Value>("DT", examples.Select(x => {
         var d = DecisionTree.Decide(x.AttributesValues, dt);
