@@ -359,7 +359,7 @@ namespace Quqe
     public override object MakeDt(DateTime trainingStart, DataSeries<Bar> trainingBars)
     {
       var trainingExamples = MakeExamples(SParams, trainingBars).Where(x => x.Timestamp >= trainingStart);
-      return DecisionTree.Learn(trainingExamples, Prediction.Green, SParams.Get<double>("MinMajority"));
+      return DecisionTree.Learn(trainingExamples, Prediction.Green, 0);
     }
 
     public override IEnumerable<DtExample> MakeDtExamples(DateTime start, DataSeries<Bar> bars)

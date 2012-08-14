@@ -33,7 +33,7 @@ namespace QuqeViz
         strat.MakeSignal(
           DateTime.Parse(TrainingStartBox.Text), bars.To(TrainingEndBox.Text),
           DateTime.Parse(ValidationStartBox.Text), bars.To(ValidationEndBox.Text)),
-        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 20 }, 2, null);
+        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 20 }, 2, 0.05);
       Trace.WriteLine(string.Format("Training  :  {0}  -  {1}", TrainingStartBox.Text, TrainingEndBox.Text));
       bool validationWarning = DateTime.Parse(ValidationStartBox.Text) <= DateTime.Parse(TrainingEndBox.Text);
       Trace.WriteLine(string.Format("Validation:  {0}  -  {1}{2}",
@@ -259,26 +259,32 @@ namespace QuqeViz
     private void OptimizeDTCandlesButton_Click(object sender, RoutedEventArgs e)
     {
       var oParams = List.Create(
-        new OptimizerParameter("MinMajority", 0.50, 0.60, 0.01),
+        //new OptimizerParameter("MinMajority", 0.50, 0.60, 0.01),
         new OptimizerParameter("SmallMax", 0.0, 2.00, 0.01),
         new OptimizerParameter("MediumMax", 0.0, 4.00, 0.01),
         new OptimizerParameter("GapPadding", 0.0, 1.00, 0.01),
         new OptimizerParameter("SuperGapPadding", 0.0, 1.00, 0.01),
         new OptimizerParameter("EnableEma", 1, 1, 1),
-        new OptimizerParameter("EmaPeriod", 3, 13, 1)
+        new OptimizerParameter("EmaPeriod", 3, 13, 1),
+        new OptimizerParameter("EnableMomentum", 1, 1, 1),
+        new OptimizerParameter("MomentumPeriod", 3, 13, 1),
+        new OptimizerParameter("EnableRSquared", 1, 1, 1),
+        new OptimizerParameter("RSquaredPeriod", 3, 13, 1),
+        new OptimizerParameter("EnableLinRegSlope", 1, 1, 1),
+        new OptimizerParameter("LinRegSlopePeriod", 3, 13, 1)
         );
 
       var periodParams = oParams.Where(x => x.Name.EndsWith("Period"));
       int lookback = !periodParams.Any() ? 2 : (int)(periodParams.Max(x => (int)x.High) * 7.0 / 5.0 + 2);
 
-      //Optimizer.OptimizeDecisionTree("DTCandles", oParams, 25000,
-      //  DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
-      //  TimeSpan.FromDays(lookback), sParams => sParams.Get<double>("MinMajority"), DTCandlesStrategy.MakeExamples);
-
       Optimizer.OptimizeDecisionTree("DTCandles", oParams, 1000,
         DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
-        TimeSpan.FromDays(45),
-        TimeSpan.FromDays(lookback), sParams => sParams.Get<double>("MinMajority"), DTCandlesStrategy.MakeExamples);
+        TimeSpan.FromDays(lookback), sParams => 0, DTCandlesStrategy.MakeExamples);
+
+      //Optimizer.OptimizeDecisionTree("DTCandles", oParams, 1000,
+      //  DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
+      //  TimeSpan.FromDays(45),
+      //  TimeSpan.FromDays(lookback), sParams => 0, DTCandlesStrategy.MakeExamples);
 
       Update();
     }

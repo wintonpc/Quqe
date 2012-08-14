@@ -189,23 +189,23 @@ namespace Quqe
 
     public static StrategyOptimizerReport OptimizeDecisionTree(string name, IEnumerable<OptimizerParameter> oParams,
       int numAnnealingIterations, DateTime startDate, DataSeries<Bar> trainingBars, TimeSpan frontPadding,
-      Func<IEnumerable<StrategyParameter>, double> getMinMajority,
+      Func<IEnumerable<StrategyParameter>, double> getChiSquareThresh,
       Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples,
       bool silent = false)
     {
       var annealResult = Optimizer.AnnealParallel(oParams, sParams => {
         var trainingSet = makeExamples(sParams, trainingBars.From(startDate.Subtract(frontPadding))).Where(x => x.Timestamp >= startDate).ToList();
-        var dt = DecisionTree.Learn(trainingSet, Prediction.Green, getMinMajority(sParams));
+        var dt = DecisionTree.Learn(trainingSet, Prediction.Green, 0);
         return -DTQuality(dt, trainingSet);
       }, numAnnealingIterations);
 
-      return MakeReport(name, trainingBars, getMinMajority, makeExamples, silent, annealResult);
+      return MakeReport(name, trainingBars, getChiSquareThresh, makeExamples, silent, annealResult);
     }
 
     public static StrategyOptimizerReport OptimizeDecisionTree(string name, IEnumerable<OptimizerParameter> oParams,
       int numAnnealingIterations, DateTime startDate, DataSeries<Bar> bars,
       TimeSpan validationWindowSize, TimeSpan frontPadding,
-      Func<IEnumerable<StrategyParameter>, double> getMinMajority,
+      Func<IEnumerable<StrategyParameter>, double> getChiSquareThresh,
       Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples,
       bool silent = false)
     {
@@ -248,7 +248,7 @@ namespace Quqe
           var teachingSet = teachingSet1.Concat(teachingSet2);
           if (teachingSet.Any(t => validationSet.Any(v => t.Timestamp == v.Timestamp)))
             throw new Exception("Validation set contains a teaching sample!!");
-          var dt = DecisionTree.Learn(teachingSet, Prediction.Green, getMinMajority(sParams));
+          var dt = DecisionTree.Learn(teachingSet, Prediction.Green, getChiSquareThresh(sParams));
 
           var quality = DTQuality(dt, validationSet);
           lock (validationWindows)
@@ -260,11 +260,11 @@ namespace Quqe
         return costSum / validationWindows.Count;
       }, numAnnealingIterations);
 
-      return MakeReport(name, bars, getMinMajority, makeExamples, silent, annealResult);
+      return MakeReport(name, bars, getChiSquareThresh, makeExamples, silent, annealResult);
     }
 
     static StrategyOptimizerReport MakeReport(string name, DataSeries<Bar> bars,
-      Func<IEnumerable<StrategyParameter>, double> getMinMajority,
+      Func<IEnumerable<StrategyParameter>, double> getChiSquareThresh,
       Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples,
       bool silent, AnnealResult<IEnumerable<StrategyParameter>> annealResult)
     {
@@ -278,7 +278,7 @@ namespace Quqe
         Strategy.PrintStrategyOptimizerReports(List.Create(report));
         DecisionTree.WriteDot("dt.dot",
           DecisionTree.Learn(makeExamples(annealResult.Params, bars),
-          Prediction.Green, getMinMajority(annealResult.Params)));
+          Prediction.Green, getChiSquareThresh(annealResult.Params)));
         var p = Process.Start(@"C:\Program Files (x86)\Graphviz 2.28\bin\dot.exe", "-Tpng -o dt.png dt.dot");
         p.EnableRaisingEvents = true;
         p.WaitForExit();
@@ -306,20 +306,21 @@ namespace Quqe
       var accuracy = (double)numCorrect / (numCorrect + numIncorrect);
       var confidence = (double)(numCorrect + numIncorrect) / set.Count;
 
-      if (dump)
-      {
-        var altAccuracy = 0.5;
-        Trace.WriteLine("---");
-        Trace.WriteLine("NumCorrect: " + numCorrect);
-        Trace.WriteLine("NumIncorrect: " + numIncorrect);
-        Trace.WriteLine("NumUnsure: " + numUnsure);
-        Trace.WriteLine("Accuracy: " + accuracy);
-        Trace.WriteLine("Confidence: " + confidence);
-        Trace.WriteLine("Overall Quality: " + (accuracy * confidence + altAccuracy * (1 - confidence)));
-        Trace.WriteLine("---");
-      }
+      //if (dump)
+      //{
+      //  var altAccuracy = 0.5;
+      //  Trace.WriteLine("---");
+      //  Trace.WriteLine("NumCorrect: " + numCorrect);
+      //  Trace.WriteLine("NumIncorrect: " + numIncorrect);
+      //  Trace.WriteLine("NumUnsure: " + numUnsure);
+      //  Trace.WriteLine("Accuracy: " + accuracy);
+      //  Trace.WriteLine("Confidence: " + confidence);
+      //  Trace.WriteLine("Overall Quality: " + (accuracy * confidence + altAccuracy * (1 - confidence)));
+      //  Trace.WriteLine("---");
+      //}
 
-      return Math.Pow(accuracy, 2) * confidence;
+      //return Math.Pow(accuracy, 2) * confidence;
+      return (double)numCorrect / set.Count;
     }
 
     static Genome MutateGenome(Genome genome, double temperature)

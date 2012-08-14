@@ -68,40 +68,40 @@ namespace Quqe
 
   public static class DecisionTree
   {
-    public static object Learn(IEnumerable<DtExample> examples, object defaultValue, double minimumMajority)
+    public static object Learn(IEnumerable<DtExample> examples, object defaultValue, double chiSquareThreshold)
     {
-      return Learn(examples.ToList(), examples.First().AttributesValues.Select(x => x.GetType()).ToList(), defaultValue, minimumMajority);
+      return Learn(examples.ToList(), examples.First().AttributesValues.Select(x => x.GetType()).ToList(), defaultValue, chiSquareThreshold);
     }
 
     static object UnsureValue = "Unsure";
 
-    static object Learn(List<DtExample> examples, List<Type> attribs, object defaultValue, double minimumMajority)
+    static object Learn(List<DtExample> examples, List<Type> attribs, object defaultValue, double chiSquareThreshold)
     {
       if (!examples.Any())
         return new OutcomeValue(UnsureValue, 0, examples.Count);
       else if (examples.GroupBy(x => x.Goal).Count() == 1)
         return new OutcomeValue(examples[0].Goal, 1, examples.Count);
-      else if (!attribs.Any())
-      {
-        double strength;
-        var majorityValue = MajorityValue(examples, out strength);
-        if (strength > minimumMajority)
-          return new OutcomeValue(majorityValue, strength, examples.Count);
-        else
-          return new OutcomeValue(UnsureValue, strength, examples.Count);
-      }
       else
       {
         double info;
-        Type best = ChooseAttribute(attribs, examples, out info);
-        return new DtNode(best, info, Values(best).Select(v => {
-          var subset = ExamplesWithAttributeValue(examples, v);
-          return new DtChild(v, Learn(
-          subset,
-          attribs.Except(List.Create(best)).ToList(),
-          MajorityValue(examples),
-          minimumMajority));
-        }));
+        Type best;
+        if (!attribs.Any() || (best = ChooseAttribute(attribs, examples, chiSquareThreshold, out info)) == null)
+        {
+          double strength;
+          var majorityValue = MajorityValue(examples, out strength);
+          return new OutcomeValue(majorityValue, strength, examples.Count);
+        }
+        else
+        {
+          return new DtNode(best, info, Values(best).Select(v => {
+            var subset = ExamplesWithAttributeValue(examples, v);
+            return new DtChild(v, Learn(
+            subset,
+            attribs.Except(List.Create(best)).ToList(),
+            MajorityValue(examples),
+            chiSquareThreshold));
+          }));
+        }
       }
     }
 
@@ -141,11 +141,12 @@ namespace Quqe
       return majorityGroup.Goal;
     }
 
-    static Type ChooseAttribute(List<Type> attribs, List<DtExample> examples, out double information)
+    static Type ChooseAttribute(List<Type> attribs, List<DtExample> examples, double chiSquareThreshold, out double information)
     {
       var q = attribs.Select(attr => {
         var infoRequiredHere = Information(GoalProbabilities(examples));
-        var remainingInformationRequired = Values(attr).Sum(v => {
+        var attrValues = Values(attr);
+        var remainingInformationRequired = attrValues.Sum(v => {
           var subset = ExamplesWithAttributeValue(examples, v);
           var sc = subset.Count;
           if (sc == 0)
@@ -156,13 +157,20 @@ namespace Quqe
         var gain = infoRequiredHere - remainingInformationRequired;
         return new {
           Attr = attr,
+          AttrValues = attrValues,
           InformationGain = gain,
-          GainRatio = infoProvidedByAttribute == 0 ? 0 : gain / infoProvidedByAttribute
+          GainRatio = infoProvidedByAttribute == 0 ? 0 : gain / infoProvidedByAttribute,
+          ChiSquare = ChiSquare(attr, examples)
         };
-      });
+      }).ToList();
       var averageGain = q.Average(x => x.InformationGain);
-      var aboveAverageGain = q.Where(x => x.InformationGain >= averageGain).ToList();
-      var bestRoot = aboveAverageGain.OrderByDescending(x => x.GainRatio).ToList()[0];
+      var usable = q.Where(x => x.InformationGain >= averageGain && CheckChiSquared10(x.ChiSquare, x.AttrValues.Count - 1)).ToList();
+      if (!usable.Any())
+      {
+        information = 0;
+        return null;
+      }
+      var bestRoot = usable.OrderByDescending(x => x.GainRatio).ToList()[0];
       information = bestRoot.GainRatio;
       return bestRoot.Attr;
     }
@@ -176,6 +184,52 @@ namespace Quqe
     static List<double> AttributeValueProbabilities(Type attr, List<DtExample> examples)
     {
       return Values(attr).Select(v => (double)ExamplesWithAttributeValue(examples, v).Count / examples.Count).ToList();
+    }
+
+    static double ChiSquare(Type attr, List<DtExample> examples)
+    {
+      var goalValues = Values(examples.First().Goal.GetType());
+      var expectedCounts = goalValues.Select(gv => new { GoalValue = gv, ExpectedCount = examples.Count(x => x.Goal.Equals(gv)) }).ToList();
+      return Values(attr).Sum(av => {
+        var subset = ExamplesWithAttributeValue(examples, av);
+        return expectedCounts.Sum(ec => {
+          var expected = (double)subset.Count / examples.Count * ec.ExpectedCount;
+          var actual = ExamplesWithGoal(subset, ec.GoalValue).Count;
+          return Math.Pow(expected - actual, 2) / expected;
+        });
+      });
+    }
+
+    static bool CheckChiSquared20(double chiSquared, int degreesOfFreedom)
+    {
+      switch (degreesOfFreedom)
+      {
+        case 1: return chiSquared >= 1.642;
+        case 2: return chiSquared >= 3.219;
+        case 3: return chiSquared >= 4.642;
+        case 4: return chiSquared >= 5.989;
+        case 5: return chiSquared >= 7.289;
+        case 6: return chiSquared >= 8.558;
+        case 7: return chiSquared >= 9.803;
+        case 8: return chiSquared >= 11.030;
+        default: throw new Exception("table is insufficient");
+      }
+    }
+
+    static bool CheckChiSquared10(double chiSquared, int degreesOfFreedom)
+    {
+      switch (degreesOfFreedom)
+      {
+        case 1: return chiSquared >= 2.706;
+        case 2: return chiSquared >= 4.605;
+        case 3: return chiSquared >= 6.251;
+        case 4: return chiSquared >= 7.779;
+        case 5: return chiSquared >= 9.236;
+        case 6: return chiSquared >= 10.645;
+        case 7: return chiSquared >= 12.017;
+        case 8: return chiSquared >= 13.362;
+        default: throw new Exception("table is insufficient");
+      }
     }
 
     static double Log2(double x)
