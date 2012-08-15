@@ -196,7 +196,7 @@ namespace Quqe
 
     public static DataSeries<Value> BarSum3(this DataSeries<Bar> bars, int period, int normalizingPeriod, int smoothing)
     {
-      return bars.MapElements<Value>((s, v) => {
+      var result = bars.MapElements<Value>((s, v) => {
         var normal = s.BackBars(Math.Min(s.Pos + 1, normalizingPeriod)).Max(x => x.WaxHeight());
         int windowSize = Math.Min(s.Pos + 1, period);
         var pBars = s.BackBars(windowSize).ToList();
@@ -204,7 +204,8 @@ namespace Quqe
         for (int i = 0; i < windowSize; i++)
           sum += (double)(windowSize - i) / windowSize * (pBars[i].Close - pBars[i].Open) / normal;
         return sum / windowSize * 10;
-      }).TriangularMA(smoothing);
+      });
+      return smoothing > 1 ? result.TriangularMA(smoothing) : result;
     }
 
     public static DataSeries<Value> TriangularMA(this DataSeries<Value> values, int period)

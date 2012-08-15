@@ -332,19 +332,27 @@ namespace Quqe
   {
     protected DTStrategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
     public abstract IEnumerable<DtExample> MakeDtExamples(DateTime start, DataSeries<Bar> bars);
-    public abstract object MakeDt(DateTime trainingStart, DataSeries<Bar> trainingBars);
+    public virtual object MakeDt(DateTime trainingStart, DataSeries<Bar> trainingBars)
+    {
+      var trainingExamples = MakeDtExamples(trainingBars.First().Timestamp, trainingBars).Where(x => x.Timestamp >= trainingStart);
+      return DecisionTree.Learn(trainingExamples, Prediction.Green, 0);
+    }
+    public override DataSeries<Value> MakeSignal(DateTime trainingStart, DataSeries<Bar> trainingBars, DateTime validationStart, DataSeries<Bar> validationBars)
+    {
+      var dt = MakeDt(trainingStart, trainingBars);
+      var validationExamples = MakeDtExamples(trainingBars.First().Timestamp, validationBars).Where(x => x.Timestamp >= validationStart);
+      return Transforms.DecisionTreeSignal(dt, validationExamples);
+    }
+
+    protected static bool Between(double v, double low, double high)
+    {
+      return low <= v && v <= high;
+    }
   }
 
   public class DTCandlesStrategy : DTStrategy
   {
     public DTCandlesStrategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
-
-    public override DataSeries<Value> MakeSignal(DateTime trainingStart, DataSeries<Bar> trainingBars, DateTime validationStart, DataSeries<Bar> validationBars)
-    {
-      var dt = MakeDt(trainingStart, trainingBars);
-      var validationExamples = MakeExamples(SParams, validationBars).Where(x => x.Timestamp >= validationStart);
-      return Transforms.DecisionTreeSignal(dt, validationExamples);
-    }
 
     public enum Last2BarColor { Green, Red }
     public enum LastBarColor { Green, Red }
@@ -356,12 +364,6 @@ namespace Quqe
     public enum Lrr2 { Buy, Sell }
     public enum RSquared { Linear, Nonlinear }
     public enum LinRegSlope { Positive, Negative }
-
-    public override object MakeDt(DateTime trainingStart, DataSeries<Bar> trainingBars)
-    {
-      var trainingExamples = MakeExamples(SParams, trainingBars).Where(x => x.Timestamp >= trainingStart);
-      return DecisionTree.Learn(trainingExamples, Prediction.Green, 0);
-    }
 
     public override IEnumerable<DtExample> MakeDtExamples(DateTime start, DataSeries<Bar> bars)
     {
@@ -407,7 +409,7 @@ namespace Quqe
       var lrr2 = carefulBars.LinRegRel2(); // already delayed!
       var bs = carefulBars.From(fastEmaSlope.First().Timestamp);
       DataSeries.Walk(
-        List.Create<DataSeries>(bs, fastEmaSlope, momo, lrr2), pos => {
+        List.Create<DataSeries>(bs, fastEmaSlope, slowEmaSlope, momo, rsquared, linRegSlope, lrr2), pos => {
           if (pos < 2)
             return;
           var a = new List<object>();
@@ -451,10 +453,48 @@ namespace Quqe
         });
       return examples;
     }
+  }
 
-    static bool Between(double v, double low, double high)
+  public class DTBarSumStrategy : DTStrategy
+  {
+    public DTBarSumStrategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
+
+    public override IEnumerable<DtExample> MakeDtExamples(DateTime start, DataSeries<Bar> bars)
     {
-      return low <= v && v <= high;
+      return MakeExamples(SParams, bars).Where(x => x.Timestamp >= start);
+    }
+
+    public enum GapType { NoneLower, NoneUpper, Up, SuperUp, Down, SuperDown }
+    public enum BarSum { Neutral, Positive, Negative }
+    public enum EmaSlope { Neutral, Up, Down }
+
+    public static IEnumerable<DtExample> MakeExamples(IEnumerable<StrategyParameter> sParams, DataSeries<Bar> carefulBars)
+    {
+      int emaPeriod = sParams.Get<int>("EmaPeriod");
+      int emaThresh = sParams.Get<int>("EmaThresh");
+
+      if (carefulBars.Length < 3)
+        return new List<DtExample>();
+
+      List<DtExample> examples = new List<DtExample>();
+      var emaSlope = carefulBars.Closes().ZLEMA(emaPeriod).Derivative().Delay(1);
+      var bs = carefulBars.From(emaSlope.First().Timestamp);
+      //DataSeries.Walk(
+      //  List.Create<DataSeries>(bs, emaSlope), pos => {
+      //    if (pos < 2)
+      //      return;
+      //    var a = new List<object>();
+      //    a.Add(
+      //      Between(bs[0].Open, bs[1].WaxBottom, bs[1].WaxMid()) ? GapType.NoneLower :
+      //      Between(bs[0].Open, bs[1].WaxMid(), bs[1].WaxTop) ? GapType.NoneUpper :
+      //      Between(bs[0].Open, bs[1].WaxTop + gapPadding, bs[1].High) ? GapType.Up :
+      //      Between(bs[0].Open, bs[1].Low, bs[1].WaxBottom - gapPadding) ? GapType.Down :
+      //      bs[0].Open > bs[1].High + superGapPadding ? GapType.SuperUp :
+      //      bs[0].Open < bs[1].Low - superGapPadding ? GapType.SuperDown :
+      //      GapType.NoneLower);
+      //    examples.Add(new DtExample(bs[0].Timestamp, bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
+      //  });
+      return examples;
     }
   }
    

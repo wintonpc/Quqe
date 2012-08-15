@@ -308,14 +308,14 @@ namespace QuqeViz
       var periodParams = oParams.Where(x => x.Name.EndsWith("Period"));
       int lookback = !periodParams.Any() ? 2 : (int)(periodParams.Max(x => (int)x.High) * 7.0 / 5.0 + 2);
 
-      Optimizer.OptimizeDecisionTree("DTCandles", oParams, 3000,
-        DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
-        TimeSpan.FromDays(lookback), sParams => 0, DTCandlesStrategy.MakeExamples);
-
       //Optimizer.OptimizeDecisionTree("DTCandles", oParams, 1000,
       //  DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
-      //  TimeSpan.FromDays(45),
       //  TimeSpan.FromDays(lookback), sParams => 0, DTCandlesStrategy.MakeExamples);
+
+      Optimizer.OptimizeDecisionTree("DTCandles", oParams, 30,
+        DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
+        TimeSpan.FromDays(45),
+        TimeSpan.FromDays(lookback), sParams => 0, DTCandlesStrategy.MakeExamples);
 
       Update();
     }
