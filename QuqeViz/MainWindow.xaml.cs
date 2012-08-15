@@ -33,7 +33,7 @@ namespace QuqeViz
         strat.MakeSignal(
           DateTime.Parse(TrainingStartBox.Text), bars.To(TrainingEndBox.Text),
           DateTime.Parse(ValidationStartBox.Text), bars.To(ValidationEndBox.Text)),
-        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 20 }, 2, 0.05);
+        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 20 }, 2, null);
       Trace.WriteLine(string.Format("Training  :  {0}  -  {1}", TrainingStartBox.Text, TrainingEndBox.Text));
       bool validationWarning = DateTime.Parse(ValidationStartBox.Text) <= DateTime.Parse(TrainingEndBox.Text);
       Trace.WriteLine(string.Format("Validation:  {0}  -  {1}{2}",
@@ -228,6 +228,36 @@ namespace QuqeViz
           DataSeries = bars,
           Type = PlotType.Candlestick
         });
+        var g2 = chart.AddGraph();
+        double barSumThresh = 1.0 / 3;
+        g2.Plots.Add(new Plot {
+          Title = "EMA Slope",
+          DataSeries = bars.Closes().ZLEMA(12).Derivative().Sign().Delay(1),
+          Type = PlotType.Bar,
+          Color = Brushes.LightPink
+        });
+        g2.Plots.Add(new Plot {
+          DataSeries = bars.ConstantLine(barSumThresh),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Orange
+        });
+        g2.Plots.Add(new Plot {
+          DataSeries = bars.ConstantLine(-barSumThresh),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Orange
+        });
+        g2.Plots.Add(new Plot {
+          Title = "BarSum",
+          DataSeries = bars.BarSum3(10, 20, 2).Delay(1),
+          Type = PlotType.Bar,
+          Color = Brushes.CornflowerBlue
+        });
+        g2.Plots.Add(new Plot {
+          Title = "BarSum",
+          DataSeries = bars.MostCommonBarColor(8).MapElements<Value>((s, v) => s[0] * 0.5).Delay(1),
+          Type = PlotType.Bar,
+          Color = new SolidColorBrush(Color.FromArgb(128, 255, 10, 100))
+        });
 
         chart.ScrollToEnd();
       };
@@ -265,7 +295,8 @@ namespace QuqeViz
         new OptimizerParameter("GapPadding", 0.0, 1.00, 0.01),
         new OptimizerParameter("SuperGapPadding", 0.0, 1.00, 0.01),
         new OptimizerParameter("EnableEma", 1, 1, 1),
-        new OptimizerParameter("EmaPeriod", 3, 13, 1),
+        new OptimizerParameter("FastEmaPeriod", 3, 8, 1),
+        new OptimizerParameter("SlowEmaPeriod", 9, 20, 1),
         new OptimizerParameter("EnableMomentum", 1, 1, 1),
         new OptimizerParameter("MomentumPeriod", 3, 13, 1),
         new OptimizerParameter("EnableRSquared", 1, 1, 1),
@@ -277,7 +308,7 @@ namespace QuqeViz
       var periodParams = oParams.Where(x => x.Name.EndsWith("Period"));
       int lookback = !periodParams.Any() ? 2 : (int)(periodParams.Max(x => (int)x.High) * 7.0 / 5.0 + 2);
 
-      Optimizer.OptimizeDecisionTree("DTCandles", oParams, 1000,
+      Optimizer.OptimizeDecisionTree("DTCandles", oParams, 3000,
         DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
         TimeSpan.FromDays(lookback), sParams => 0, DTCandlesStrategy.MakeExamples);
 

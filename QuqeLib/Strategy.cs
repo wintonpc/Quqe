@@ -350,7 +350,8 @@ namespace Quqe
     public enum LastBarColor { Green, Red }
     public enum LastBarSize { Small, Medium, Large }
     public enum GapType { NoneLower, NoneUpper, Up, SuperUp, Down, SuperDown }
-    public enum EmaSlope { Up, Down }
+    public enum FastEmaSlope { Up, Down }
+    public enum SlowEmaSlope { Up, Down }
     public enum Momentum { Positive, Negative }
     public enum Lrr2 { Buy, Sell }
     public enum RSquared { Linear, Nonlinear }
@@ -379,8 +380,8 @@ namespace Quqe
       double largeMinPct = sParams.Get<double>("LargeMinPct");
       int sizeAvgPeriod = sParams.Get<int>("SizeAvgPeriod");
 
-      int enableEma = sParams.Get<int>("EnableEma");
-      int emaPeriod = sParams.Get<int>("EmaPeriod");
+      int SlowEmaPeriod = sParams.Get<int>("SlowEmaPeriod");
+      int FastEmaPeriod = sParams.Get<int>("FastEmaPeriod");
 
       int enableMomentum = sParams.Get<int>("EnableMomentum");
       int momentumPeriod = sParams.Get<int>("MomentumPeriod");
@@ -398,14 +399,15 @@ namespace Quqe
         return new List<DtExample>();
 
       List<DtExample> examples = new List<DtExample>();
-      var emaSlope = carefulBars.Closes().ZLEMA(emaPeriod).Derivative().Delay(1);
+      var fastEmaSlope = carefulBars.Closes().ZLEMA(FastEmaPeriod).Derivative().Delay(1);
+      var slowEmaSlope = carefulBars.Closes().ZLEMA(SlowEmaPeriod).Derivative().Delay(1);
       var momo = carefulBars.Closes().Momentum(momentumPeriod).Delay(1);
       var rsquared = carefulBars.Closes().RSquared(rSquaredPeriod).Delay(1);
       var linRegSlope = carefulBars.Closes().LinRegSlope(linRegSlopePeriod).Delay(1);
       var lrr2 = carefulBars.LinRegRel2(); // already delayed!
-      var bs = carefulBars.From(emaSlope.First().Timestamp);
+      var bs = carefulBars.From(fastEmaSlope.First().Timestamp);
       DataSeries.Walk(
-        List.Create<DataSeries>(bs, emaSlope, momo, lrr2), pos => {
+        List.Create<DataSeries>(bs, fastEmaSlope, momo, lrr2), pos => {
           if (pos < 2)
             return;
           var a = new List<object>();
@@ -413,7 +415,7 @@ namespace Quqe
           a.Add(bs[2].IsGreen ? Last2BarColor.Green : Last2BarColor.Red);
           if (enableBarSizeAveraging > 0)
           {
-            var avgHeight = bs.BackBars(Math.Min(pos, sizeAvgPeriod + 1)).Skip(1).Average(x => x.WaxHeight());
+            var avgHeight = bs.BackBars(Math.Min(pos + 1, sizeAvgPeriod + 1)).Skip(1).Average(x => x.WaxHeight());
             var r = (bs[0].WaxHeight() - avgHeight) / avgHeight;
             a.Add(
               r < smallMaxPct ? LastBarSize.Small :
@@ -435,8 +437,8 @@ namespace Quqe
             bs[0].Open > bs[1].High + superGapPadding ? GapType.SuperUp :
             bs[0].Open < bs[1].Low - superGapPadding ? GapType.SuperDown :
             GapType.NoneLower);
-          if (enableEma > 0)
-            a.Add(emaSlope[0] >= 0 ? EmaSlope.Up : EmaSlope.Down);
+          a.Add(fastEmaSlope[0] >= 0 ? FastEmaSlope.Up : FastEmaSlope.Down);
+          a.Add(slowEmaSlope[0] >= 0 ? SlowEmaSlope.Up : SlowEmaSlope.Down);
           if (enableMomentum > 0)
             a.Add(momo[0] >= 0 ? Momentum.Positive : Momentum.Negative);
           if (enableLrr2 > 0)

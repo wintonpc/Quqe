@@ -16,7 +16,7 @@ namespace Quqe
           return s[0];
         else
         {
-          int windowSize = Math.Min(s.Pos, period);
+          int windowSize = Math.Min(s.Pos + 1, period);
           var last = v[1] * windowSize;
           if (s.Pos >= period)
             return (last + s[0] - s[period]) / windowSize;
@@ -62,7 +62,7 @@ namespace Quqe
       return values.MapElements<Value>((s, v) => {
         if (s.Pos == 0)
           return 0;
-        return s[0] - s[Math.Min(s.Pos, period)];
+        return s[0] - s[Math.Min(s.Pos + 1, period)];
       });
     }
 
@@ -85,7 +85,7 @@ namespace Quqe
     public static DataSeries<Value> Trend(this DataSeries<Bar> bars, int lookback)
     {
       return bars.MapElements<Value>((s, v) => {
-        var windowSize = Math.Min(s.Pos, lookback);
+        var windowSize = Math.Min(s.Pos+1, lookback);
         if (windowSize == 0)
           return s[0].IsGreen ? 1 : -1;
         else
@@ -157,7 +157,7 @@ namespace Quqe
         if (s.Pos == 0)
           return 0;
 
-        var totalCount = Math.Min(s.Pos, period);
+        var totalCount = Math.Min(s.Pos+1, period);
         double reversal = 0;
         double continuation = 0;
         for (int i = totalCount - 1; i >= 0; i--)
@@ -168,6 +168,83 @@ namespace Quqe
 
         return Math.Max(0, reversal - k * continuation);
       });
+    }
+
+    public static DataSeries<Value> BarSum1(this DataSeries<Bar> bars, int period)
+    {
+      double sum = 0;
+      return bars.MapElements<Value>((s, v) => {
+        if (s.Pos < period)
+          sum += s[0].Close - s[0].Open;
+        else
+          sum = sum - (s[period].Close - s[period].Open) + (s[0].Close - s[0].Open);
+        return sum / period;
+      });
+    }
+
+    public static DataSeries<Value> BarSum2(this DataSeries<Bar> bars, int period)
+    {
+      return bars.MapElements<Value>((s, v) => {
+        int windowSize = Math.Min(s.Pos + 1, period);
+        var pBars = s.BackBars(windowSize).ToList();
+        var sum = 0.0;
+        for (int i = 0; i < windowSize; i++)
+          sum += (double)(windowSize - i) / windowSize * (pBars[i].Close - pBars[i].Open);
+        return sum / windowSize;
+      });
+    }
+
+    public static DataSeries<Value> BarSum3(this DataSeries<Bar> bars, int period, int normalizingPeriod, int smoothing)
+    {
+      return bars.MapElements<Value>((s, v) => {
+        var normal = s.BackBars(Math.Min(s.Pos + 1, normalizingPeriod)).Max(x => x.WaxHeight());
+        int windowSize = Math.Min(s.Pos + 1, period);
+        var pBars = s.BackBars(windowSize).ToList();
+        var sum = 0.0;
+        for (int i = 0; i < windowSize; i++)
+          sum += (double)(windowSize - i) / windowSize * (pBars[i].Close - pBars[i].Open) / normal;
+        return sum / windowSize * 10;
+      }).TriangularMA(smoothing);
+    }
+
+    public static DataSeries<Value> TriangularMA(this DataSeries<Value> values, int period)
+    {
+      return values.MapElements<Value>((s, v) => {
+        int windowSize = Math.Min(s.Pos + 1, period);
+        var pValues = s.BackBars(windowSize).ToList();
+        var sum = 0.0;
+        for (int i = 0; i < windowSize; i++)
+          sum += (double)(windowSize - i) * pValues[i];
+        return sum / windowSize / windowSize;
+      });
+    }
+
+    public static DataSeries<Value> ParabolicMA(this DataSeries<Value> values, int period)
+    {
+      return values.MapElements<Value>((s, v) => {
+        int windowSize = Math.Min(s.Pos + 1, period);
+        var pValues = s.BackBars(windowSize).ToList();
+        var sum = 0.0;
+        for (int i = 0; i < windowSize; i++)
+          sum += Math.Pow((double)(windowSize - i) / windowSize, 2) * pValues[i];
+        return sum / period;
+      });
+    }
+
+    public static DataSeries<Value> MostCommonBarColor(this DataSeries<Bar> bars, int period)
+    {
+      return bars.MapElements<Value>((s, v) => {
+        var backBars = s.BackBars(Math.Min(s.Pos + 1, period)).ToList();
+        var groups = backBars.GroupBy(x => x.IsGreen).ToList();
+        var ordered = groups.OrderByDescending(x => x.Count()).ToList();
+        var result = ordered.First().Key ? 1 : -1;
+        return result;
+      });
+    }
+
+    public static DataSeries<Value> ConstantLine(this DataSeries<Bar> bars, double value)
+    {
+      return bars.MapElements<Value>((s, v) => value);
     }
 
     public static DataSeries<BiValue> Swing(this DataSeries<Bar> bars, int strength, bool revise = true)
@@ -548,7 +625,7 @@ namespace Quqe
           a.Add(bs[2].IsGreen ? Last2BarColor.Green : Last2BarColor.Red);
           if (enableBarSizeAveraging > 0)
           {
-            var avgHeight = bs.BackBars(Math.Min(pos, sizeAvgPeriod + 1)).Skip(1).Average(x => x.WaxHeight());
+            var avgHeight = bs.BackBars(Math.Min(pos + 1, sizeAvgPeriod + 1)).Skip(1).Average(x => x.WaxHeight());
             var r = (bs[0].WaxHeight() - avgHeight) / avgHeight;
             a.Add(
               r < smallMaxPct ? LastBarSize.Small :
