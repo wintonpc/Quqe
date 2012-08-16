@@ -76,6 +76,16 @@ namespace QuqeViz
         DataSeries = bars,
         Type = PlotType.Candlestick
       });
+      g1.Plots.Add(new Plot {
+        DataSeries = bars.Closes().LinReg(2, 1).Delay(1),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Blue
+      });
+      g1.Plots.Add(new Plot {
+        DataSeries = bars.Closes().LinReg(7, 1).Delay(1),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Red
+      });
       g1.AddTrades(trades);
       var g2 = w.Chart.AddGraph();
       g2.Plots.Add(new Plot {
@@ -359,28 +369,80 @@ namespace QuqeViz
 
     private void OptimizeTrending1Button_Click(object sender, RoutedEventArgs e)
     {
+      // exhaustive
+      //var oParams = List.Create(
+      //  new OptimizerParameter("WO", 0, 1, 1),
+      //  new OptimizerParameter("WL", 0, 1, 1),
+      //  new OptimizerParameter("WH", 0, 1, 1),
+      //  new OptimizerParameter("WC", 0, 1, 1),
+      //  new OptimizerParameter("FastRegPeriod", 2, 3, 1),
+      //  new OptimizerParameter("SlowRegPeriod", 4, 9, 1),
+      //  new OptimizerParameter("RSquaredPeriod", 5, 11, 2),
+      //  new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
+      //  new OptimizerParameter("LinRegSlopePeriod", 2, 10, 2)
+      //  );
+      // closes only
       var oParams = List.Create(
         new OptimizerParameter("WO", 0, 0, 1),
-        new OptimizerParameter("WL", 1, 1, 1),
-        new OptimizerParameter("WH", 1, 1, 1),
+        new OptimizerParameter("WL", 0, 0, 1),
+        new OptimizerParameter("WH", 0, 0, 1),
         new OptimizerParameter("WC", 1, 1, 1),
         new OptimizerParameter("FastRegPeriod", 2, 2, 1),
-        new OptimizerParameter("SlowRegPeriod", 5, 5, 1),
-        new OptimizerParameter("RSquaredPeriod", 10, 10, 1),
+        new OptimizerParameter("SlowRegPeriod", 7, 7, 1),
+        new OptimizerParameter("RSquaredPeriod", 9, 9, 1),
         new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
-        new OptimizerParameter("LinRegSlopePeriod", 10, 10, 1)
+        new OptimizerParameter("LinRegSlopePeriod", 6, 6, 1)
         );
+      //var oParams = List.Create(
+      //  new OptimizerParameter("WO", 1, 1, 1),
+      //  new OptimizerParameter("WL", 0, 0, 1),
+      //  new OptimizerParameter("WH", 0, 0, 1),
+      //  new OptimizerParameter("WC", 1, 1, 1),
+      //  new OptimizerParameter("FastRegPeriod", 2, 2, 1),
+      //  new OptimizerParameter("SlowRegPeriod", 4, 8, 1),
+      //  new OptimizerParameter("RSquaredPeriod", 8, 12, 1),
+      //  new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
+      //  new OptimizerParameter("LinRegSlopePeriod", 5, 10, 1)
+      //  );
 
-      var bars = Data.Get(SymbolBox.Text).From(TrainingStartBox.Text).To(TrainingEndBox.Text);
-      var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
+      // annealing
+      //var oParams = List.Create(
+      //  new OptimizerParameter("WO", 0, 2, 1),
+      //  new OptimizerParameter("WL", 0, 2, 1),
+      //  new OptimizerParameter("WH", 0, 2, 1),
+      //  new OptimizerParameter("WC", 0, 2, 1),
+      //  new OptimizerParameter("FastRegPeriod", 2, 2, 1),
+      //  new OptimizerParameter("SlowRegPeriod", 3, 9, 1),
+      //  new OptimizerParameter("RSquaredPeriod", 5, 15, 1),
+      //  new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.01),
+      //  new OptimizerParameter("LinRegSlopePeriod", 5, 15, 1)
+      //  );
+
+      var symbol = SymbolBox.Text;
+      var start = TrainingStartBox.Text;
+      var end = TrainingEndBox.Text;
+
+      Func<IEnumerable<StrategyParameter>, double> calcFitness = sParams => {
+        var bars = Data.Get(symbol).From(start).To(end);
         var strat = new Trending1Strategy(sParams);
         var signal = strat.MakeSignal(default(DateTime), null, bars.First().Timestamp, bars);
+        return bars.From(signal.First().Timestamp).SignalAccuracyPercent(signal);
+      };
+
+      var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
         return new StrategyOptimizerReport {
           StrategyName = "Trending1",
           StrategyParams = sParams,
-          Fitness = bars.From(signal.First().Timestamp).SignalAccuracyPercent(signal)
+          Fitness = calcFitness(sParams)
         };
       });
+
+      //var best = Optimizer.Anneal(oParams, sParams => -calcFitness(sParams), 5000, partialCool: true);
+      //var reports = List.Create(new StrategyOptimizerReport {
+      //  StrategyName = "Trending1",
+      //  StrategyParams = best.Params.ToList(),
+      //  Fitness = -best.Cost
+      //});
 
       Strategy.PrintStrategyOptimizerReports(reports);
 

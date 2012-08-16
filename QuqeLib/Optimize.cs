@@ -397,9 +397,9 @@ namespace Quqe
       return Anneal(seed, MutateGenome, costFunc, 25000);
     }
 
-    public static AnnealResult<IEnumerable<StrategyParameter>> Anneal(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000)
+    public static AnnealResult<IEnumerable<StrategyParameter>> Anneal(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000, bool partialCool = false)
     {
-      return Anneal(MakeSParamsSeed(oParams).ToList(), (sp, temp) => MutateSParams(sp, oParams, temp), costFunc, iterations);
+      return Anneal(MakeSParamsSeed(oParams).ToList(), (sp, temp) => MutateSParams(sp, oParams, temp), costFunc, iterations: iterations, partialCool: partialCool);
     }
 
     public static AnnealResult<IEnumerable<StrategyParameter>> AnnealParallel(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000)
@@ -408,12 +408,12 @@ namespace Quqe
     }
 
     static AnnealResult<TParams> Anneal<TParams>(TParams initialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc, int iterations = 25000,
-      int? firstIteration = null, int? lastIteration = null)
+      int? firstIteration = null, int? lastIteration = null, bool partialCool = false)
     {
       firstIteration = firstIteration ?? 0;
       lastIteration = lastIteration ?? iterations;
 
-      Func<double, double> schedule = t => Math.Sqrt(Math.Exp(-11 * t));
+      Func<double, double> schedule = t => Math.Sqrt(Math.Exp((partialCool ? -4 :-11) * t));
       var escapeCostPremiumSma = MakeSMA(25);
       var costSma = MakeSMA(2000);
       var costStdDev = MakeStdDev(2000);

@@ -96,7 +96,7 @@ namespace Quqe
           return;
 
         var shouldBuy = signal[0] >= 0;
-        Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
+        //Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
 
         double? stopLimit = null;
         if (maxLossPct.HasValue)
@@ -615,7 +615,7 @@ namespace Quqe
       var linRegSlopePeriod = SParams.Get<int>("LinRegSlopePeriod");
 
       var bars = validationBars.From(validationStart);
-      var vs = validationBars.Weighted(wo, wl, wh, wc);
+      var vs = bars.Weighted(wo, wl, wh, wc);
       var fastReg = vs.LinReg(fastRegPeriod, 1).Delay(1);
       var slowReg = vs.LinReg(slowRegPeriod, 1).Delay(1);
       var rSquared = vs.RSquared(rSquaredPeriod).Delay(1);

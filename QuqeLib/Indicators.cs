@@ -874,8 +874,8 @@ namespace Quqe
     {
       var accuracy = bars.SignalAccuracy(signal);
       var result = (double)accuracy.Count(x => x > 0) / accuracy.Count(x => x != 0);
-      Trace.WriteLine(string.Format("SignalAccuracyPercent = {0} ({1} of {2} of {3})",
-        result, accuracy.Count(x => x > 0), accuracy.Count(x => x != 0), accuracy.Count()));
+      //Trace.WriteLine(string.Format("SignalAccuracyPercent = {0} ({1} of {2} of {3})",
+      //  result, accuracy.Count(x => x > 0), accuracy.Count(x => x != 0), accuracy.Count()));
       return result;
     }
 
