@@ -276,6 +276,8 @@ namespace Quqe
       if (!silent)
       {
         Strategy.PrintStrategyOptimizerReports(List.Create(report));
+        if (File.Exists("dt.png"))
+          File.Delete("dt.png");
         DecisionTree.WriteDot("dt.dot",
           DecisionTree.Learn(makeExamples(annealResult.Params, bars),
           Prediction.Green, getChiSquareThresh(annealResult.Params)));

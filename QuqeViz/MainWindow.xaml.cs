@@ -29,11 +29,11 @@ namespace QuqeViz
     {
       var bars = Data.Get(symbol);
       var strat = StrategyOptimizerReport.CreateStrategy(strategyName);
-      var backtestReport = Strategy.BacktestSignal(bars,
-        strat.MakeSignal(
+      var signal = strat.MakeSignal(
           DateTime.Parse(TrainingStartBox.Text), bars.To(TrainingEndBox.Text),
-          DateTime.Parse(ValidationStartBox.Text), bars.To(ValidationEndBox.Text)),
-        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 20 }, 2, null);
+          DateTime.Parse(ValidationStartBox.Text), bars.To(ValidationEndBox.Text));
+      var backtestReport = Strategy.BacktestSignal(bars, signal,
+        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 20 }, 0, null);
       Trace.WriteLine(string.Format("Training  :  {0}  -  {1}", TrainingStartBox.Text, TrainingEndBox.Text));
       bool validationWarning = DateTime.Parse(ValidationStartBox.Text) <= DateTime.Parse(TrainingEndBox.Text);
       Trace.WriteLine(string.Format("Validation:  {0}  -  {1}{2}",
@@ -41,7 +41,7 @@ namespace QuqeViz
       if (strat is DTStrategy)
         EvalAndDumpDTStrategy((DTStrategy)strat);
       Trace.WriteLine(backtestReport.ToString());
-      ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
+      ShowBacktestChart(bars, backtestReport.Trades, signal, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
     }
 
     public void EvalAndDumpDTStrategy(DTStrategy strat)
@@ -52,18 +52,18 @@ namespace QuqeViz
       Optimizer.DTQuality(dt, validationSet, true);
     }
 
-    public static void DoGenomelessBacktest(string symbol, string startDate, string endDate, Strategy strat, double initialValue, int marginFactor, bool isValidation)
-    {
-      var bars = Data.Get(symbol).From(startDate).To(endDate);
-      strat.ApplyToBars(bars);
-      var backtestReport = strat.Backtest(null, new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 50 });
-      Trace.WriteLine(backtestReport.ToString());
-      Strategy.WriteTrades(backtestReport.Trades, DateTime.Now, "no-genome");
-      ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation, strat.Name, null);
-    }
+    //public static void DoGenomelessBacktest(string symbol, string startDate, string endDate, Strategy strat, double initialValue, int marginFactor, bool isValidation)
+    //{
+    //  var bars = Data.Get(symbol).From(startDate).To(endDate);
+    //  strat.ApplyToBars(bars);
+    //  var backtestReport = strat.Backtest(null, new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 50 });
+    //  Trace.WriteLine(backtestReport.ToString());
+    //  Strategy.WriteTrades(backtestReport.Trades, DateTime.Now, "no-genome");
+    //  ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation, strat.Name, null);
+    //}
 
-    static void ShowBacktestChart(DataSeries<Bar> bars, List<TradeRecord> trades, double initialValue, int marginFactor,
-      bool isValidation, string strategyName, IEnumerable<StrategyParameter> sParams)
+    static void ShowBacktestChart(DataSeries<Bar> bars, List<TradeRecord> trades, DataSeries<Value> signal,
+      double initialValue, int marginFactor, bool isValidation, string strategyName, IEnumerable<StrategyParameter> sParams)
     {
       var profitPctPerTrade = trades.ToDataSeries(t => t.PercentProfit * 100.0);
       var accountValue = trades.ToDataSeries(t => t.AccountValueAfterTrade);
@@ -83,6 +83,13 @@ namespace QuqeViz
         DataSeries = profitPctPerTrade,
         Type = PlotType.Bar,
         Color = Brushes.Blue
+      });
+      var g2b = w.Chart.AddGraph();
+      g2b.Plots.Add(new Plot {
+        Title = "Signal",
+        DataSeries = signal,
+        Type = PlotType.Bar,
+        Color = Brushes.Purple
       });
       var g3 = w.Chart.AddGraph();
       g3.Plots.Add(new Plot {
@@ -316,6 +323,66 @@ namespace QuqeViz
         DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
         TimeSpan.FromDays(45),
         TimeSpan.FromDays(lookback), sParams => 0, DTCandlesStrategy.MakeExamples);
+
+      Update();
+    }
+
+    private void OptimizeDTBarSumButton_Click(object sender, RoutedEventArgs e)
+    {
+      var oParams = List.Create(
+        new OptimizerParameter("GapPadding", 0.0, 1.00, 0.01),
+        new OptimizerParameter("SuperGapPadding", 0.0, 1.00, 0.01),
+        new OptimizerParameter("BarSumPeriod", 3, 20, 1),
+        new OptimizerParameter("BarSumNormalizingPeriod", 3, 40, 1),
+        new OptimizerParameter("BarSumSmoothing", 1, 5, 1),
+        new OptimizerParameter("BarSumThresh", 0.0, 1.0, 0.01),
+        new OptimizerParameter("EmaPeriod", 3, 20, 1),
+        new OptimizerParameter("EmaThresh", 0.0, 4, 0.1),
+        new OptimizerParameter("LinRegPeriod", 3, 15, 1),
+        new OptimizerParameter("LinRegForecast", 0, 4, 1)
+        );
+
+      var periodParams = oParams.Where(x => x.Name.EndsWith("Period"));
+      int lookback = !periodParams.Any() ? 2 : (int)(periodParams.Max(x => (int)x.High) * 7.0 / 5.0 + 2);
+
+      //Optimizer.OptimizeDecisionTree("DTBarSum", oParams, 10000,
+      //  DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
+      //  TimeSpan.FromDays(lookback), sParams => 0, DTBarSumStrategy.MakeExamples);
+
+      Optimizer.OptimizeDecisionTree("DTBarSum", oParams, 25000,
+        DateTime.Parse(TrainingStartBox.Text), Data.Get(SymbolBox.Text).To(TrainingEndBox.Text),
+        TimeSpan.FromDays(45),
+        TimeSpan.FromDays(lookback), sParams => 0, DTBarSumStrategy.MakeExamples);
+
+      Update();
+    }
+
+    private void OptimizeTrending1Button_Click(object sender, RoutedEventArgs e)
+    {
+      var oParams = List.Create(
+        new OptimizerParameter("WO", 0, 0, 1),
+        new OptimizerParameter("WL", 1, 1, 1),
+        new OptimizerParameter("WH", 1, 1, 1),
+        new OptimizerParameter("WC", 1, 1, 1),
+        new OptimizerParameter("FastRegPeriod", 2, 2, 1),
+        new OptimizerParameter("SlowRegPeriod", 5, 5, 1),
+        new OptimizerParameter("RSquaredPeriod", 10, 10, 1),
+        new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
+        new OptimizerParameter("LinRegSlopePeriod", 10, 10, 1)
+        );
+
+      var bars = Data.Get(SymbolBox.Text).From(TrainingStartBox.Text).To(TrainingEndBox.Text);
+      var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
+        var strat = new Trending1Strategy(sParams);
+        var signal = strat.MakeSignal(default(DateTime), null, bars.First().Timestamp, bars);
+        return new StrategyOptimizerReport {
+          StrategyName = "Trending1",
+          StrategyParams = sParams,
+          Fitness = bars.From(signal.First().Timestamp).SignalAccuracyPercent(signal)
+        };
+      });
+
+      Strategy.PrintStrategyOptimizerReports(reports);
 
       Update();
     }

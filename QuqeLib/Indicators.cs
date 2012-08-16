@@ -775,10 +775,19 @@ namespace Quqe
       return new DataSeries<Value>(bars.Symbol, bars.Elements.Cast<Bar>()
         .Select(x => new Value(x.Timestamp, x.Close)));
     }
+
     public static DataSeries<Value> Opens(this DataSeries<Bar> bars)
     {
       return new DataSeries<Value>(bars.Symbol, bars.Elements.Cast<Bar>()
         .Select(x => new Value(x.Timestamp, x.Open)));
+    }
+
+    public static DataSeries<Value> Weighted(this DataSeries<Bar> bars, double wo, double wl, double wh, double wc)
+    {
+      return bars.MapElements<Value>((s, v) => {
+        var b = s[0];
+        return (wo * b.Open + wl * b.Low + wh * b.High + wc * b.Close) / (wo + wl + wh + wc);
+      });
     }
 
     public static DataSeries<Value> Derivative(this DataSeries<Value> values)
@@ -857,7 +866,7 @@ namespace Quqe
       var bs = bars.From(signal.First().Timestamp);
       return bs.ZipElements<Value, Value>(signal, (b, s, v) =>
         s[0] == 0 ? 0 :
-        b[0].IsGreen == (s[0] >= 0) ? 1 :
+        b[0].IsGreen == (s[0] > 0) ? 1 :
         -1);
     }
 

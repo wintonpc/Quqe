@@ -426,5 +426,11 @@ namespace QuqeTest
       var e = cb.Add("E");
       Assert.IsTrue(e == 3);
     }
+
+    [TestMethod]
+    public void ReverseEngineer1TradePerDay()
+    {
+
+    }
   }
 }

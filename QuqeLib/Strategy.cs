@@ -8,6 +8,7 @@ using MathNet.Numerics.LinearAlgebra.Double;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace Quqe
 {
@@ -91,11 +92,11 @@ namespace Quqe
       var bs = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
       var helper = BacktestHelper.Start(bs, account);
       DataSeries.Walk(bs, signal, pos => {
-        if (pos < lookback)
+        if (pos + 1 < lookback)
           return;
 
         var shouldBuy = signal[0] >= 0;
-        //Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
+        Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
 
         double? stopLimit = null;
         if (maxLossPct.HasValue)
@@ -467,37 +468,177 @@ namespace Quqe
     public enum GapType { NoneLower, NoneUpper, Up, SuperUp, Down, SuperDown }
     public enum BarSum { Neutral, Positive, Negative }
     public enum EmaSlope { Neutral, Up, Down }
+    public enum OpenRel { Above, Below }
 
     public static IEnumerable<DtExample> MakeExamples(IEnumerable<StrategyParameter> sParams, DataSeries<Bar> carefulBars)
     {
+      double gapPadding = sParams.Get<double>("GapPadding");
+      double superGapPadding = sParams.Get<double>("SuperGapPadding");
+
+      int barSumPeriod = sParams.Get<int>("BarSumPeriod");
+      int barSumNormalizingPeriod = sParams.Get<int>("BarSumNormalizingPeriod");
+      int barSumSmoothing = sParams.Get<int>("BarSumSmoothing");
+      int barSumThresh = sParams.Get<int>("BarSumThresh");
+
       int emaPeriod = sParams.Get<int>("EmaPeriod");
       int emaThresh = sParams.Get<int>("EmaThresh");
+
+      int linRegPeriod = sParams.Get<int>("LinRegPeriod");
+      int linRegForecast = sParams.Get<int>("LinRegForecast");
 
       if (carefulBars.Length < 3)
         return new List<DtExample>();
 
       List<DtExample> examples = new List<DtExample>();
       var emaSlope = carefulBars.Closes().ZLEMA(emaPeriod).Derivative().Delay(1);
+      var barSum = carefulBars.BarSum3(barSumPeriod, barSumNormalizingPeriod, barSumSmoothing).Delay(1);
+      var linReg = carefulBars.Midpoint(b => b.WaxBottom, b => b.WaxTop).LinReg(linRegPeriod, linRegForecast).Delay(1);
       var bs = carefulBars.From(emaSlope.First().Timestamp);
-      //DataSeries.Walk(
-      //  List.Create<DataSeries>(bs, emaSlope), pos => {
-      //    if (pos < 2)
-      //      return;
-      //    var a = new List<object>();
-      //    a.Add(
-      //      Between(bs[0].Open, bs[1].WaxBottom, bs[1].WaxMid()) ? GapType.NoneLower :
-      //      Between(bs[0].Open, bs[1].WaxMid(), bs[1].WaxTop) ? GapType.NoneUpper :
-      //      Between(bs[0].Open, bs[1].WaxTop + gapPadding, bs[1].High) ? GapType.Up :
-      //      Between(bs[0].Open, bs[1].Low, bs[1].WaxBottom - gapPadding) ? GapType.Down :
-      //      bs[0].Open > bs[1].High + superGapPadding ? GapType.SuperUp :
-      //      bs[0].Open < bs[1].Low - superGapPadding ? GapType.SuperDown :
-      //      GapType.NoneLower);
-      //    examples.Add(new DtExample(bs[0].Timestamp, bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
-      //  });
+      DataSeries.Walk(
+        List.Create<DataSeries>(bs, emaSlope, barSum, linReg), pos => {
+          if (pos < 2)
+            return;
+          var a = new List<object>();
+          a.Add(
+            Between(bs[0].Open, bs[1].WaxBottom, bs[1].WaxMid()) ? GapType.NoneLower :
+            Between(bs[0].Open, bs[1].WaxMid(), bs[1].WaxTop) ? GapType.NoneUpper :
+            Between(bs[0].Open, bs[1].WaxTop + gapPadding, bs[1].High) ? GapType.Up :
+            Between(bs[0].Open, bs[1].Low, bs[1].WaxBottom - gapPadding) ? GapType.Down :
+            bs[0].Open > bs[1].High + superGapPadding ? GapType.SuperUp :
+            bs[0].Open < bs[1].Low - superGapPadding ? GapType.SuperDown :
+            GapType.NoneLower);
+          a.Add(
+            barSum[0] < -barSumThresh ? BarSum.Negative :
+            barSum[0] > barSumThresh ? BarSum.Positive :
+            BarSum.Neutral);
+          a.Add(
+            emaSlope[0] < -emaThresh ? EmaSlope.Down :
+            emaSlope[0] > emaThresh ? EmaSlope.Up :
+            EmaSlope.Neutral);
+          a.Add(linReg[0] > bs[0].Open ? OpenRel.Above : OpenRel.Below);
+          examples.Add(new DtExample(bs[0].Timestamp, bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
+        });
       return examples;
     }
   }
-   
+
+  public class FooStrategy : BasicStrategy
+  {
+    public FooStrategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
+
+    public override DataSeries<Value> MakeSignal(DateTime trainingStart, DataSeries<Bar> trainingBars, DateTime validationStart, DataSeries<Bar> validationBars)
+    {
+      var carefulBars = validationBars.From(validationStart);
+      var midSlope = carefulBars.Midpoint(x => x.WaxBottom, x => x.WaxTop).LinRegSlope(2).Delay(1);
+      var topForecast = carefulBars.MapElements<Value>((s, v) => s[0].WaxTop).LinReg(2, 1).Delay(1);
+      var bottomForecast = carefulBars.MapElements<Value>((s, v) => s[0].WaxBottom).LinReg(2, 1).Delay(1);
+      var bs = carefulBars.From(midSlope.First().Timestamp);
+
+      var newElements = new List<Value>();
+      DataSeries.Walk(bs, midSlope, topForecast, bottomForecast, pos => {
+        //double sig;
+        //if (midSlope[0] < 0)
+        //{
+        //  //if (bs[0].Open < bottomForecast[0])
+        //  //  sig = 1;
+        //  //else
+        //    sig = -1;
+        //}
+        //else
+        //{
+        //  //if (bs[0].Open > topForecast[0])
+        //  //  sig = -1;
+        //  //else
+        //    sig = 1;
+        //}
+        //newElements.Add(new Value(bs[0].Timestamp, sig));
+        if (bs.Pos == 0)
+          return;
+        newElements.Add(new Value(bs[0].Timestamp, bs[1].IsGreen ? 1 : -1));
+      });
+      return new DataSeries<Value>(bs.Symbol, newElements);
+    }
+  }
+
+  public class OTPDStrategy : BasicStrategy
+  {
+    public OTPDStrategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
+
+    public override DataSeries<Value> MakeSignal(DateTime trainingStart, DataSeries<Bar> trainingBars, DateTime validationStart, DataSeries<Bar> validationBars)
+    {
+      var tqqq = Data.Get("QQQ");
+      var newElements = new List<Value>();
+      using (var ip = new StreamReader("c.txt"))
+      {
+        string line;
+        while ((line = ip.ReadLine()) != null)
+        {
+          var toks = Regex.Split(line, @"\s+");
+          if (toks[0] == "")
+            continue;
+          var timestamp = DateTime.ParseExact(toks[0], "M/d/yyyy", null);
+          var numShares = int.Parse(toks[1]);
+          var profit = double.Parse(toks[2]);
+
+          var profitPerShare = profit / numShares;
+          var bar = tqqq.FirstOrDefault(x => x.Timestamp == timestamp);
+          if (bar == null)
+            continue;
+          var exitPrice = bar.Open + profitPerShare;
+          if (bar.IsGreen && profit > 0)
+          {
+            Trace.WriteLine(timestamp.ToString("MM/dd/yyyy") + " " + Math.Round(bar.WaxHeight(), 2).ToString("N2") + " "
+              + Math.Round(profitPerShare, 2).ToString("N2") + " " + (profitPerShare / bar.WaxHeight()));
+          }
+        }
+      }
+      return new DataSeries<Value>(tqqq.Symbol, newElements);
+    }
+  }
+
+  public class Trending1Strategy : BasicStrategy
+  {
+    public Trending1Strategy(IEnumerable<StrategyParameter> sParams) : base(sParams) { }
+
+    public override DataSeries<Value> MakeSignal(DateTime trainingStart, DataSeries<Bar> trainingBars, DateTime validationStart, DataSeries<Bar> validationBars)
+    {
+      var wo = SParams.Get<double>("WO");
+      var wl = SParams.Get<double>("WL");
+      var wh = SParams.Get<double>("WH");
+      var wc = SParams.Get<double>("WC");
+
+      var fastRegPeriod = SParams.Get<int>("FastRegPeriod");
+      var slowRegPeriod = SParams.Get<int>("SlowRegPeriod");
+
+      var rSquaredPeriod = SParams.Get<int>("RSquaredPeriod");
+      var rSquaredThresh = SParams.Get<double>("RSquaredThresh");
+      var linRegSlopePeriod = SParams.Get<int>("LinRegSlopePeriod");
+
+      var bars = validationBars.From(validationStart);
+      var vs = validationBars.Weighted(wo, wl, wh, wc);
+      var fastReg = vs.LinReg(fastRegPeriod, 1).Delay(1);
+      var slowReg = vs.LinReg(slowRegPeriod, 1).Delay(1);
+      var rSquared = vs.RSquared(rSquaredPeriod).Delay(1);
+      var linRegSlope = vs.LinRegSlope(linRegSlopePeriod).Delay(1);
+      var bs = bars.From(fastReg.First().Timestamp);
+
+      var newElements = new List<Value>();
+      DataSeries.Walk(bs, fastReg, slowReg, rSquared, linRegSlope, pos => {
+        double sig;
+        if (rSquared[0] > rSquaredThresh)
+        {
+          var slope = Math.Sign(linRegSlope[0]);
+          sig = slope == 0 ? 1 : slope;
+        }
+        else
+          sig = fastReg[0] >= slowReg[0] ? 1 : -1;
+        newElements.Add(new Value(bs[0].Timestamp, sig));
+      });
+
+      return new DataSeries<Value>(bars.Symbol, newElements);
+    }
+  }
+
   /*
 
   public class DTLRR2Strategy : BasicStrategy
