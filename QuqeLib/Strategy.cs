@@ -679,7 +679,7 @@ namespace Quqe
         List.Create<DataSeries>(bs, fastReg, slowReg, rSquared, linRegSlope, atr),
         pos => {
           double sig;
-          if (rSquared[0] > rSquaredThresh)
+          if (rSquaredPeriod > 0 && rSquared[0] > rSquaredThresh)
           {
             var slope = Math.Sign(linRegSlope[0]);
             slope = slope == 0 ? 1 : slope;

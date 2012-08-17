@@ -443,6 +443,55 @@ namespace QuqeViz
       //  );
 
       // by hand
+      //var oParams = List.Create(
+      //  new OptimizerParameter("WO", 0, 0, 1),
+      //  new OptimizerParameter("WL", 0, 0, 1),
+      //  new OptimizerParameter("WH", 0, 0, 1),
+      //  new OptimizerParameter("WC", 1, 1, 1),
+      //  new OptimizerParameter("FastRegPeriod", 2, 2, 1),
+      //  new OptimizerParameter("SlowRegPeriod", 7, 7, 1),
+      //  new OptimizerParameter("RSquaredPeriod", 10, 10, 1),
+      //  new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
+      //  new OptimizerParameter("LinRegSlopePeriod", 7, 7, 1),
+      //  new OptimizerParameter("ATRPeriod", 0, 0, 1),
+      //  new OptimizerParameter("TrendBreakThresh", 1, 1, 0.01)
+      //  );
+      //var oParams = List.Create(
+      //  new OptimizerParameter("WO", 0, 1, 1),
+      //  new OptimizerParameter("WL", 0, 0, 1),
+      //  new OptimizerParameter("WH", 0, 0, 1),
+      //  new OptimizerParameter("WC", 1, 1, 1),
+      //  new OptimizerParameter("FastRegPeriod", 2, 7, 1),
+      //  new OptimizerParameter("SlowRegPeriod", 8, 30, 1),
+
+      //  // long trends
+      //  new OptimizerParameter("RSquaredPeriod", 10, 10, 1),
+      //  new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
+      //  new OptimizerParameter("LinRegSlopePeriod", 7, 7, 1),
+
+      //  // trend-reversing gaps
+      //  new OptimizerParameter("ATRPeriod", 10, 10, 1),
+      //  new OptimizerParameter("TrendBreakThresh", 1, 1, 0.5)
+      //  );
+
+      // with validation window averaging
+      //var oParams = List.Create(
+      //  new OptimizerParameter("WO", 0, 0, 1),
+      //  new OptimizerParameter("WL", 0, 0, 1),
+      //  new OptimizerParameter("WH", 0, 0, 1),
+      //  new OptimizerParameter("WC", 1, 1, 1),
+      //  new OptimizerParameter("FastRegPeriod", 2, 5, 1),
+      //  new OptimizerParameter("SlowRegPeriod", 6, 10, 2),
+
+      //  // long trends
+      //  new OptimizerParameter("RSquaredPeriod", 8, 12, 2),
+      //  new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
+      //  new OptimizerParameter("LinRegSlopePeriod", 2, 12, 2),
+
+      //  // trend-reversing gaps
+      //  new OptimizerParameter("ATRPeriod", 10, 10, 1),
+      //  new OptimizerParameter("TrendBreakThresh", 0.10, 2.00, 0.30)
+      //  );
       var oParams = List.Create(
         new OptimizerParameter("WO", 0, 0, 1),
         new OptimizerParameter("WL", 0, 0, 1),
@@ -450,11 +499,15 @@ namespace QuqeViz
         new OptimizerParameter("WC", 1, 1, 1),
         new OptimizerParameter("FastRegPeriod", 2, 2, 1),
         new OptimizerParameter("SlowRegPeriod", 7, 7, 1),
+
+        // long trends
         new OptimizerParameter("RSquaredPeriod", 10, 10, 1),
         new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
-        new OptimizerParameter("LinRegSlopePeriod", 7, 7, 1),
+        new OptimizerParameter("LinRegSlopePeriod", 4, 4, 1),
+
+        // trend-reversing gaps
         new OptimizerParameter("ATRPeriod", 0, 0, 1),
-        new OptimizerParameter("TrendBreakThresh", 1, 1, 0.01)
+        new OptimizerParameter("TrendBreakThresh", 0.70, 0.70, 0.05)
         );
 
       var symbol = SymbolBox.Text;
@@ -468,13 +521,31 @@ namespace QuqeViz
       //  return bars.From(signal.First().Timestamp).SignalAccuracyPercent(signal);
       //};
 
+      //Func<IEnumerable<StrategyParameter>, double> calcFitness = sParams => {
+      //  var bars = Data.Get(symbol).From(start).To(end);
+      //  var strat = new Trending1Strategy(sParams);
+      //  var signal = strat.MakeSignal(default(DateTime), null, bars.First().Timestamp, bars);
+      //  //var bt = Strategy.BacktestSignal(bars, signal,
+      //  //  new Account { Equity = 15000, MarginFactor = 1, Padding = 20 }, 0, null);
+      //  return bars.SignalAccuracyPercent(signal);
+      //};
+
       Func<IEnumerable<StrategyParameter>, double> calcFitness = sParams => {
         var bars = Data.Get(symbol).From(start).To(end);
-        var strat = new Trending1Strategy(sParams);
-        var signal = strat.MakeSignal(default(DateTime), null, bars.First().Timestamp, bars);
-        var bt = Strategy.BacktestSignal(bars, signal,
-          new Account { Equity = 15000, MarginFactor = 1, Padding = 20 }, 0, null);
-        return bt.CPC * bt.WinningTradeFraction;
+        TimeSpan sampleSize = TimeSpan.FromDays(100);
+        double fitnessSum = 0;
+        int windowCount = 0;
+        for (DateTime windowStart = bars.First().Timestamp;
+          windowStart.Add(sampleSize) < bars.Last().Timestamp;
+          windowStart = windowStart.Add(sampleSize))
+        {
+          var strat = new Trending1Strategy(sParams);
+          var bs = bars.From(windowStart).To(windowStart.Add(sampleSize).AddDays(-1));
+          var signal = strat.MakeSignal(default(DateTime), null, bs.First().Timestamp, bs);
+          fitnessSum += bs.SignalAccuracyPercent(signal);
+          windowCount++;
+        }
+        return fitnessSum / windowCount;
       };
 
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
@@ -502,6 +573,8 @@ namespace QuqeViz
       var trades = OTPDStrategy.GetTrades();
       var profit = trades.ToDataSeries(t => t.PercentProfit * 300.0);
       var signal = trades.ToDataSeries(t => t.PositionDirection == PositionDirection.Long ? 1 : -1);
+
+      Trace.WriteLine("Accuracy: " + ((double)trades.Count(t => t.IsWin) / trades.Count));
 
       var w = new ChartWindow();
       var g = w.Chart.AddGraph();
