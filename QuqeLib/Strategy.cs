@@ -662,39 +662,23 @@ namespace Quqe
       var rSquaredThresh = SParams.Get<double>("RSquaredThresh");
       var linRegSlopePeriod = SParams.Get<int>("LinRegSlopePeriod");
 
-      var atrPeriod = SParams.Get<int>("ATRPeriod");
-      var trendBreakThresh = SParams.Get<double>("TrendBreakThresh");
-
       var bars = validationBars.From(validationStart);
       var vs = bars.Weighted(wo, wl, wh, wc);
       var fastReg = vs.LinReg(fastRegPeriod, 1).Delay(1);
       var slowReg = vs.LinReg(slowRegPeriod, 1).Delay(1);
       var rSquared = vs.RSquared(rSquaredPeriod).Delay(1);
       var linRegSlope = vs.LinRegSlope(linRegSlopePeriod).Delay(1);
-      DataSeries<Value> atr = bars.ATR(atrPeriod).Delay(1);
       var bs = bars.From(fastReg.First().Timestamp);
 
       var newElements = new List<Value>();
       DataSeries.Walk(
-        List.Create<DataSeries>(bs, fastReg, slowReg, rSquared, linRegSlope, atr),
+        List.Create<DataSeries>(bs, fastReg, slowReg, rSquared, linRegSlope),
         pos => {
           double sig;
           if (rSquaredPeriod > 0 && rSquared[0] > rSquaredThresh)
           {
             var slope = Math.Sign(linRegSlope[0]);
-            slope = slope == 0 ? 1 : slope;
-
-            if (atrPeriod > 0)
-            {
-              if (slope > 0 && bs[0].Open < fastReg[0] - atr[0] * trendBreakThresh) // open bucks upward trend
-                sig = -1;
-              else if (slope < 0 && bs[0].Open > fastReg[0] + atr[0] * trendBreakThresh) // open bucks downward trend
-                sig = 1;
-              else
-                sig = slope;
-            }
-            else
-              sig = slope;
+            sig = slope == 0 ? 1 : slope;
           }
           else
             sig = fastReg[0] >= slowReg[0] ? 1 : -1;

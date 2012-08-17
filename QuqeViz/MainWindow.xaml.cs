@@ -86,12 +86,29 @@ namespace QuqeViz
         Type = PlotType.ValueLine,
         Color = Brushes.Red
       });
-      g1.Plots.Add(new Plot {
-        DataSeries = bars.Opens().LinReg(3, 0),
-        Type = PlotType.ValueLine,
-        Color = Brushes.DarkGoldenrod
-      });
       g1.AddTrades(trades);
+
+      var g4 = w.Chart.AddGraph();
+      g4.Plots.Add(new Plot {
+        Title = "RSquared(10)",
+        DataSeries = bars.Closes().RSquared(10).Delay(1),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Red
+      });
+      g4.Plots.Add(new Plot {
+        DataSeries = bars.ConstantLine(0.75),
+        Type = PlotType.ValueLine,
+        Color = Brushes.GreenYellow
+      });
+
+      var g5 = w.Chart.AddGraph();
+      g5.Plots.Add(new Plot {
+        Title = "LinRegSlope(4)",
+        DataSeries = bars.Closes().LinRegSlope(4).Delay(1),
+        Type = PlotType.Bar,
+        Color = Brushes.Gray
+      });
+
       var g2 = w.Chart.AddGraph();
       g2.Plots.Add(new Plot {
         Title = "Profit % per trade",
@@ -106,20 +123,6 @@ namespace QuqeViz
         Type = PlotType.Bar,
         Color = Brushes.Purple
       });
-      //var g4 = w.Chart.AddGraph();
-      //g4.Plots.Add(new Plot {
-      //  Title = "ATR",
-      //  DataSeries = bars.ATR(10),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Green
-      //});
-      //var g5 = w.Chart.AddGraph();
-      //g5.Plots.Add(new Plot {
-      //  Title = "Average OpeningWickHeight",
-      //  DataSeries = bars.OpeningWickHeight().SMA(10),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Blue
-      //});
       var g3 = w.Chart.AddGraph();
       g3.Plots.Add(new Plot {
         Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x"),
@@ -128,36 +131,6 @@ namespace QuqeViz
         Color = Brushes.Green,
         LineThickness = 2
       });
-
-      if (strategyName.Split('-')[0] == "DTLRR2")
-      {
-        g1.Plots.Add(new Plot {
-          Title = "TO",
-          DataSeries = bars.Opens().LinReg(sParams.Get<int>("TOPeriod"), sParams.Get<int>("TOForecast")).Trim(0),
-          Type = PlotType.ValueLine,
-          Color = Brushes.Blue
-        });
-        g1.Plots.Add(new Plot {
-          Title = "TC",
-          DataSeries = bars.Closes().LinReg(sParams.Get<int>("TCPeriod"), sParams.Get<int>("TCForecast")).Delay(1).Trim(0),
-          Type = PlotType.ValueLine,
-          Color = Brushes.OrangeRed
-        });
-        g1.Plots.Add(new Plot {
-          Title = "VO",
-          DataSeries = bars.Opens().LinReg(sParams.Get<int>("VOPeriod"), sParams.Get<int>("VOForecast")).Trim(0),
-          Type = PlotType.ValueLine,
-          Color = Brushes.Aqua,
-          LineStyle = LineStyle.Dashed
-        });
-        g1.Plots.Add(new Plot {
-          Title = "VC",
-          DataSeries = bars.Closes().LinReg(sParams.Get<int>("VCPeriod"), sParams.Get<int>("VCForecast")).Delay(1).Trim(0),
-          Type = PlotType.ValueLine,
-          Color = Brushes.Orange,
-          LineStyle = LineStyle.Dashed
-        });
-      }
 
       w.Show();
     }
@@ -503,11 +476,7 @@ namespace QuqeViz
         // long trends
         new OptimizerParameter("RSquaredPeriod", 10, 10, 1),
         new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
-        new OptimizerParameter("LinRegSlopePeriod", 4, 4, 1),
-
-        // trend-reversing gaps
-        new OptimizerParameter("ATRPeriod", 0, 0, 1),
-        new OptimizerParameter("TrendBreakThresh", 0.70, 0.70, 0.05)
+        new OptimizerParameter("LinRegSlopePeriod", 4, 4, 1)
         );
 
       var symbol = SymbolBox.Text;
