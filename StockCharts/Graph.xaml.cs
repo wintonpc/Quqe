@@ -249,8 +249,10 @@ namespace StockCharts
       if (trade == null)
         return;
 
-      var p1 = PointToCanvas(0, trade.Entry, ViewRegion);
-      var xBase = slotNumber * ParentChart.SlotPxWidth;
+      //var p1 = PointToCanvas(0, trade.Entry, ViewRegion);
+      //var xBase = slotNumber * ParentChart.SlotPxWidth;
+      var p1 = PointToCanvas(slotNumber, trade.Entry, ViewRegion);
+      var xBase = p1.X - ParentChart.SlotPxWidth / 2;
 
       var entryColor = trade.PositionDirection == PositionDirection.Long ? CandleGreen : CandleRed;
       EntryArrow = AddPolygon(Brushes.Black, 1, entryColor,

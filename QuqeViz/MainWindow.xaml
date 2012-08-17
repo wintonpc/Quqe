@@ -5,6 +5,7 @@
   <StackPanel HorizontalAlignment="Stretch" Orientation="Horizontal">
     <StackPanel Width="438">
       <Button x:Name="TQQQButton" Click="TQQQButton_Click">TQQQ</Button>
+      <Button x:Name="ShowOtpdTradesButton" Click="ShowOtpdTradesButton_Click">Show OTPD Trades</Button>
       <Button x:Name="ContributionsButton" Click="ContributionsButton_Click">Contributions</Button>
       <Button x:Name="OptimizeDTCandlesButton" Click="OptimizeDTCandlesButton_Click">Optimize DTCandles</Button>
       <Button x:Name="OptimizeDTBarSumButton" Click="OptimizeDTBarSumButton_Click">Optimize DTBarSum</Button>

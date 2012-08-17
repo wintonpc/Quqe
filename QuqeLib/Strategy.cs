@@ -594,6 +594,54 @@ namespace Quqe
       }
       return new DataSeries<Value>(tqqq.Symbol, newElements);
     }
+
+    public static List<TradeRecord> GetTrades()
+    {
+      var qqq = Data.Get("QQQ");
+      var trades = new List<TradeRecord>();
+      using (var ip = new StreamReader("c.txt"))
+      {
+        string line;
+        while ((line = ip.ReadLine()) != null)
+        {
+          var toks = Regex.Split(line, @"\s+");
+          if (toks[0] == "")
+            continue;
+          var timestamp = DateTime.ParseExact(toks[0], "M/d/yyyy", null);
+          var qqqGain = double.Parse(toks[1]);
+          var numQqqShares = int.Parse(toks[2]);
+          var profitWith12TimesMargin = double.Parse(toks[3]);
+
+          var nonMarginProfit = profitWith12TimesMargin / 12;
+          var nonMarginProfitPerShare = nonMarginProfit / numQqqShares;
+          var bar = qqq.FirstOrDefault(x => x.Timestamp == timestamp);
+          if (bar == null)
+            continue;
+          bool gained = qqqGain > 0;
+          var positionDirection = gained ^ bar.IsGreen ? PositionDirection.Short : PositionDirection.Long;
+          var exitPrice = Math.Round(bar.Open + (positionDirection == PositionDirection.Long ? 1 : -1) * nonMarginProfitPerShare, 2);
+          trades.Add(new TradeRecord("QQQ", positionDirection, bar.Open, 0, exitPrice, bar.Close, bar.Timestamp.AddHours(9.5),
+            bar.Timestamp.AddHours(16), numQqqShares,
+            nonMarginProfit, 0, 0));
+          //if (exitPrice < bar.Low - 0.02 || exitPrice > bar.High + 0.02)
+          if (Math.Abs(exitPrice - bar.Open) > bar.High - bar.Low)
+            Trace.WriteLine(string.Format("{0:MM/dd/yyyy} exit price of {1:N2} doesn't make sense", timestamp, exitPrice));
+          //Trace.WriteLine(string.Format("{0:MM/dd/yyyy} {1} {2} {3:N2} -> {4:N2}",
+          //  timestamp,
+          //  positionDirection,
+          //  gained ? "won" : "lost",
+          //  bar.Open, exitPrice
+          //  ));
+        }
+      }
+
+      var revisedTrades = (from q in qqq.From(trades.First().EntryTime.Date).To(trades.Last().EntryTime.Date)
+                           join t in trades on q.Timestamp equals t.EntryTime.Date into z
+                           from t2 in z.DefaultIfEmpty()
+                           select t2 ?? new TradeRecord("QQQ", PositionDirection.Long, q.Open, 0, q.Open, 0,
+                             q.Timestamp.AddHours(9.5), q.Timestamp.AddHours(16), 1, 0, 0, 0)).ToList();
+      return revisedTrades;
+    }
   }
 
   public class Trending1Strategy : BasicStrategy
@@ -614,26 +662,44 @@ namespace Quqe
       var rSquaredThresh = SParams.Get<double>("RSquaredThresh");
       var linRegSlopePeriod = SParams.Get<int>("LinRegSlopePeriod");
 
+      var atrPeriod = SParams.Get<int>("ATRPeriod");
+      var trendBreakThresh = SParams.Get<double>("TrendBreakThresh");
+
       var bars = validationBars.From(validationStart);
       var vs = bars.Weighted(wo, wl, wh, wc);
       var fastReg = vs.LinReg(fastRegPeriod, 1).Delay(1);
       var slowReg = vs.LinReg(slowRegPeriod, 1).Delay(1);
       var rSquared = vs.RSquared(rSquaredPeriod).Delay(1);
       var linRegSlope = vs.LinRegSlope(linRegSlopePeriod).Delay(1);
+      DataSeries<Value> atr = bars.ATR(atrPeriod).Delay(1);
       var bs = bars.From(fastReg.First().Timestamp);
 
       var newElements = new List<Value>();
-      DataSeries.Walk(bs, fastReg, slowReg, rSquared, linRegSlope, pos => {
-        double sig;
-        if (rSquared[0] > rSquaredThresh)
-        {
-          var slope = Math.Sign(linRegSlope[0]);
-          sig = slope == 0 ? 1 : slope;
-        }
-        else
-          sig = fastReg[0] >= slowReg[0] ? 1 : -1;
-        newElements.Add(new Value(bs[0].Timestamp, sig));
-      });
+      DataSeries.Walk(
+        List.Create<DataSeries>(bs, fastReg, slowReg, rSquared, linRegSlope, atr),
+        pos => {
+          double sig;
+          if (rSquared[0] > rSquaredThresh)
+          {
+            var slope = Math.Sign(linRegSlope[0]);
+            slope = slope == 0 ? 1 : slope;
+
+            if (atrPeriod > 0)
+            {
+              if (slope > 0 && bs[0].Open < fastReg[0] - atr[0] * trendBreakThresh) // open bucks upward trend
+                sig = -1;
+              else if (slope < 0 && bs[0].Open > fastReg[0] + atr[0] * trendBreakThresh) // open bucks downward trend
+                sig = 1;
+              else
+                sig = slope;
+            }
+            else
+              sig = slope;
+          }
+          else
+            sig = fastReg[0] >= slowReg[0] ? 1 : -1;
+          newElements.Add(new Value(bs[0].Timestamp, sig));
+        });
 
       return new DataSeries<Value>(bars.Symbol, newElements);
     }

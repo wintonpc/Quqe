@@ -86,6 +86,11 @@ namespace QuqeViz
         Type = PlotType.ValueLine,
         Color = Brushes.Red
       });
+      g1.Plots.Add(new Plot {
+        DataSeries = bars.Opens().LinReg(3, 0),
+        Type = PlotType.ValueLine,
+        Color = Brushes.DarkGoldenrod
+      });
       g1.AddTrades(trades);
       var g2 = w.Chart.AddGraph();
       g2.Plots.Add(new Plot {
@@ -101,6 +106,20 @@ namespace QuqeViz
         Type = PlotType.Bar,
         Color = Brushes.Purple
       });
+      //var g4 = w.Chart.AddGraph();
+      //g4.Plots.Add(new Plot {
+      //  Title = "ATR",
+      //  DataSeries = bars.ATR(10),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Green
+      //});
+      //var g5 = w.Chart.AddGraph();
+      //g5.Plots.Add(new Plot {
+      //  Title = "Average OpeningWickHeight",
+      //  DataSeries = bars.OpeningWickHeight().SMA(10),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Blue
+      //});
       var g3 = w.Chart.AddGraph();
       g3.Plots.Add(new Plot {
         Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x"),
@@ -382,27 +401,18 @@ namespace QuqeViz
       //  new OptimizerParameter("LinRegSlopePeriod", 2, 10, 2)
       //  );
       // closes only
-      var oParams = List.Create(
-        new OptimizerParameter("WO", 0, 0, 1),
-        new OptimizerParameter("WL", 0, 0, 1),
-        new OptimizerParameter("WH", 0, 0, 1),
-        new OptimizerParameter("WC", 1, 1, 1),
-        new OptimizerParameter("FastRegPeriod", 2, 2, 1),
-        new OptimizerParameter("SlowRegPeriod", 7, 7, 1),
-        new OptimizerParameter("RSquaredPeriod", 9, 9, 1),
-        new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
-        new OptimizerParameter("LinRegSlopePeriod", 6, 6, 1)
-        );
       //var oParams = List.Create(
-      //  new OptimizerParameter("WO", 1, 1, 1),
+      //  new OptimizerParameter("WO", 0, 0, 1),
       //  new OptimizerParameter("WL", 0, 0, 1),
       //  new OptimizerParameter("WH", 0, 0, 1),
       //  new OptimizerParameter("WC", 1, 1, 1),
       //  new OptimizerParameter("FastRegPeriod", 2, 2, 1),
-      //  new OptimizerParameter("SlowRegPeriod", 4, 8, 1),
-      //  new OptimizerParameter("RSquaredPeriod", 8, 12, 1),
+      //  new OptimizerParameter("SlowRegPeriod", 7, 7, 1),
+      //  new OptimizerParameter("RSquaredPeriod", 9, 9, 1),
       //  new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
-      //  new OptimizerParameter("LinRegSlopePeriod", 5, 10, 1)
+      //  new OptimizerParameter("LinRegSlopePeriod", 6, 6, 1),
+      //  new OptimizerParameter("ATRPeriod", 10, 10, 1),
+      //  new OptimizerParameter("TrendBreakThresh", 0.55, 0.55, 0.01)
       //  );
 
       // annealing
@@ -418,15 +428,53 @@ namespace QuqeViz
       //  new OptimizerParameter("LinRegSlopePeriod", 5, 15, 1)
       //  );
 
+      //var oParams = List.Create(
+      //  new OptimizerParameter("WO", 0, 0, 1),
+      //  new OptimizerParameter("WL", 0, 0, 1),
+      //  new OptimizerParameter("WH", 0, 1, 1),
+      //  new OptimizerParameter("WC", 1, 1, 1),
+      //  new OptimizerParameter("FastRegPeriod", 2, 2, 1),
+      //  new OptimizerParameter("SlowRegPeriod", 4, 9, 1),
+      //  new OptimizerParameter("RSquaredPeriod", 9, 11, 1),
+      //  new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
+      //  new OptimizerParameter("LinRegSlopePeriod", 4, 10, 1),
+      //  new OptimizerParameter("ATRPeriod", 9, 11, 1),
+      //  new OptimizerParameter("TrendBreakThresh", 0.45, 0.65, 0.01)
+      //  );
+
+      // by hand
+      var oParams = List.Create(
+        new OptimizerParameter("WO", 0, 0, 1),
+        new OptimizerParameter("WL", 0, 0, 1),
+        new OptimizerParameter("WH", 0, 0, 1),
+        new OptimizerParameter("WC", 1, 1, 1),
+        new OptimizerParameter("FastRegPeriod", 2, 2, 1),
+        new OptimizerParameter("SlowRegPeriod", 7, 7, 1),
+        new OptimizerParameter("RSquaredPeriod", 10, 10, 1),
+        new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
+        new OptimizerParameter("LinRegSlopePeriod", 7, 7, 1),
+        new OptimizerParameter("ATRPeriod", 0, 0, 1),
+        new OptimizerParameter("TrendBreakThresh", 1, 1, 0.01)
+        );
+
       var symbol = SymbolBox.Text;
       var start = TrainingStartBox.Text;
       var end = TrainingEndBox.Text;
+
+      //Func<IEnumerable<StrategyParameter>, double> calcFitness = sParams => {
+      //  var bars = Data.Get(symbol).From(start).To(end);
+      //  var strat = new Trending1Strategy(sParams);
+      //  var signal = strat.MakeSignal(default(DateTime), null, bars.First().Timestamp, bars);
+      //  return bars.From(signal.First().Timestamp).SignalAccuracyPercent(signal);
+      //};
 
       Func<IEnumerable<StrategyParameter>, double> calcFitness = sParams => {
         var bars = Data.Get(symbol).From(start).To(end);
         var strat = new Trending1Strategy(sParams);
         var signal = strat.MakeSignal(default(DateTime), null, bars.First().Timestamp, bars);
-        return bars.From(signal.First().Timestamp).SignalAccuracyPercent(signal);
+        var bt = Strategy.BacktestSignal(bars, signal,
+          new Account { Equity = 15000, MarginFactor = 1, Padding = 20 }, 0, null);
+        return bt.CPC * bt.WinningTradeFraction;
       };
 
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
@@ -437,7 +485,7 @@ namespace QuqeViz
         };
       });
 
-      //var best = Optimizer.Anneal(oParams, sParams => -calcFitness(sParams), 5000, partialCool: true);
+      //var best = Optimizer.Anneal(oParams, sParams => -calcFitness(sParams), 1000, partialCool: true);
       //var reports = List.Create(new StrategyOptimizerReport {
       //  StrategyName = "Trending1",
       //  StrategyParams = best.Params.ToList(),
@@ -447,6 +495,38 @@ namespace QuqeViz
       Strategy.PrintStrategyOptimizerReports(reports);
 
       Update();
+    }
+
+    private void ShowOtpdTradesButton_Click(object sender, RoutedEventArgs e)
+    {
+      var trades = OTPDStrategy.GetTrades();
+      var profit = trades.ToDataSeries(t => t.PercentProfit * 300.0);
+      var signal = trades.ToDataSeries(t => t.PositionDirection == PositionDirection.Long ? 1 : -1);
+
+      var w = new ChartWindow();
+      var g = w.Chart.AddGraph();
+      g.Plots.Add(new Plot {
+        Title = "QQQ",
+        DataSeries = Data.Get("QQQ").From("06/07/2010").To("07/18/2012"),
+        Type = PlotType.Candlestick
+      });
+      g.AddTrades(trades);
+      var g3 = w.Chart.AddGraph();
+      g3.Plots.Add(new Plot {
+        Title = "Profit % per trade",
+        DataSeries = profit,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+      var g2 = w.Chart.AddGraph();
+      g2.Plots.Add(new Plot {
+        Title = "Signal",
+        DataSeries = signal,
+        Type = PlotType.Bar,
+        Color = Brushes.Purple
+      });
+
+      w.Show();
     }
   }
 }

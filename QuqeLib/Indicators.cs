@@ -790,6 +790,11 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<Value> OpeningWickHeight(this DataSeries<Bar> bars)
+    {
+      return bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Open - s[0].Low) : (s[0].High - s[0].Open));
+    }
+
     public static DataSeries<Value> Derivative(this DataSeries<Value> values)
     {
       return values.MapElements<Value>((s, v) => {
