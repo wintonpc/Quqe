@@ -29,9 +29,7 @@ namespace QuqeViz
     {
       var bars = Data.Get(symbol);
       var strat = StrategyOptimizerReport.CreateStrategy(strategyName);
-      var signal = strat.MakeSignal(
-          DateTime.Parse(TrainingStartBox.Text), bars.To(TrainingEndBox.Text),
-          DateTime.Parse(ValidationStartBox.Text), bars.To(ValidationEndBox.Text));
+      var signal = strat.MakeSignal(bars.From(ValidationStartBox.Text).To(ValidationEndBox.Text));
       var backtestReport = Strategy.BacktestSignal(bars, signal,
         new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 20 }, 0, null);
       Trace.WriteLine(string.Format("Training  :  {0}  -  {1}", TrainingStartBox.Text, TrainingEndBox.Text));
@@ -41,7 +39,7 @@ namespace QuqeViz
       if (strat is DTStrategy)
         EvalAndDumpDTStrategy((DTStrategy)strat);
       Trace.WriteLine(backtestReport.ToString());
-      ShowBacktestChart(bars, backtestReport.Trades, signal, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
+      ShowBacktestChart(bars, backtestReport.Trades, signal.ToSimpleSignal(), initialValue, marginFactor, isValidation, strategyName, strat.SParams);
     }
 
     public void EvalAndDumpDTStrategy(DTStrategy strat)

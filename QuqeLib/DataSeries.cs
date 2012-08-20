@@ -119,6 +119,28 @@ namespace Quqe
     public override double Max { get { return Val; } }
   }
 
+  public enum SignalBias { Buy, Sell, None }
+
+  public class SignalValue : DataSeriesElement
+  {
+    public readonly double? Stop;
+    public readonly double? Limit;
+    public readonly SignalBias Bias;
+
+    public SignalValue(DateTime timestamp, SignalBias bias, double? stop, double? limit)
+      : base(timestamp)
+    {
+      Bias = bias;
+      Stop = stop;
+      Limit = limit;
+    }
+
+    public SignalValue() { throw new NotImplementedException(); }
+
+    public override double Min { get { throw new NotImplementedException(); } }
+    public override double Max { get { throw new NotImplementedException(); } }
+  }
+
   public abstract class DataSeries
   {
     public readonly string Symbol;

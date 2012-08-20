@@ -85,7 +85,7 @@ namespace Quqe
     public static DataSeries<Value> Trend(this DataSeries<Bar> bars, int lookback)
     {
       return bars.MapElements<Value>((s, v) => {
-        var windowSize = Math.Min(s.Pos+1, lookback);
+        var windowSize = Math.Min(s.Pos + 1, lookback);
         if (windowSize == 0)
           return s[0].IsGreen ? 1 : -1;
         else
@@ -157,7 +157,7 @@ namespace Quqe
         if (s.Pos == 0)
           return 0;
 
-        var totalCount = Math.Min(s.Pos+1, period);
+        var totalCount = Math.Min(s.Pos + 1, period);
         double reversal = 0;
         double continuation = 0;
         for (int i = totalCount - 1; i >= 0; i--)
@@ -947,6 +947,18 @@ namespace Quqe
           v = -1;
         return new Value(x.Timestamp.Value, v);
       }));
+    }
+
+    public static DataSeries<Value> ToSimpleSignal(this DataSeries<SignalValue> signal)
+    {
+      return signal.MapElements<Value>((s, v) =>
+        new Value(s[0].Timestamp, s[0].Bias == SignalBias.Buy ? 1 : -1));
+    }
+
+    public static DataSeries<SignalValue> ToSignal(this DataSeries<Value> signal)
+    {
+      return signal.MapElements<SignalValue>((s, v) =>
+        new SignalValue(s[0].Timestamp, s[0] >= 0 ? SignalBias.Buy : SignalBias.Sell, null, null));
     }
 
     //public static DataSeries<Value> DecisionTreeSignal(this DataSeries<Bar> bars,
