@@ -31,7 +31,7 @@ namespace QuqeViz
       var strat = StrategyOptimizerReport.CreateStrategy(strategyName);
       var signal = strat.MakeSignal(bars.From(ValidationStartBox.Text).To(ValidationEndBox.Text));
       var backtestReport = Strategy.BacktestSignal(bars, signal,
-        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 20 }, 0, null);
+        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 80 }, 0, null);
       Trace.WriteLine(string.Format("Training  :  {0}  -  {1}", TrainingStartBox.Text, TrainingEndBox.Text));
       bool validationWarning = DateTime.Parse(ValidationStartBox.Text) <= DateTime.Parse(TrainingEndBox.Text);
       Trace.WriteLine(string.Format("Validation:  {0}  -  {1}{2}",
@@ -39,7 +39,21 @@ namespace QuqeViz
       if (strat is DTStrategy)
         EvalAndDumpDTStrategy((DTStrategy)strat);
       Trace.WriteLine(backtestReport.ToString());
-      ShowBacktestChart(bars, backtestReport.Trades, signal.ToSimpleSignal(), initialValue, marginFactor, isValidation, strategyName, strat.SParams);
+      var bs = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
+      ShowBacktestChart(bs, backtestReport.Trades, signal, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
+
+      int wrong = 0;
+      int total = 0;
+      DataSeries.Walk(signal, bs, pos => {
+        if (pos == 0)
+          return;
+        if (signal[0].Bias != signal[1].Bias)
+        {
+          if (bs[0].IsGreen != (signal[0].Bias == SignalBias.Buy))
+            wrong++;
+          total++;
+        }
+      });
     }
 
     public void EvalAndDumpDTStrategy(DTStrategy strat)
@@ -60,10 +74,10 @@ namespace QuqeViz
     //  ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation, strat.Name, null);
     //}
 
-    static void ShowBacktestChart(DataSeries<Bar> bars, List<TradeRecord> trades, DataSeries<Value> signal,
+    static void ShowBacktestChart(DataSeries<Bar> bars, List<TradeRecord> trades, DataSeries<SignalValue> signal,
       double initialValue, int marginFactor, bool isValidation, string strategyName, IEnumerable<StrategyParameter> sParams)
     {
-      var profitPctPerTrade = trades.ToDataSeries(t => t.PercentProfit * 100.0);
+      var profitPerTrade = trades.ToDataSeries(t => t.Profit * 100.0);
       var accountValue = trades.ToDataSeries(t => t.AccountValueAfterTrade);
 
       var w = new ChartWindow();
@@ -74,59 +88,123 @@ namespace QuqeViz
         DataSeries = bars,
         Type = PlotType.Candlestick
       });
-      g1.Plots.Add(new Plot {
-        DataSeries = bars.Closes().LinReg(2, 1).Delay(1),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Blue
-      });
-      g1.Plots.Add(new Plot {
-        DataSeries = bars.Closes().LinReg(7, 1).Delay(1),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Red
-      });
+      //g1.Plots.Add(new Plot {
+      //  DataSeries = bars.Closes().LinReg(2, 1).Delay(1),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Blue
+      //});
+      //g1.Plots.Add(new Plot {
+      //  DataSeries = bars.Closes().LinReg(7, 1).Delay(1),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Red
+      //});
+      //g1.Plots.Add(new Plot {
+      //  DataSeries = signal.MapElements<Value>((s, v) => s[0].Stop),
+      //  Type = PlotType.Dash,
+      //  Color = Brushes.Blue
+      //});
       g1.AddTrades(trades);
+
+      //var g4 = w.Chart.AddGraph();
+      //g4.Plots.Add(new Plot {
+      //  Title = "RSquared(10)",
+      //  DataSeries = bars.Closes().RSquared(10).Delay(1),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.Red
+      //});
+      //g4.Plots.Add(new Plot {
+      //  DataSeries = bars.ConstantLine(0.75),
+      //  Type = PlotType.ValueLine,
+      //  Color = Brushes.GreenYellow
+      //});
+
+      //var g5 = w.Chart.AddGraph();
+      //g5.Plots.Add(new Plot {
+      //  Title = "LinRegSlope(4)",
+      //  DataSeries = bars.Closes().LinRegSlope(4).Delay(1),
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Gray
+      //});
+
+      //var g2 = w.Chart.AddGraph();
+      //g2.Plots.Add(new Plot {
+      //  Title = "Profit per trade",
+      //  DataSeries = profitPerTrade,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Blue
+      //});
+
+      var otpdTrades = OTPDStrategy.GetTrades();
+
+      var simpleSignal = signal.ToSimpleSignal();
+      var simpleOtpdSignal = otpdTrades.ToDataSeries(t => t.PositionDirection == PositionDirection.Long ? 1 : -1)
+        .From(bars.First().Timestamp);
+      var signalDiffElements = new List<Value>();
+      DataSeries.Walk(bars, simpleSignal, simpleOtpdSignal, pos => {
+        signalDiffElements.Add(new Value(bars[0].Timestamp,
+          Math.Sign(simpleSignal[0]) == Math.Sign(simpleOtpdSignal[0]) ? 0 :
+          (simpleSignal[0] >= 0) == bars[0].IsGreen ? 1 :
+          -1));
+      });
+      var signalDiff = new DataSeries<Value>(bars.Symbol, signalDiffElements);
+
+      Trace.WriteLine(string.Format("When different, I'm right {0} times, they're right {1} times",
+        signalDiff.Count(x => x > 0), signalDiff.Count(x => x < 0)));
+
+      var y = otpdTrades.ToDataSeries(t => t.IsWin ? -1 : Math.Abs(t.Exit - t.Entry)).From(bars.First().Timestamp)
+        .ZipElements<Bar, Value>(bars, (l, b, v) => {
+        if (l[0] == -1)
+          return 0;
+        if (b[0].WaxHeight() - l[0] > 0.03)
+          return 2;
+        else
+          return 1;
+      });
+
+      //var g9 = w.Chart.AddGraph();
+      //g9.Plots.Add(new Plot {
+      //  DataSeries = y,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.DeepPink
+      //});
+
+      Trace.WriteLine(string.Format("{0}% of OTPD losses are stopped", (double)y.Count(x => x == 2) / y.Count(x => x > 0)));
+
+      var g2b = w.Chart.AddGraph();
+      g2b.Plots.Add(new Plot {
+        Title = "OTPD",
+        DataSeries = simpleOtpdSignal,
+        Type = PlotType.Bar,
+        Color = new SolidColorBrush(Color.FromArgb(128, 255, 0, 0))
+      });
+      g2b.Plots.Add(new Plot {
+        Title = "Signal",
+        DataSeries = simpleSignal,
+        Type = PlotType.Bar,
+        Color = new SolidColorBrush(Color.FromArgb(128, 0, 0, 255))
+      });
 
       var g4 = w.Chart.AddGraph();
       g4.Plots.Add(new Plot {
-        Title = "RSquared(10)",
-        DataSeries = bars.Closes().RSquared(10).Delay(1),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Red
-      });
-      g4.Plots.Add(new Plot {
-        DataSeries = bars.ConstantLine(0.75),
-        Type = PlotType.ValueLine,
-        Color = Brushes.GreenYellow
+        Title = "Pos = I was right, Neg = OTPD was right",
+        DataSeries = signalDiff,
+        Type = PlotType.Bar,
+        Color = Brushes.DarkGray
       });
 
-      var g5 = w.Chart.AddGraph();
-      g5.Plots.Add(new Plot {
-        Title = "LinRegSlope(4)",
-        DataSeries = bars.Closes().LinRegSlope(4).Delay(1),
-        Type = PlotType.Bar,
-        Color = Brushes.Gray
-      });
-
-      var g2 = w.Chart.AddGraph();
-      g2.Plots.Add(new Plot {
-        Title = "Profit % per trade",
-        DataSeries = profitPctPerTrade,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-      var g2b = w.Chart.AddGraph();
-      g2b.Plots.Add(new Plot {
-        Title = "Signal",
-        DataSeries = signal,
-        Type = PlotType.Bar,
-        Color = Brushes.Purple
-      });
       var g3 = w.Chart.AddGraph();
+      g3.Plots.Add(new Plot {
+        Title = string.Format("OTPD"),
+        DataSeries = otpdTrades.ToDataSeries(t => t.AccountValueAfterTrade),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Red,
+        LineThickness = 2
+      });
       g3.Plots.Add(new Plot {
         Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x"),
         DataSeries = accountValue,
         Type = PlotType.ValueLine,
-        Color = Brushes.Green,
+        Color = Brushes.Blue,
         LineThickness = 2
       });
 
@@ -235,35 +313,84 @@ namespace QuqeViz
           DataSeries = bars,
           Type = PlotType.Candlestick
         });
+        g.Plots.Add(new Plot {
+          DataSeries = bars.DonchianMin(10).Delay(1),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Goldenrod
+        });
+        g.Plots.Add(new Plot {
+          DataSeries = bars.DonchianMax(10).Delay(1),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Goldenrod
+        });
+
+        var g5 = chart.AddGraph();
+        g5.Plots.Add(new Plot {
+          Title = "ReversalIndex",
+          DataSeries = bars.ReversalIndex(10),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Blue
+        });
+
+        var g6 = chart.AddGraph();
+        g6.Plots.Add(new Plot {
+          Title = "AntiTrendIndex",
+          DataSeries = bars.AntiTrendIndex(6, 12).Delay(1),
+          Type = PlotType.ValueLine,
+          Color = Brushes.DarkRed
+        });
+
+        var g7 = chart.AddGraph();
+        g7.Plots.Add(new Plot {
+          Title = "LinRegSlope",
+          DataSeries = bars.Closes().LinRegSlope(2).Delay(1),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Green
+        });
+
+        var wickStops = bars.WickStops(9, 3, 8);
+
         var g2 = chart.AddGraph();
-        double barSumThresh = 1.0 / 3;
         g2.Plots.Add(new Plot {
-          Title = "EMA Slope",
-          DataSeries = bars.Closes().ZLEMA(12).Derivative().Sign().Delay(1),
-          Type = PlotType.Bar,
-          Color = Brushes.LightPink
-        });
-        g2.Plots.Add(new Plot {
-          DataSeries = bars.ConstantLine(barSumThresh),
+          Title = "ATR",
+          DataSeries = bars.ATR(16),
           Type = PlotType.ValueLine,
-          Color = Brushes.Orange
+          Color = Brushes.Blue
         });
         g2.Plots.Add(new Plot {
-          DataSeries = bars.ConstantLine(-barSumThresh),
+          Title = "AWH",
+          DataSeries = bars.OpeningWickHeight().EMA(16),
           Type = PlotType.ValueLine,
-          Color = Brushes.Orange
+          Color = Brushes.Black
         });
         g2.Plots.Add(new Plot {
-          Title = "BarSum",
-          DataSeries = bars.BarSum3(10, 20, 2).Delay(1),
-          Type = PlotType.Bar,
-          Color = Brushes.CornflowerBlue
+          DataSeries = bars.OpeningWickHeight().EMA(16).ZipElements<Value, Value>(bars.ATR(16), (w, a, v) => (2 * w[0] + 0.5 * a[0]) / 2),
+          Type = PlotType.ValueLine,
+          Color = Brushes.OrangeRed
         });
-        g2.Plots.Add(new Plot {
-          Title = "BarSum",
-          DataSeries = bars.MostCommonBarColor(8).MapElements<Value>((s, v) => s[0] * 0.5).Delay(1),
+        //g2.Plots.Add(new Plot {
+        //  DataSeries = bars.OpeningWickHeight().EMA(16).MapElements<Value>((s, v) => s[0] * 4.5),
+        //  Type = PlotType.ValueLine,
+        //  Color = Brushes.OrangeRed
+        //});
+        //g2.Plots.Add(new Plot {
+        //  Title = "OpeningWick-modified ATR",
+        //  DataSeries = bars.ATR(16).ZipElements<Value, Value>(bars.OpeningWickHeight().EMA(16), (a, w, v) => (a[0] + 4.5 * w[0]) / 2),
+        //  Type = PlotType.ValueLine,
+        //  Color = Brushes.Black
+        //});
+
+        var g3 = chart.AddGraph();
+        g3.Plots.Add(new Plot {
+          Title = "Wick Stops",
+          DataSeries = wickStops,
           Type = PlotType.Bar,
-          Color = new SolidColorBrush(Color.FromArgb(128, 255, 10, 100))
+          Color = Brushes.OrangeRed
+        });
+        g3.Plots.Add(new Plot {
+          DataSeries = bars.OpeningWickHeight().EMA(16),
+          Type = PlotType.ValueLine,
+          Color = Brushes.Black
         });
 
         chart.ScrollToEnd();
@@ -370,7 +497,18 @@ namespace QuqeViz
         // long trends
         new OptimizerParameter("RSquaredPeriod", 10, 10, 1),
         new OptimizerParameter("RSquaredThresh", 0.75, 0.75, 0.02),
-        new OptimizerParameter("LinRegSlopePeriod", 4, 4, 1)
+        new OptimizerParameter("LinRegSlopePeriod", 4, 4, 1),
+
+        //// stops
+        //new OptimizerParameter("WickStopPeriod", 2, 12, 1),
+        //new OptimizerParameter("WickStopCutoff", 1, 6, 1),
+        //new OptimizerParameter("WickStopSmoothing", 0, 8, 1)
+
+        // risk
+        new OptimizerParameter("RiskATRPeriod", 7, 7, 1),
+        new OptimizerParameter("MaxAccountLossPct", 0.01, 0.05, 0.005),
+        new OptimizerParameter("M", 0.20, 2.00, 0.05),
+        new OptimizerParameter("S", 0.05, 0.95, 0.10)
         );
 
       var symbol = SymbolBox.Text;
@@ -384,32 +522,54 @@ namespace QuqeViz
       //  return bars.From(signal.First().Timestamp).SignalAccuracyPercent(signal);
       //};
 
+      Func<IEnumerable<StrategyParameter>, double> calcFitness = sParams => {
+        //if (sParams.Get<int>("WickStopCutoff") >= sParams.Get<int>("WickStopPeriod"))
+        //  return 0;
+        var bars = Data.Get(symbol).From(start).To(end);
+        var strat = new Trending1Strategy(sParams);
+        var signal = strat.MakeSignal(bars);
+        var bt = Strategy.BacktestSignal(bars, signal,
+          new Account { Equity = 50000, MarginFactor = 4, Padding = 40 }, 0, null);
+        return bt.TotalReturn;
+      };
+
       //Func<IEnumerable<StrategyParameter>, double> calcFitness = sParams => {
       //  var bars = Data.Get(symbol).From(start).To(end);
-      //  var strat = new Trending1Strategy(sParams);
-      //  var signal = strat.MakeSignal(default(DateTime), null, bars.First().Timestamp, bars);
-      //  //var bt = Strategy.BacktestSignal(bars, signal,
-      //  //  new Account { Equity = 15000, MarginFactor = 1, Padding = 20 }, 0, null);
-      //  return bars.SignalAccuracyPercent(signal);
+      //  TimeSpan sampleSize = TimeSpan.FromDays(100);
+      //  double fitnessSum = 0;
+      //  int windowCount = 0;
+      //  for (DateTime windowStart = bars.First().Timestamp;
+      //    windowStart.Add(sampleSize) < bars.Last().Timestamp;
+      //    windowStart = windowStart.Add(sampleSize))
+      //  {
+      //    var strat = new Trending1Strategy(sParams);
+      //    var bs = bars.From(windowStart).To(windowStart.Add(sampleSize).AddDays(-1));
+      //    var signal = strat.MakeSignal(bs);
+      //    var bt = Strategy.BacktestSignal(bars, signal,
+      //      new Account { Equity = 15000, MarginFactor = 1, Padding = 20 }, 0, null);
+      //    fitnessSum += bt.TotalReturn;
+      //    windowCount++;
+      //  }
+      //  return fitnessSum / windowCount;
       //};
 
-      Func<IEnumerable<StrategyParameter>, double> calcFitness = sParams => {
-        var bars = Data.Get(symbol).From(start).To(end);
-        TimeSpan sampleSize = TimeSpan.FromDays(100);
-        double fitnessSum = 0;
-        int windowCount = 0;
-        for (DateTime windowStart = bars.First().Timestamp;
-          windowStart.Add(sampleSize) < bars.Last().Timestamp;
-          windowStart = windowStart.Add(sampleSize))
-        {
-          var strat = new Trending1Strategy(sParams);
-          var bs = bars.From(windowStart).To(windowStart.Add(sampleSize).AddDays(-1));
-          var signal = strat.MakeSignal(default(DateTime), null, bs.First().Timestamp, bs);
-          fitnessSum += bs.SignalAccuracyPercent(signal);
-          windowCount++;
-        }
-        return fitnessSum / windowCount;
-      };
+      //Func<IEnumerable<StrategyParameter>, double> calcFitness = sParams => {
+      //  var bars = Data.Get(symbol).From(start).To(end);
+      //  TimeSpan sampleSize = TimeSpan.FromDays(100);
+      //  double fitnessSum = 0;
+      //  int windowCount = 0;
+      //  for (DateTime windowStart = bars.First().Timestamp;
+      //    windowStart.Add(sampleSize) < bars.Last().Timestamp;
+      //    windowStart = windowStart.Add(sampleSize))
+      //  {
+      //    var strat = new Trending1Strategy(sParams);
+      //    var bs = bars.From(windowStart).To(windowStart.Add(sampleSize).AddDays(-1));
+      //    var signal = strat.MakeSignal(default(DateTime), null, bs.First().Timestamp, bs);
+      //    fitnessSum += bs.SignalAccuracyPercent(signal);
+      //    windowCount++;
+      //  }
+      //  return fitnessSum / windowCount;
+      //};
 
       var reports = Optimizer.OptimizeStrategyParameters(oParams, sParams => {
         return new StrategyOptimizerReport {
@@ -446,6 +606,11 @@ namespace QuqeViz
         DataSeries = Data.Get("QQQ").From("06/07/2010").To("07/18/2012"),
         Type = PlotType.Candlestick
       });
+      g.Plots.Add(new Plot {
+        DataSeries = trades.ToDataSeries(t => t.StopLimit > 0 ? t.StopLimit : t.Exit),
+        Type = PlotType.Dash,
+        Color = Brushes.Blue
+      });
       g.AddTrades(trades);
       var g3 = w.Chart.AddGraph();
       g3.Plots.Add(new Plot {
@@ -460,6 +625,13 @@ namespace QuqeViz
         DataSeries = signal,
         Type = PlotType.Bar,
         Color = Brushes.Purple
+      });
+      var g4 = w.Chart.AddGraph();
+      g4.Plots.Add(new Plot {
+        DataSeries = trades.ToDataSeries(t => t.AccountValueAfterTrade),
+        Type = PlotType.ValueLine,
+        Color = Brushes.Green,
+        LineThickness = 2
       });
 
       w.Show();

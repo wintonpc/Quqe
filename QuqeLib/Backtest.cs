@@ -141,11 +141,11 @@ namespace Quqe
     public double AverageWin { get { return Trades.Where(x => x.IsWin).Average(x => x.Profit); } }
     public double AverageLoss { get { return Trades.Where(x => !x.IsWin).Average(x => x.Loss); } }
     public int StoppedGains { get { return Trades.Count(t => t.IsStoppedGain); } }
-    public int StoppedLosses { get { return Trades.Count(t => !t.IsWin && t.Exit == t.StopLimit); } }
-    public int UnstoppedLosses { get { return Trades.Count(t => !t.IsWin && t.Exit != t.StopLimit); } }
-    public double StoppedGainsPct { get { return (double)StoppedGains / Trades.Count; } }
-    public double StoppedLossesPct { get { return (double)StoppedLosses / Trades.Count; } }
-    public double UnstoppedLossesPct { get { return (double)UnstoppedLosses / Trades.Count; } }
+    public int StoppedLosses { get { return Trades.Count(t => !t.IsWin && !t.IsStoppedGain && t.Exit == t.StopLimit); } }
+    public int UnstoppedLosses { get { return Trades.Count(t => !t.IsWin && !t.IsStoppedGain && t.Exit != t.StopLimit); } }
+    public double StoppedGainsPct { get { return (double)StoppedGains / Trades.Count(x => x.IsWin); } }
+    public double StoppedLossesPct { get { return (double)StoppedLosses / Trades.Count(x => !x.IsWin); } }
+    public double UnstoppedLossesPct { get { return (double)UnstoppedLosses / Trades.Count(x => !x.IsWin); } }
     public double MaxPercentLoss { get { return Trades.Max(t => t.PercentLoss); } }
     public int MaxLossesWithin10Days
     {

@@ -126,19 +126,21 @@ namespace Quqe
     public readonly double? Stop;
     public readonly double? Limit;
     public readonly SignalBias Bias;
+    public readonly double SizePct;
 
-    public SignalValue(DateTime timestamp, SignalBias bias, double? stop, double? limit)
+    public SignalValue(DateTime timestamp, SignalBias bias, double? sizePct, double? stop, double? limit)
       : base(timestamp)
     {
       Bias = bias;
       Stop = stop;
       Limit = limit;
+      SizePct = sizePct ?? 1.0;
     }
 
     public SignalValue() { throw new NotImplementedException(); }
 
-    public override double Min { get { throw new NotImplementedException(); } }
-    public override double Max { get { throw new NotImplementedException(); } }
+    public override double Min { get { return Stop ?? 0; } }
+    public override double Max { get { return Stop ?? 0; } }
   }
 
   public abstract class DataSeries

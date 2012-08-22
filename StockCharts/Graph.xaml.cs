@@ -140,7 +140,7 @@ namespace StockCharts
               var p1 = PointToCanvas(i - SlotOffset, val, ViewRegion);
               if (p.Type == PlotType.Bar)
               {
-                var p2 = PointToCanvas(i - SlotOffset, 0, ViewRegion);
+                var p2 = PointToCanvas(i - SlotOffset, Math.Max(minVal, Math.Min(maxVal, 0)), ViewRegion);
                 AddRectangle(
                   p2.X - Math.Floor((ParentChart.SlotPxWidth - 3) / 2),
                   p2.Y,
@@ -487,7 +487,7 @@ namespace StockCharts
     {
       for (double n = axis.First; n <= axis.Last; n += axis.Delta)
       {
-        byte lightness = (byte)(n == 0 ? 150 : 240);
+        byte lightness = (byte)(Math.Round(n, 1) == 0 ? 150 : 240);
         var gridLineColor = new SolidColorBrush(Color.FromRgb(lightness, lightness, lightness));
         var p = PointToCanvas(0, n, ViewRegion);
         AddLine(0, p.Y, ParentChart.AvailableWidth, p.Y, gridLineColor);

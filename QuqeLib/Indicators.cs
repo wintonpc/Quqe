@@ -170,6 +170,20 @@ namespace Quqe
       });
     }
 
+    public static DataSeries<Value> ReversalIndex(this DataSeries<Bar> bars, int period)
+    {
+      return bars.MapElements<Value>((s, v) =>
+        s.Pos == 0 ? 0 :
+        s[0].IsGreen == s[1].IsGreen ? 1 :
+        -1).EMA(period);
+    }
+
+    public static DataSeries<Value> AntiTrendIndex(this DataSeries<Bar> bars, int slopePeriod, int emaPeriod)
+    {
+      var lrs = bars.Closes().LinRegSlope(slopePeriod);
+      return bars.ZipElements<Value, Value>(lrs, (b, s, v) => (s[0] >= 0) == b[0].IsGreen ? 1 : -1).EMA(emaPeriod);
+    }
+
     public static DataSeries<Value> BarSum1(this DataSeries<Bar> bars, int period)
     {
       double sum = 0;
@@ -795,6 +809,12 @@ namespace Quqe
       return bars.MapElements<Value>((s, v) => s[0].IsGreen ? (s[0].Open - s[0].Low) : (s[0].High - s[0].Open));
     }
 
+    public static DataSeries<Value> WickStops(this DataSeries<Bar> bars, int period, int cutoff, int smoothing)
+    {
+      return bars.OpeningWickHeight().MapElements<Value>((s, v) =>
+        s.BackBars(period).OrderByDescending(x => x.Val).ElementAt(Math.Min(cutoff, period - 1)).Val).EMA(smoothing + 1);
+    }
+
     public static DataSeries<Value> Derivative(this DataSeries<Value> values)
     {
       return values.MapElements<Value>((s, v) => {
@@ -958,7 +978,7 @@ namespace Quqe
     public static DataSeries<SignalValue> ToSignal(this DataSeries<Value> signal)
     {
       return signal.MapElements<SignalValue>((s, v) =>
-        new SignalValue(s[0].Timestamp, s[0] >= 0 ? SignalBias.Buy : SignalBias.Sell, null, null));
+        new SignalValue(s[0].Timestamp, s[0] >= 0 ? SignalBias.Buy : SignalBias.Sell, null, null, null));
     }
 
     //public static DataSeries<Value> DecisionTreeSignal(this DataSeries<Bar> bars,

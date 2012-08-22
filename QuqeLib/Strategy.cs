@@ -96,6 +96,7 @@ namespace Quqe
     {
       var bs = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
       var helper = BacktestHelper.Start(bs, account);
+      var lossDamper = 1.0;
       DataSeries.Walk(bs, signal, pos => {
         if (pos + 1 < lookback)
           return;
@@ -107,7 +108,9 @@ namespace Quqe
         //Trace.WriteLine(bs[0].Timestamp.ToString("yyyy-MM-dd") + " signal: " + signal[0].Val);
 
         double? stopLimit = null;
-        if (!signal[0].Stop.HasValue && maxLossPct.HasValue)
+        if (signal[0].Stop.HasValue)
+          stopLimit = signal[0].Stop;
+        else if (maxLossPct.HasValue)
         {
           if (shouldBuy)
             stopLimit = (1 - maxLossPct) * bs[0].Open;
@@ -115,7 +118,9 @@ namespace Quqe
             stopLimit = (1 + maxLossPct) * bs[0].Open;
         }
 
-        var size = (long)((account.BuyingPower - account.Padding) / bs[0].Open);
+        var maxSize = (long)((account.BuyingPower - account.Padding) / bs[0].Open);
+        var idealSize = (long)((account.BuyingPower - account.Padding) * signal[0].SizePct * lossDamper);
+        var size = Math.Min(maxSize, idealSize);
         if (size > 0)
         {
           if (shouldBuy)
@@ -123,6 +128,10 @@ namespace Quqe
           else
             account.EnterShort(bs.Symbol, size, new ExitOnSessionClose(stopLimit), bs.FromHere());
         }
+        //if (bs[0].IsGreen != (signal[0].Bias == SignalBias.Buy) && bs[1].IsGreen != (signal[1].Bias == SignalBias.Buy))
+        //  lossDamper = Math.Max(0.10, lossDamper - 0.20);
+        //else
+        //  lossDamper = Math.Min(1.0, lossDamper + 0.30);
       });
       return helper.Stop();
     }
@@ -575,39 +584,41 @@ namespace Quqe
 
     public override DataSeries<Value> MakeSignal(DateTime trainingStart, DataSeries<Bar> trainingBars, DateTime validationStart, DataSeries<Bar> validationBars)
     {
-      var tqqq = Data.Get("QQQ");
-      var newElements = new List<Value>();
-      using (var ip = new StreamReader("c.txt"))
-      {
-        string line;
-        while ((line = ip.ReadLine()) != null)
-        {
-          var toks = Regex.Split(line, @"\s+");
-          if (toks[0] == "")
-            continue;
-          var timestamp = DateTime.ParseExact(toks[0], "M/d/yyyy", null);
-          var numShares = int.Parse(toks[1]);
-          var profit = double.Parse(toks[2]);
+      throw new Exception();
+      //var tqqq = Data.Get("QQQ");
+      //var newElements = new List<Value>();
+      //using (var ip = new StreamReader("c.txt"))
+      //{
+      //  string line;
+      //  while ((line = ip.ReadLine()) != null)
+      //  {
+      //    var toks = Regex.Split(line, @"\s+");
+      //    if (toks[0] == "")
+      //      continue;
+      //    var timestamp = DateTime.ParseExact(toks[0], "M/d/yyyy", null);
+      //    var numShares = int.Parse(toks[1]);
+      //    var profit = double.Parse(toks[2]);
 
-          var profitPerShare = profit / numShares;
-          var bar = tqqq.FirstOrDefault(x => x.Timestamp == timestamp);
-          if (bar == null)
-            continue;
-          var exitPrice = bar.Open + profitPerShare;
-          if (bar.IsGreen && profit > 0)
-          {
-            Trace.WriteLine(timestamp.ToString("MM/dd/yyyy") + " " + Math.Round(bar.WaxHeight(), 2).ToString("N2") + " "
-              + Math.Round(profitPerShare, 2).ToString("N2") + " " + (profitPerShare / bar.WaxHeight()));
-          }
-        }
-      }
-      return new DataSeries<Value>(tqqq.Symbol, newElements);
+      //    var profitPerShare = profit / numShares;
+      //    var bar = tqqq.FirstOrDefault(x => x.Timestamp == timestamp);
+      //    if (bar == null)
+      //      continue;
+      //    var exitPrice = bar.Open + profitPerShare;
+      //    if (bar.IsGreen && profit > 0)
+      //    {
+      //      Trace.WriteLine(timestamp.ToString("MM/dd/yyyy") + " " + Math.Round(bar.WaxHeight(), 2).ToString("N2") + " "
+      //        + Math.Round(profitPerShare, 2).ToString("N2") + " " + (profitPerShare / bar.WaxHeight()));
+      //    }
+      //  }
+      //}
+      //return new DataSeries<Value>(tqqq.Symbol, newElements);
     }
 
     public static List<TradeRecord> GetTrades()
     {
       var qqq = Data.Get("QQQ");
       var trades = new List<TradeRecord>();
+      double accountValue = 50000;
       using (var ip = new StreamReader("c.txt"))
       {
         string line;
@@ -629,9 +640,27 @@ namespace Quqe
           bool gained = qqqGain > 0;
           var positionDirection = gained ^ bar.IsGreen ? PositionDirection.Short : PositionDirection.Long;
           var exitPrice = Math.Round(bar.Open + (positionDirection == PositionDirection.Long ? 1 : -1) * nonMarginProfitPerShare, 2);
-          trades.Add(new TradeRecord("QQQ", positionDirection, bar.Open, 0, exitPrice, bar.Close, bar.Timestamp.AddHours(9.5),
+          double stopLimit = (Math.Abs(exitPrice - bar.Close) > 0.03 && Between(exitPrice, bar.WaxBottom, bar.WaxTop))
+            ? exitPrice : 0;
+          var prevAccountValue = accountValue;
+          accountValue += profitWith12TimesMargin;
+          var entryPrice = bar.Open;
+          if (!Between(exitPrice, bar.WaxBottom, bar.WaxTop) && nonMarginProfit >= 0)
+          {
+            if (positionDirection == PositionDirection.Long)
+            {
+              entryPrice -= exitPrice - bar.Close;
+              exitPrice = bar.Close;
+            }
+            else
+            {
+              entryPrice += bar.Close - exitPrice;
+              exitPrice = bar.Close;
+            }
+          }
+          trades.Add(new TradeRecord("QQQ", positionDirection, entryPrice, 0, exitPrice, bar.Close, bar.Timestamp.AddHours(9.5),
             bar.Timestamp.AddHours(16), numQqqShares,
-            nonMarginProfit, 0, 0));
+            nonMarginProfit, prevAccountValue, accountValue));
           //if (exitPrice < bar.Low - 0.02 || exitPrice > bar.High + 0.02)
           if (Math.Abs(exitPrice - bar.Open) > bar.High - bar.Low)
             Trace.WriteLine(string.Format("{0:MM/dd/yyyy} exit price of {1:N2} doesn't make sense", timestamp, exitPrice));
@@ -649,7 +678,22 @@ namespace Quqe
                            from t2 in z.DefaultIfEmpty()
                            select t2 ?? new TradeRecord("QQQ", PositionDirection.Long, q.Open, 0, q.Open, 0,
                              q.Timestamp.AddHours(9.5), q.Timestamp.AddHours(16), 1, 0, 0, 0)).ToList();
+      for (int i = 1; i < revisedTrades.Count; i++)
+      {
+        var current = revisedTrades[i];
+        if (current.Size == 1)
+        {
+          var last = revisedTrades[i - 1];
+          revisedTrades[i] = new TradeRecord(last.Symbol, last.PositionDirection, last.Entry, last.StopLimit,
+            last.Exit, last.UnstoppedExitPrice, last.EntryTime, last.ExitTime, 1, 0, last.AccountValueAfterTrade, last.AccountValueAfterTrade);
+        }
+      }
       return revisedTrades;
+    }
+
+    static bool Between(double v, double low, double high)
+    {
+      return low <= v && v <= high;
     }
   }
 
@@ -676,16 +720,29 @@ namespace Quqe
       var rSquaredThresh = SParams.Get<double>("RSquaredThresh");
       var linRegSlopePeriod = SParams.Get<int>("LinRegSlopePeriod");
 
+      var wickStopPeriod = SParams.Get<int>("WickStopPeriod");
+      var wickStopCutoff = SParams.Get<int>("WickStopCutoff");
+      var wickStopSmoothing = SParams.Get<int>("WickStopSmoothing");
+
+      var stopRegPeriod = SParams.Get<int>("StopRegPeriod");
+      var riskATRPeriod = SParams.Get<int>("RiskATRPeriod");
+      var maxAccountLossPct = SParams.Get<double>("MaxAccountLossPct");
+      var km = SParams.Get<double>("M");
+      var ks = SParams.Get<double>("S");
+
       var vs = bars.Weighted(wo, wl, wh, wc);
       var fastReg = vs.LinReg(fastRegPeriod, 1).Delay(1);
       var slowReg = vs.LinReg(slowRegPeriod, 1).Delay(1);
       var rSquared = vs.RSquared(rSquaredPeriod).Delay(1);
       var linRegSlope = vs.LinRegSlope(linRegSlopePeriod).Delay(1);
+      //var wickStops = bars.WickStops(wickStopPeriod, wickStopCutoff, wickStopSmoothing).Delay(1);
+      var perShareRisk = bars.OpeningWickHeight().EMA(riskATRPeriod).ZipElements<Value, Value>(bars.ATR(riskATRPeriod),
+        (w, a, v) => /*km * w[0]*/    km * (ks * w[0] + (1 - ks) * a[0])).Delay(1);
       var bs = bars.From(fastReg.First().Timestamp);
 
       var newElements = new List<SignalValue>();
       DataSeries.Walk(
-        List.Create<DataSeries>(bs, fastReg, slowReg, rSquared, linRegSlope),
+        List.Create<DataSeries>(bs, fastReg, slowReg, rSquared, linRegSlope/*, wickStops*/, perShareRisk),
         pos => {
           double sig;
           if (rSquaredPeriod > 0 && rSquared[0] > rSquaredThresh)
@@ -695,7 +752,29 @@ namespace Quqe
           }
           else
             sig = fastReg[0] >= slowReg[0] ? 1 : -1;
-          newElements.Add(new SignalValue(bs[0].Timestamp, sig >= 0 ? SignalBias.Buy : SignalBias.Sell, null, null));
+
+          var bias = sig >= 0 ? SignalBias.Buy : SignalBias.Sell;
+
+          // wick-based stops
+          //double relativeStop = wickStops[0];
+          //double minStop = 0.10;
+          //double maxLossPct = 0.025;
+          //double absoluteStop;
+          //if (bias == SignalBias.Buy)
+          //  absoluteStop = Math.Max((1 - maxLossPct) * bs[0].Open, bs[0].Open - Math.Max(minStop, relativeStop));
+          //else
+          //  absoluteStop = Math.Min((1 + maxLossPct) * bs[0].Open, bs[0].Open + Math.Max(minStop, relativeStop));
+
+          // ATR/wick stops
+          var sizePct = maxAccountLossPct / perShareRisk[0];
+          double absoluteStop;
+          if (bias == SignalBias.Buy)
+            absoluteStop = bs[0].Open - perShareRisk[0];
+          else
+            absoluteStop = bs[0].Open + perShareRisk[0];
+          newElements.Add(new SignalValue(bs[0].Timestamp, bias, sizePct, absoluteStop, null));
+          
+          //newElements.Add(new SignalValue(bs[0].Timestamp, bias, null, null, null));
         });
 
       return new DataSeries<SignalValue>(bars.Symbol, newElements);
