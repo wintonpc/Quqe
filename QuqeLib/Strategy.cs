@@ -120,7 +120,9 @@ namespace Quqe
 
         var maxSize = (long)((account.BuyingPower - account.Padding) / bs[0].Open);
         var idealSize = (long)((account.BuyingPower - account.Padding) * signal[0].SizePct * lossDamper);
-        var size = Math.Min(maxSize, idealSize);
+        var size70 = (long)((account.BuyingPower - account.Padding) / 70.00);
+        var size = size70;
+        //var size = Math.Min(maxSize, idealSize);
         if (size > 0)
         {
           if (shouldBuy)
@@ -614,7 +616,7 @@ namespace Quqe
       //return new DataSeries<Value>(tqqq.Symbol, newElements);
     }
 
-    public static List<TradeRecord> GetTrades()
+    public static List<TradeRecord> GetTrades(bool forceEntryToOpen = false)
     {
       var qqq = Data.Get("QQQ");
       var trades = new List<TradeRecord>();
@@ -632,20 +634,15 @@ namespace Quqe
           var numQqqShares = int.Parse(toks[2]);
           var profitWith12TimesMargin = double.Parse(toks[3]);
 
-          var nonMarginProfit = profitWith12TimesMargin / 12;
-          var nonMarginProfitPerShare = nonMarginProfit / numQqqShares;
+          var nonMarginProfitPerShare = profitWith12TimesMargin / 12 / numQqqShares;
           var bar = qqq.FirstOrDefault(x => x.Timestamp == timestamp);
           if (bar == null)
             continue;
           bool gained = qqqGain > 0;
           var positionDirection = gained ^ bar.IsGreen ? PositionDirection.Short : PositionDirection.Long;
           var exitPrice = Math.Round(bar.Open + (positionDirection == PositionDirection.Long ? 1 : -1) * nonMarginProfitPerShare, 2);
-          double stopLimit = (Math.Abs(exitPrice - bar.Close) > 0.03 && Between(exitPrice, bar.WaxBottom, bar.WaxTop))
-            ? exitPrice : 0;
-          var prevAccountValue = accountValue;
-          accountValue += profitWith12TimesMargin;
           var entryPrice = bar.Open;
-          if (!Between(exitPrice, bar.WaxBottom, bar.WaxTop) && nonMarginProfit >= 0)
+          if (!Between(exitPrice, bar.WaxBottom, bar.WaxTop) && profitWith12TimesMargin >= 0)
           {
             if (positionDirection == PositionDirection.Long)
             {
@@ -658,9 +655,25 @@ namespace Quqe
               exitPrice = bar.Close;
             }
           }
-          trades.Add(new TradeRecord("QQQ", positionDirection, entryPrice, 0, exitPrice, bar.Close, bar.Timestamp.AddHours(9.5),
-            bar.Timestamp.AddHours(16), numQqqShares,
-            nonMarginProfit, prevAccountValue, accountValue));
+          if (forceEntryToOpen)
+          {
+            entryPrice = bar.Open;
+            profitWith12TimesMargin = (positionDirection == PositionDirection.Long ? 1 : -1) * (exitPrice - entryPrice) * numQqqShares * 12;
+          }
+          var prevAccountValue = accountValue;
+          accountValue += profitWith12TimesMargin;
+          double stopPrice;
+          if (Math.Abs(exitPrice - bar.Close) < 0.03)
+          {
+            if (positionDirection == PositionDirection.Long)
+              stopPrice = bar.Low - 0.10;
+            else
+              stopPrice = bar.High + 0.10;
+          }
+          else
+            stopPrice = exitPrice;
+          trades.Add(new TradeRecord("QQQ", positionDirection, entryPrice, stopPrice, exitPrice, bar.Close, bar.Timestamp.AddHours(9.5),
+            bar.Timestamp.AddHours(16), numQqqShares, profitWith12TimesMargin, prevAccountValue, accountValue));
           //if (exitPrice < bar.Low - 0.02 || exitPrice > bar.High + 0.02)
           if (Math.Abs(exitPrice - bar.Open) > bar.High - bar.Low)
             Trace.WriteLine(string.Format("{0:MM/dd/yyyy} exit price of {1:N2} doesn't make sense", timestamp, exitPrice));

@@ -79,6 +79,7 @@ namespace QuqeViz
     {
       var profitPerTrade = trades.ToDataSeries(t => t.Profit * 100.0);
       var accountValue = trades.ToDataSeries(t => t.AccountValueAfterTrade);
+      var otpdTrades = OTPDStrategy.GetTrades(true);
 
       var w = new ChartWindow();
       w.Title = bars.Symbol + " : " + (!isValidation ? "Training" : "Validation");
@@ -87,6 +88,18 @@ namespace QuqeViz
       g1.Plots.Add(new Plot {
         DataSeries = bars,
         Type = PlotType.Candlestick
+      });
+      g1.Plots.Add(new Plot {
+        Title = "PCW Stops",
+        DataSeries = trades.ToDataSeries(t => t.StopLimit),
+        Type = PlotType.Dash,
+        Color = Brushes.Blue
+      });
+      g1.Plots.Add(new Plot {
+        Title = "OTPD Stops",
+        DataSeries = otpdTrades.ToDataSeries(t => t.StopLimit),
+        Type = PlotType.Dash,
+        Color = Brushes.Goldenrod
       });
       //g1.Plots.Add(new Plot {
       //  DataSeries = bars.Closes().LinReg(2, 1).Delay(1),
@@ -133,8 +146,6 @@ namespace QuqeViz
       //  Type = PlotType.Bar,
       //  Color = Brushes.Blue
       //});
-
-      var otpdTrades = OTPDStrategy.GetTrades();
 
       var simpleSignal = signal.ToSimpleSignal();
       var simpleOtpdSignal = otpdTrades.ToDataSeries(t => t.PositionDirection == PositionDirection.Long ? 1 : -1)
@@ -506,9 +517,11 @@ namespace QuqeViz
 
         // risk
         new OptimizerParameter("RiskATRPeriod", 7, 7, 1),
-        new OptimizerParameter("MaxAccountLossPct", 0.01, 0.05, 0.005),
-        new OptimizerParameter("M", 0.20, 2.00, 0.05),
-        new OptimizerParameter("S", 0.05, 0.95, 0.10)
+        new OptimizerParameter("MaxAccountLossPct", 0.035, 0.035, 0.005),
+        new OptimizerParameter("M", 1.20, 1.20, 0.05),
+        new OptimizerParameter("S", 0.65, 0.65, 0.10)
+        //new OptimizerParameter("M", 1.00, 2.00, 0.05),
+        //new OptimizerParameter("S", 0.25, 1.00, 0.10)
         );
 
       var symbol = SymbolBox.Text;
@@ -529,7 +542,7 @@ namespace QuqeViz
         var strat = new Trending1Strategy(sParams);
         var signal = strat.MakeSignal(bars);
         var bt = Strategy.BacktestSignal(bars, signal,
-          new Account { Equity = 50000, MarginFactor = 4, Padding = 40 }, 0, null);
+          new Account { Equity = 50000, MarginFactor = 12, Padding = 120 }, 0, null);
         return bt.TotalReturn;
       };
 
@@ -594,7 +607,7 @@ namespace QuqeViz
     private void ShowOtpdTradesButton_Click(object sender, RoutedEventArgs e)
     {
       var trades = OTPDStrategy.GetTrades();
-      var profit = trades.ToDataSeries(t => t.PercentProfit * 300.0);
+      var profit = trades.ToDataSeries(t => t.PercentProfit * 100);
       var signal = trades.ToDataSeries(t => t.PositionDirection == PositionDirection.Long ? 1 : -1);
 
       Trace.WriteLine("Accuracy: " + ((double)trades.Count(t => t.IsWin) / trades.Count));
@@ -619,13 +632,13 @@ namespace QuqeViz
         Type = PlotType.Bar,
         Color = Brushes.Blue
       });
-      var g2 = w.Chart.AddGraph();
-      g2.Plots.Add(new Plot {
-        Title = "Signal",
-        DataSeries = signal,
-        Type = PlotType.Bar,
-        Color = Brushes.Purple
-      });
+      //var g2 = w.Chart.AddGraph();
+      //g2.Plots.Add(new Plot {
+      //  Title = "Signal",
+      //  DataSeries = signal,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Purple
+      //});
       var g4 = w.Chart.AddGraph();
       g4.Plots.Add(new Plot {
         DataSeries = trades.ToDataSeries(t => t.AccountValueAfterTrade),
