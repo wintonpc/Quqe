@@ -631,16 +631,25 @@ namespace Quqe
             continue;
           var timestamp = DateTime.ParseExact(toks[0], "M/d/yyyy", null);
           var qqqGain = double.Parse(toks[1]);
-          var numQqqShares = int.Parse(toks[2]);
-          var profitWith12TimesMargin = double.Parse(toks[3]);
+          int numQqqShares;
+          double profitWith12TimesMargin;
+          if (forceEntryToOpen)
+          {
+            numQqqShares = (int)(accountValue / 70);
+            profitWith12TimesMargin = numQqqShares * qqqGain * 12;
+          }
+          else
+          {
+            numQqqShares = int.Parse(toks[2]);
+            profitWith12TimesMargin = double.Parse(toks[3]);
+          }
 
-          var nonMarginProfitPerShare = profitWith12TimesMargin / 12 / numQqqShares;
           var bar = qqq.FirstOrDefault(x => x.Timestamp == timestamp);
           if (bar == null)
             continue;
           bool gained = qqqGain > 0;
           var positionDirection = gained ^ bar.IsGreen ? PositionDirection.Short : PositionDirection.Long;
-          var exitPrice = Math.Round(bar.Open + (positionDirection == PositionDirection.Long ? 1 : -1) * nonMarginProfitPerShare, 2);
+          var exitPrice = Math.Round(bar.Open + (positionDirection == PositionDirection.Long ? 1 : -1) * qqqGain, 2);
           var entryPrice = bar.Open;
           if (!Between(exitPrice, bar.WaxBottom, bar.WaxTop) && profitWith12TimesMargin >= 0)
           {
