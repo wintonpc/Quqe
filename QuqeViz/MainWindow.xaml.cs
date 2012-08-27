@@ -31,14 +31,19 @@ namespace QuqeViz
       var strat = StrategyOptimizerReport.CreateStrategy(strategyName);
       var signal = strat.MakeSignal(bars.From(ValidationStartBox.Text).To(ValidationEndBox.Text));
       var backtestReport = Strategy.BacktestSignal(bars, signal,
-        new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 80 }, 0, null);
+        new Account {
+          Equity = initialValue,
+          MarginFactor = marginFactor,
+          Padding = 80,
+          IgnoreGains = true
+        }, 0, null);
       Trace.WriteLine(string.Format("Training  :  {0}  -  {1}", TrainingStartBox.Text, TrainingEndBox.Text));
       bool validationWarning = DateTime.Parse(ValidationStartBox.Text) <= DateTime.Parse(TrainingEndBox.Text);
       Trace.WriteLine(string.Format("Validation:  {0}  -  {1}{2}",
         ValidationStartBox.Text, ValidationEndBox.Text, validationWarning ? " !!!!!" : ""));
       if (strat is DTStrategy)
         EvalAndDumpDTStrategy((DTStrategy)strat);
-      Trace.WriteLine(backtestReport.ToString());
+      //Trace.WriteLine(backtestReport.ToString());
       var bs = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
       ShowBacktestChart(bs, backtestReport.Trades, signal, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
 
@@ -79,7 +84,7 @@ namespace QuqeViz
     {
       var profitPerTrade = trades.ToDataSeries(t => t.Profit * 100.0);
       var accountValue = trades.ToDataSeries(t => t.AccountValueAfterTrade);
-      var otpdTrades = OTPDStrategy.GetTrades(true);
+      var otpdTrades = OTPDStrategy.GetTrades(false, true, false, true, 1000000);
 
       var w = new ChartWindow();
       w.Title = bars.Symbol + " : " + (!isValidation ? "Training" : "Validation");
@@ -164,13 +169,13 @@ namespace QuqeViz
 
       var y = otpdTrades.ToDataSeries(t => t.IsWin ? -1 : Math.Abs(t.Exit - t.Entry)).From(bars.First().Timestamp)
         .ZipElements<Bar, Value>(bars, (l, b, v) => {
-        if (l[0] == -1)
-          return 0;
-        if (b[0].WaxHeight() - l[0] > 0.03)
-          return 2;
-        else
-          return 1;
-      });
+          if (l[0] == -1)
+            return 0;
+          if (b[0].WaxHeight() - l[0] > 0.03)
+            return 2;
+          else
+            return 1;
+        });
 
       //var g9 = w.Chart.AddGraph();
       //g9.Plots.Add(new Plot {
@@ -606,7 +611,7 @@ namespace QuqeViz
 
     private void ShowOtpdTradesButton_Click(object sender, RoutedEventArgs e)
     {
-      var trades = OTPDStrategy.GetTrades();
+      var trades = OTPDStrategy.GetTrades(true, true, false, true, 1000000);
       var profit = trades.ToDataSeries(t => t.PercentProfit * 100);
       var signal = trades.ToDataSeries(t => t.PositionDirection == PositionDirection.Long ? 1 : -1);
 

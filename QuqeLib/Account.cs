@@ -88,12 +88,27 @@ namespace Quqe
 
     public event Action<TradeRecord> Traded;
 
+    public bool IgnoreGains;
+    public bool IgnoreLosses;
+
     public void EnterLong(string symbol, long numShares, ExitCriteria exitCriteria, IEnumerable<Bar> barsFromNow)
     {
       var p = GetPosition(symbol);
       var todayBar = barsFromNow.First();
       var entry = todayBar.Open;
       var valueBefore = AccountValue;
+      if (IgnoreLosses || IgnoreGains)
+      {
+        DateTime exitTime2;
+        var exit2 = exitCriteria.GetExit(PositionDirection.Long, entry, barsFromNow, out exitTime2);
+        if ((IgnoreLosses && exit2 < entry) || (IgnoreGains && exit2 > entry))
+        {
+          FireTraded(new TradeRecord(symbol, PositionDirection.Long, entry, entry, entry, entry,
+            todayBar.Timestamp.AddHours(9.5), exitTime2, numShares, 0, AccountValue, AccountValue));
+          return;
+        }
+      }
+
       p.Open(numShares, entry);
       DateTime exitTime;
       var exit = exitCriteria.GetExit(PositionDirection.Long, entry, barsFromNow, out exitTime);
@@ -108,6 +123,17 @@ namespace Quqe
       var todayBar = barsFromNow.First();
       var entry = todayBar.Open;
       var valueBefore = AccountValue;
+      if (IgnoreLosses || IgnoreGains)
+      {
+        DateTime exitTime2;
+        var exit2 = exitCriteria.GetExit(PositionDirection.Short, entry, barsFromNow, out exitTime2);
+        if ((IgnoreLosses && exit2 > entry) || (IgnoreGains && exit2 < entry))
+        {
+          FireTraded(new TradeRecord(symbol, PositionDirection.Short, entry, entry, entry, entry,
+            todayBar.Timestamp.AddHours(9.5), exitTime2, numShares, 0, AccountValue, AccountValue));
+          return;
+        }
+      }
       p.Open(-numShares, entry);
       DateTime exitTime;
       var exit = exitCriteria.GetExit(PositionDirection.Short, entry, barsFromNow, out exitTime);

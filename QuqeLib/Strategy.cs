@@ -667,6 +667,8 @@ namespace Quqe
           if (forceEntryToOpen)
           {
             entryPrice = bar.Open;
+            if (qqqGain >= 0)
+              exitPrice = bar.Close;
             profitWith12TimesMargin = (positionDirection == PositionDirection.Long ? 1 : -1) * (exitPrice - entryPrice) * numQqqShares * 12;
           }
           var prevAccountValue = accountValue;
@@ -711,6 +713,81 @@ namespace Quqe
         }
       }
       return revisedTrades;
+    }
+
+
+    public static List<TradeRecord> GetTrades(bool includeGains, bool includeLosses, bool fixSlippage, bool assume70,
+      double initialAccountValue = 50000, int margin = 12)
+    {
+      var qqq = Data.Get("QQQ");
+      var trades = new List<TradeRecord>();
+      double accountValue = initialAccountValue;
+      using (var ip = new StreamReader("c.txt"))
+      {
+        string line;
+        while ((line = ip.ReadLine()) != null)
+        {
+          var toks = Regex.Split(line, @"\s+");
+          if (toks[0] == "")
+            continue;
+          var timestamp = DateTime.ParseExact(toks[0], "M/d/yyyy", null);
+          var qqqGain = double.Parse(toks[1]);
+          var bar = qqq.FirstOrDefault(x => x.Timestamp == timestamp);
+          if (bar == null)
+            continue;
+          var size = (long)(accountValue / (assume70 ? 70 : bar.Open));
+
+          TradeRecord trade = null;
+          if (includeGains && qqqGain >= 0)
+          {
+            var entry = bar.Open;
+            var exit = fixSlippage ? bar.Close : (bar.IsGreen ? entry + qqqGain : entry - qqqGain);
+            var stop = bar.IsGreen? bar.Low - 0.10 : bar.High + 0.10;
+            var profit = (bar.IsGreen ? (exit - entry) : (entry - exit)) * size * margin;
+            var previousAccountValue = accountValue;
+            accountValue += profit;
+            trade = new TradeRecord(qqq.Symbol, bar.IsGreen ? PositionDirection.Long : PositionDirection.Short, entry, stop, exit,
+              bar.Close, bar.Timestamp.AddHours(9.5), bar.Timestamp.AddHours(16), size, profit, previousAccountValue, accountValue);
+          }
+          else if (includeLosses && qqqGain < 0)
+          {
+            var entry = bar.Open;
+            var pd = bar.IsGreen ? PositionDirection.Short : PositionDirection.Long;
+            var exit = pd == PositionDirection.Long ? (entry + qqqGain) : (entry - qqqGain);
+            var stop = exit;
+            var profit = (pd == PositionDirection.Long ? (exit - entry) : (entry - exit)) * size * margin;
+            var previousAccountValue = accountValue;
+            accountValue += profit;
+            trade = new TradeRecord(qqq.Symbol, pd, entry, stop, exit, bar.Close, bar.Timestamp.AddHours(9.5), bar.Timestamp.AddHours(16),
+              size, profit, previousAccountValue, accountValue);
+          }
+          else
+          {
+            trade = new TradeRecord(qqq.Symbol, PositionDirection.Long, bar.Open, bar.Open, bar.Open, bar.Close,
+              bar.Timestamp.AddHours(9.5), bar.Timestamp.AddHours(16), size, 0, accountValue, accountValue);
+          }
+
+          trades.Add(trade);
+        }
+
+        var revisedTrades = (from q in qqq.From(trades.First().EntryTime.Date).To(trades.Last().EntryTime.Date)
+                             join t in trades on q.Timestamp equals t.EntryTime.Date into z
+                             from t2 in z.DefaultIfEmpty()
+                             select t2 ?? new TradeRecord("QQQ", PositionDirection.Long, q.Open, 0, q.Open, 0,
+                               q.Timestamp.AddHours(9.5), q.Timestamp.AddHours(16), 1, 0, 0, 0)).ToList();
+        for (int i = 1; i < revisedTrades.Count; i++)
+        {
+          var current = revisedTrades[i];
+          if (current.Size == 1)
+          {
+            var last = revisedTrades[i - 1];
+            revisedTrades[i] = new TradeRecord(last.Symbol, last.PositionDirection, last.UnstoppedExitPrice, last.UnstoppedExitPrice,
+              last.UnstoppedExitPrice, last.UnstoppedExitPrice, current.EntryTime, current.ExitTime, last.Size, 0,
+              last.AccountValueAfterTrade, last.AccountValueAfterTrade);
+          }
+        }
+        return revisedTrades;
+      }
     }
 
     static bool Between(double v, double low, double high)
@@ -795,7 +872,7 @@ namespace Quqe
           else
             absoluteStop = bs[0].Open + perShareRisk[0];
           newElements.Add(new SignalValue(bs[0].Timestamp, bias, sizePct, absoluteStop, null));
-          
+
           //newElements.Add(new SignalValue(bs[0].Timestamp, bias, null, null, null));
         });
 
