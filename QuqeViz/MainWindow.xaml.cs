@@ -35,7 +35,7 @@ namespace QuqeViz
           Equity = initialValue,
           MarginFactor = marginFactor,
           Padding = 80,
-          IgnoreGains = true
+          //IgnoreGains = true
         }, 0, null);
       Trace.WriteLine(string.Format("Training  :  {0}  -  {1}", TrainingStartBox.Text, TrainingEndBox.Text));
       bool validationWarning = DateTime.Parse(ValidationStartBox.Text) <= DateTime.Parse(TrainingEndBox.Text);
@@ -43,7 +43,7 @@ namespace QuqeViz
         ValidationStartBox.Text, ValidationEndBox.Text, validationWarning ? " !!!!!" : ""));
       if (strat is DTStrategy)
         EvalAndDumpDTStrategy((DTStrategy)strat);
-      //Trace.WriteLine(backtestReport.ToString());
+      Trace.WriteLine(backtestReport.ToString());
       var bs = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
       ShowBacktestChart(bs, backtestReport.Trades, signal, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
 
@@ -84,7 +84,7 @@ namespace QuqeViz
     {
       var profitPerTrade = trades.ToDataSeries(t => t.Profit * 100.0);
       var accountValue = trades.ToDataSeries(t => t.AccountValueAfterTrade);
-      var otpdTrades = OTPDStrategy.GetTrades(false, true, false, true, 1000000);
+      var otpdTrades = OTPDStrategy.GetTrades(true, true, true, true, 1000000);
 
       var w = new ChartWindow();
       w.Title = bars.Symbol + " : " + (!isValidation ? "Training" : "Validation");

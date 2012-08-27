@@ -121,8 +121,8 @@ namespace Quqe
         var maxSize = (long)((account.BuyingPower - account.Padding) / bs[0].Open);
         var idealSize = (long)((account.BuyingPower - account.Padding) * signal[0].SizePct * lossDamper);
         var size70 = (long)((account.BuyingPower - account.Padding) / 70.00);
-        var size = size70;
-        //var size = Math.Min(maxSize, idealSize);
+        //var size = size70;
+        var size = Math.Min(maxSize, idealSize);
         if (size > 0)
         {
           if (shouldBuy)
@@ -742,7 +742,7 @@ namespace Quqe
           {
             var entry = bar.Open;
             var exit = fixSlippage ? bar.Close : (bar.IsGreen ? entry + qqqGain : entry - qqqGain);
-            var stop = bar.IsGreen? bar.Low - 0.10 : bar.High + 0.10;
+            var stop = bar.IsGreen ? bar.Low - 0.10 : bar.High + 0.10;
             var profit = (bar.IsGreen ? (exit - entry) : (entry - exit)) * size * margin;
             var previousAccountValue = accountValue;
             accountValue += profit;
