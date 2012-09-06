@@ -267,7 +267,7 @@ namespace Quqe
       return result;
     }
 
-    static double[] Repeat(int n, Func<int, double> f)
+    public static double[] Repeat(int n, Func<int, double> f)
     {
       var result = new double[n];
       for (int i = 0; i < n; i++)

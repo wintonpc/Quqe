@@ -48,6 +48,7 @@
     <Compile Include="Backtest.cs" />
     <Compile Include="DataSeries.cs" />
     <Compile Include="DecisionTree.cs" />
+    <Compile Include="ElmanNet.cs" />
     <Compile Include="Indicators.cs" />
     <Compile Include="NeuralNet.cs" />
     <Compile Include="Optimize.cs" />
