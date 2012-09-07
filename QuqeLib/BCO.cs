@@ -9,8 +9,8 @@ namespace Quqe
 {
   public class BCOResult
   {
-    public double[] Minimum;
-    public double Cost;
+    public double[] MinimumLocation;
+    public double MinimumValue;
   }
 
   public class BCO
@@ -18,54 +18,82 @@ namespace Quqe
     static double BaseAngleMean = DegreesToRadians(62);
     static double BaseAngleStdDev = DegreesToRadians(26);
 
-    public static BCOResult Optimize(double[] initialLocation, Func<Vector, double> f,
+    public static BCOResult Optimize(double[] initialLocation, Func<Vector, double> F,
       double T0, double b, double tc, double v)
     {
       var numIterations = 1000;
       Vector x = new DenseVector(initialLocation);
-      Vector lastx = x;
-      double lastf = f(x);
-      Vector best = x;
-      double bestf = lastf;
-      double tpr = T0;
-      double[] phi = new double[x.Count - 1];
-      List.Repeat(numIterations, i => {
-        double T;
-        double thisf = f(x);
-        if (thisf < bestf)
-        {
-          bestf = thisf;
-          best = x;
-        }
-        double fpr = thisf - lastf;
+      double f = F(x);
+      double fChange = 0;
+      Vector xChange = new DenseVector(x.Count, 0);
+      double tpr = 0;
+      Vector bestx = x;
+      double bestf = F(x);
+      Vector phi = new DenseVector(x.Count - 1, 0);
 
+      List.Repeat(numIterations, i => {
         // calculate trajectory duration
-        double lpr = (x - lastx).Norm(2);
-        if (fpr / lpr >= 0)
+        double T;
+        double lpr = xChange.Norm(2);
+        if (fChange / lpr >= 0)
           T = T0;
         else
-          T = T0 * (1.0 + b * Math.Abs(fpr / lpr));
+          T = T0 * (1.0 + b * Math.Abs(fChange / lpr));
         double t = RandomExponential(1.0 / T);
 
-        // calculate angle
-        CalculateStochasticAngle(tc, tpr, fpr, lpr);
+        // calculate new angle(s)
+        Vector phiChange = new DenseVector(List.Repeat(phi.Count, _ => CalculateStochasticAngle(tc, tpr, fChange, lpr)).ToArray());
+        phi = (Vector)(phi + phiChange);
 
         // calculate new position
-        Vector n = null; // TODO
-        x = (Vector)(x + n.Normalize(2) * v * t);
+        Vector n = AnglesToUnitVector(phi);
+        Vector newx = (Vector)(x + n * v * t);
+        double newf = F(x);
 
-        lastx = x;
-        lastf = thisf;
+        xChange = (Vector)(newx - x);
+        fChange = newf - f;
         tpr = t;
+
+        x = newx;
+        f = newf;
+
+        if (f < bestf)
+        {
+          bestf = f;
+          bestx = x;
+        }
       });
-      return null;
+
+      return new BCOResult {
+        MinimumLocation = bestx.ToArray(),
+        MinimumValue = bestf
+      };
     }
 
-    private static double CalculateStochasticAngle(double tc, double tpr, double fpr, double lpr)
+    static double Product(Vector v, int start, int end, Func<double, double> f)
+    {
+      double result = 1;
+      for (int i = start; i <= end; i++)
+        result *= f(v[i]);
+      return result;
+    }
+
+    static Vector AnglesToUnitVector(Vector phi)
+    {
+      var n = phi.Count + 1;
+      Vector x = new DenseVector(n);
+      x[0] = Product(phi, 0, n - 2, a => Math.Cos(a));
+      for (int i = 1; i < n - 1; i++)
+        x[i] = Math.Sin(phi[i - 1]) * Product(phi, i, n - 2, a => Math.Cos(a));
+      x[n - 1] = Math.Sin(phi[n - 2]);
+      return (Vector)x.Normalize(2);
+    }
+
+    static double CalculateStochasticAngle(double tc, double tpr, double fChange, double lpr)
     {
       double angleMean;
       double angleStdDev;
-      if (fpr / lpr >= 0)
+      if (fChange / lpr >= 0)
       {
         angleMean = BaseAngleMean;
         angleStdDev = BaseAngleStdDev;
