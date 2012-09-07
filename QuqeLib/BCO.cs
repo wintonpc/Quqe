@@ -11,6 +11,7 @@ namespace Quqe
   {
     public double[] MinimumLocation;
     public double MinimumValue;
+    public List<Vector> Path;
   }
 
   public class BCO
@@ -18,14 +19,23 @@ namespace Quqe
     static double BaseAngleMean = DegreesToRadians(62);
     static double BaseAngleStdDev = DegreesToRadians(26);
 
+    public static BCOResult Optimize(double[] initialLocation, Func<Vector, double> F, double epsilon)
+    {
+      double T0 = Math.Pow(epsilon, 0.30) * Math.Pow(10, -1.73);
+      double b = T0 * Math.Pow(T0, -1.54) * Math.Pow(10, -0.6); // paper says positive 0.6, might be a typo, compare to b in Fig 8
+      double tc = Math.Pow(b / T0, 0.31) * Math.Pow(10, 1.16);
+      return Optimize(initialLocation, F, T0, b, tc, 1);
+    }
+
     public static BCOResult Optimize(double[] initialLocation, Func<Vector, double> F,
       double T0, double b, double tc, double v)
     {
-      var numIterations = 1000;
+      var path = new List<Vector>();
+      var numIterations = 30000;
       Vector x = new DenseVector(initialLocation);
       double f = F(x);
       double fChange = 0;
-      Vector xChange = new DenseVector(x.Count, 0);
+      Vector xChange = new DenseVector(x.Count, T0);
       double tpr = 0;
       Vector bestx = x;
       double bestf = F(x);
@@ -48,7 +58,7 @@ namespace Quqe
         // calculate new position
         Vector n = AnglesToUnitVector(phi);
         Vector newx = (Vector)(x + n * v * t);
-        double newf = F(x);
+        double newf = F(newx);
 
         xChange = (Vector)(newx - x);
         fChange = newf - f;
@@ -56,6 +66,7 @@ namespace Quqe
 
         x = newx;
         f = newf;
+        path.Add(x);
 
         if (f < bestf)
         {
@@ -66,7 +77,8 @@ namespace Quqe
 
       return new BCOResult {
         MinimumLocation = bestx.ToArray(),
-        MinimumValue = bestf
+        MinimumValue = bestf,
+        Path = path
       };
     }
 
