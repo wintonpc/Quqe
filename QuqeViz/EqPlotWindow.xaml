@@ -1,0 +1,9 @@
+﻿<Window x:Class="QuqeViz.EqPlotWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:q="clr-namespace:QuqeViz"
+        Title="EqPlotWindow" Height="550" Width="550">
+  <q:EqPlot HorizontalAlignment="Left" VerticalAlignment="Top">
+    
+  </q:EqPlot>
+</Window>

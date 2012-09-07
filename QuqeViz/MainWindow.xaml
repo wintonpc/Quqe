@@ -10,6 +10,7 @@
       <Button x:Name="OptimizeDTCandlesButton" Click="OptimizeDTCandlesButton_Click">Optimize DTCandles</Button>
       <Button x:Name="OptimizeDTBarSumButton" Click="OptimizeDTBarSumButton_Click">Optimize DTBarSum</Button>
       <Button x:Name="OptimizeTrending1Button" Click="OptimizeTrending1Button_Click">Optimize Trending1</Button>
+      <Button x:Name="FooButton" Click="FooButton_Click">Foo</Button>
       <StackPanel Orientation="Horizontal">
         <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
         <TextBox x:Name="SymbolBox">QQQ</TextBox>

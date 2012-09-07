@@ -654,5 +654,11 @@ namespace QuqeViz
 
       w.Show();
     }
+
+    private void FooButton_Click(object sender, RoutedEventArgs e)
+    {
+      var w = new EqPlotWindow();
+      w.Show();
+    }
   }
 }
