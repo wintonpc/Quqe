@@ -46,6 +46,7 @@
   <ItemGroup>
     <Compile Include="Account.cs" />
     <Compile Include="Backtest.cs" />
+    <Compile Include="BCO.cs" />
     <Compile Include="DataSeries.cs" />
     <Compile Include="DecisionTree.cs" />
     <Compile Include="ElmanNet.cs" />
