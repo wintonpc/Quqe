@@ -20,6 +20,112 @@ namespace Quqe
     static DateTime StartDate = DateTime.Parse("11/11/2001");
     static DateTime EndDate = DateTime.Parse("02/12/2003");
 
+    public static List<DataSeries<Bar>> GetCleanSeries()
+    {
+      var raw = Tickers.Select(t => Data.LoadVersace(t)).ToList();
+      var dia = raw.First(s => s.Symbol == "DIA");
+      var supp = raw.Where(s => s != dia).ToList();
+
+      // fill in missing data in supplemental instruments
+      var supp2 = supp.Select(s => {
+        var q = (from d in dia
+                 join x in s on d.Timestamp equals x.Timestamp into joined
+                 from j in joined.DefaultIfEmpty()
+                 select new { Timestamp = d.Timestamp, X = j }).ToList();
+        List<Bar> newElements = new List<Bar>();
+        for (int i = 0; i < q.Count; i++)
+        {
+          if (q[i].X != null)
+            newElements.Add(q[i].X);
+          else
+          {
+            var prev = newElements.Last();
+            newElements.Add(new Bar(q[i].Timestamp, prev.Open, prev.Low, prev.High, prev.Close, prev.Volume));
+          }
+        }
+        return new DataSeries<Bar>(s.Symbol, newElements);
+      }).ToList();
+
+      return supp2.Concat(List.Create(dia)).ToList();
+    }
+
+    static List<DataSeries<Value>> _NormalizedValueSeries;
+    public static List<DataSeries<Value>> NormalizedValueSeries
+    {
+      get
+      {
+        if (_NormalizedValueSeries == null)
+          LoadNormalizedValues();
+        return _NormalizedValueSeries;
+      }
+    }
+
+    private static void LoadNormalizedValues()
+    {
+      var clean = GetCleanSeries();
+      var vs = new List<DataSeries<Value>>();
+
+      Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker);
+
+      Action<string, Func<Bar, Value>> addSmaNorm = (ticker, getValue) =>
+        vs.Add(get(ticker).NormalizeSma10(getValue));
+
+      Action<string> addSmaNormOHLC = (ticker) => {
+        addSmaNorm(ticker, x => x.Open);
+        addSmaNorm(ticker, x => x.High);
+        addSmaNorm(ticker, x => x.Low);
+        addSmaNorm(ticker, x => x.Close);
+      };
+
+      // % ROC Close
+      vs.Add(get("DIA").MapElements<Value>((s, v) => {
+        if (s.Pos == 0)
+          return 0;
+        else
+          return (s[0].Close - s[1].Close) / s[1].Close * 100;
+      }));
+
+      // % Diff Open-Close
+      vs.Add(get("DIA").MapElements<Value>((s, v) => (s[0].Open - s[0].Close) / s[0].Open * 100));
+
+      // % Diff High-Low
+      vs.Add(get("DIA").MapElements<Value>((s, v) => (s[0].High - s[0].Low) / s[0].Low * 100));
+
+      addSmaNormOHLC("DIA");
+      addSmaNorm("DIA", x => x.Volume);
+
+      vs.Add(get("DIA").ChaikinVolatility(10));
+      vs.Add(get("DIA").Closes().MACD(10, 21));
+      vs.Add(get("DIA").Closes().Momentum(10));
+      vs.Add(get("DIA").VersaceRSI(10));
+
+      addSmaNormOHLC("^IXIC");
+      addSmaNormOHLC("^GSPC");
+      addSmaNormOHLC("^DJI");
+      addSmaNormOHLC("^DJT");
+      addSmaNormOHLC("^DJU");
+      addSmaNormOHLC("^DJA");
+      addSmaNormOHLC("^N225");
+      addSmaNormOHLC("^BVSP");
+      addSmaNormOHLC("^GDAX");
+      addSmaNormOHLC("^FTSE");
+      // MISSING: dollar/yen
+      // MISSING: dollar/swiss frank
+      addSmaNormOHLC("^TYX");
+      addSmaNormOHLC("^TNX");
+      addSmaNormOHLC("^FVX");
+      addSmaNormOHLC("^IRX");
+      // MISSING: eurobond
+
+      addSmaNormOHLC("^XAU");
+      addSmaNorm("^XAU", x => x.Volume);
+
+      // % Diff. between Normalized DJIA and Normalized T Bond
+      vs.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0]));
+
+      _NormalizedValueSeries = vs.Select(s => s.NormalizeUnit()).ToList();
+    }
+
     public static void GetData()
     {
       var dir = @"c:\users\wintonpc\git\Quqe\Share\VersaceData";
@@ -53,7 +159,7 @@ namespace Quqe
             var low = double.Parse(toks[3]);
             var close = double.Parse(toks[4]);
             var volume = long.Parse(toks[5]);
-            return string.Format("{0:yyyyMMdd},{1},{2},{3},{4},{5}",
+            return string.Format("{0:yyyyMMdd};{1};{2};{3};{4};{5}",
               timestamp, open, high, low, close, volume);
           });
           File.WriteAllLines(fn, fixedLines);

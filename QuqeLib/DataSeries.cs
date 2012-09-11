@@ -366,6 +366,11 @@ namespace Quqe
       return new DataSeries<Bar>(symbol, Data.LoadNinjaBars(@"c:\users\wintonpc\git\Quqe\Share\" + symbol + ".txt"));
     }
 
+    public static DataSeries<Bar> LoadVersace(string symbol)
+    {
+      return new DataSeries<Bar>(symbol, Data.LoadNinjaBars(@"c:\users\wintonpc\git\Quqe\Share\VersaceData\" + symbol + ".txt"));
+    }
+
     public static List<Bar> LoadNinjaBars(string fn)
     {
       return File.ReadAllLines(fn).Select(line => {

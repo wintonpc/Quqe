@@ -62,8 +62,15 @@ namespace Quqe
       return values.MapElements<Value>((s, v) => {
         if (s.Pos == 0)
           return 0;
-        return s[0] - s[Math.Min(s.Pos + 1, period)];
+        return s[0] - s[Math.Min(s.Pos, period)];
       });
+    }
+
+    public static DataSeries<Value> VersaceRSI(this DataSeries<Bar> bars, int period)
+    {
+      var upAvg = bars.MapElements<Value>((s, v) => s.Pos == 0 ? 0 : Math.Max(s[0].Close - s[1].Close, 0)).EMA(period);
+      var downAvg = bars.MapElements<Value>((s, v) => s.Pos == 0 ? 0 : Math.Max(s[1].Close - s[0].Close, 0)).EMA(period);
+      return upAvg.ZipElements<Value, Value>(downAvg, (u, d, _) => u.Pos == 0 ? 50 : 100 - (100 / (1 + u[0] / d[0])));
     }
 
     public static DataSeries<Bar> HeikenAshi(this DataSeries<Bar> bars)
@@ -133,6 +140,22 @@ namespace Quqe
           return ((Math.Min(s.Pos + 1, period) - 1) * v[1] + trueRange) / Math.Min(s.Pos + 1, period);
         }
       });
+    }
+
+    public static DataSeries<Value> ChaikinVolatility(this DataSeries<Bar> bars, int period)
+    {
+      return bars
+        .MapElements<Value>((s, v) => s[0].High - s[0].Low)
+        .EMA(period)
+        .MapElements<Value>((s, v) => {
+          var lookBack = Math.Min(s.Pos, period);
+          return (s[0] - s[lookBack]) / s[lookBack] * 100;
+        });
+    }
+
+    public static DataSeries<Value> MACD(this DataSeries<Value> values, int fastPeriod, int slowPeriod)
+    {
+      return values.EMA(fastPeriod).ZipElements<Value, Value>(values.EMA(slowPeriod), (fast, slow, _) => fast[0] - slow[0]);
     }
 
     public static DataSeries<Value> ReversalVolatility(this DataSeries<Bar> bars, int period)
@@ -794,6 +817,25 @@ namespace Quqe
     {
       return new DataSeries<Value>(bars.Symbol, bars.Elements.Cast<Bar>()
         .Select(x => new Value(x.Timestamp, x.Open)));
+    }
+
+    public static DataSeries<Value> NormalizeSma10(this DataSeries<Value> values)
+    {
+      var sma10 = values.SMA(10);
+      return values.ZipElements<Value, Value>(sma10, (v, ma, _) => (v[0] - ma[0]) / ma[0] * 100.0);
+    }
+
+    public static DataSeries<Value> NormalizeSma10(this DataSeries<Bar> values, Func<Bar, Value> getValue)
+    {
+      return values.MapElements<Value>((s, v) => getValue(s[0])).NormalizeSma10();
+    }
+
+    public static DataSeries<Value> NormalizeUnit(this DataSeries<Value> values)
+    {
+      var min = values.Select(x => x.Val).Min();
+      var max = values.Select(x => x.Val).Max();
+      var range = max - min;
+      return values.MapElements<Value>((s, v) => (s[0] - min) / range);
     }
 
     public static DataSeries<Value> Weighted(this DataSeries<Bar> bars, double wo, double wl, double wh, double wc)

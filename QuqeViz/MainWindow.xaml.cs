@@ -662,7 +662,7 @@ namespace QuqeViz
       var w = new EqPlotWindow();
       //Bounds = new Rect(0, 0, 1.4, 1.4);
       //Func<double, double, double> f = (x, y) => Math.Pow(x - 1, 4) + Math.Pow(y - 1, 4);
-      w.EqPlot.Bounds= new Rect(-5, -5, 10, 10);
+      w.EqPlot.Bounds = new Rect(-5, -5, 10, 10);
       Func<double, double, double> f = (x, y) =>
         20 + (Math.Pow(x, 2) - 10 * Math.Cos(2 * Math.PI * x) + Math.Pow(y, 2) - 10 * Math.Cos(2 * Math.PI * y));
       //var result = BCO.Optimize(new double[] { 0, 0 }, x => f(x[0], x[1]), 0.000026, 1530, 3650, 1);
@@ -682,7 +682,7 @@ namespace QuqeViz
       w.EqPlot.Bounds = new Rect(-20, 0, 40, 1.75);
       var originalIdeal = new List<Point>();
       for (double x = -20; x <= 20; x += 0.2)
-        originalIdeal.Add(new Point(x, 0.25 + Math.Sin(1.5*x) / (1.5*x))); // sinc function
+        originalIdeal.Add(new Point(x, 0.25 + Math.Sin(1.5 * x) / (1.5 * x))); // sinc function
       var noisy = originalIdeal.Select(p => new Point(p.X, p.Y + BCO.RandomGaussian(0, 0.02))).ToList();
       var noisyValues = noisy.Select(p => p.Y).ToList();
       var noisyValues2 = noisyValues.Skip(1).ToList();
@@ -699,7 +699,7 @@ namespace QuqeViz
         for (int i = numInputs; i < ideal.Count; i++)
         {
           var output = net.Propagate(new double[] { normalizedNoisyValues[i - 1], normalizedNoisyValues[i - 2], normalizedNoisyValues[i - 3] });
-          absoluteErrorSum += Math.Abs(output - (ideal[i].Y - ideal[i-1].Y) / ideal[i-1].Y);
+          absoluteErrorSum += Math.Abs(output - (ideal[i].Y - ideal[i - 1].Y) / ideal[i - 1].Y);
         }
         var error = absoluteErrorSum / (ideal.Count - numInputs);
         Trace.WriteLine("Error: " + error);
@@ -725,6 +725,40 @@ namespace QuqeViz
     private void GetVersaceDataButton_Click(object sender, RoutedEventArgs e)
     {
       Versace.GetData();
+    }
+
+    private void DIAButton_Click(object sender, RoutedEventArgs e)
+    {
+      var dia = Versace.GetCleanSeries().First(s => s.Symbol == "DIA");
+      var w = new ChartWindow();
+      var g1 = w.Chart.AddGraph();
+      g1.Plots.Add(new Plot {
+        Title = "DIA",
+        DataSeries = dia,
+        Type = PlotType.Candlestick
+      });
+      var g2 = w.Chart.AddGraph();
+      g2.Plots.Add(new Plot {
+        DataSeries = Versace.NormalizedValueSeries[0],
+        Type = PlotType.ValueLine,
+        Color = Brushes.Green
+      });
+      g2.Plots.Add(new Plot {
+        DataSeries = Versace.NormalizedValueSeries[1],
+        Type = PlotType.ValueLine,
+        Color = Brushes.Red
+      });
+      g2.Plots.Add(new Plot {
+        DataSeries = Versace.NormalizedValueSeries[2],
+        Type = PlotType.ValueLine,
+        Color = Brushes.Blue
+      });
+      g2.Plots.Add(new Plot {
+        DataSeries = Versace.NormalizedValueSeries[3],
+        Type = PlotType.ValueLine,
+        Color = Brushes.Purple
+      });
+      w.Show();
     }
   }
 }
