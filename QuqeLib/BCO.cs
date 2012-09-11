@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using MathNet.Numerics.LinearAlgebra.Double;
 using PCW;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -19,19 +20,31 @@ namespace Quqe
     static double BaseAngleMean = DegreesToRadians(62);
     static double BaseAngleStdDev = DegreesToRadians(26);
 
-    public static BCOResult Optimize(double[] initialLocation, Func<Vector, double> F, double epsilon)
+    public static BCOResult OptimizeWithParameterAdaptation(double[] initialLocation, Func<Vector, double> F,
+      int itersPerEpoch, int initialPrecision, int finalPrecision)
     {
-      double T0 = Math.Pow(epsilon, 0.30) * Math.Pow(10, -1.73);
-      double b = T0 * Math.Pow(T0, -1.54) * Math.Pow(10, -0.6); // paper says positive 0.6, might be a typo, compare to b in Fig 8
-      double tc = Math.Pow(b / T0, 0.31) * Math.Pow(10, 1.16);
-      return Optimize(initialLocation, F, T0, b, tc, 1);
+      var currentLocation = initialLocation;
+      BCOResult result = null;
+      for (int precision = initialPrecision; precision <= finalPrecision; precision++)
+      {
+        result = Optimize(currentLocation, F, itersPerEpoch, Math.Pow(10, -precision), 12, 10);
+        currentLocation = result.MinimumLocation;
+      }
+      return result;
     }
 
-    public static BCOResult Optimize(double[] initialLocation, Func<Vector, double> F,
-      double T0, double b, double tc, double v)
+    public static BCOResult Optimize(double[] initialLocation, Func<Vector, double> F, int maxIterations, double epsilon, int nc, int npc)
+    {
+      double T0 = Math.Pow(epsilon, 0.30) * Math.Pow(10, -1.73);
+      double b = T0 * Math.Pow(T0, -1.54) /* * Math.Pow(10, -0.6)*/; // paper says positive 0.6, might be a typo, compare to b in Fig 8
+      double tc = Math.Pow(b / T0, 0.31) * Math.Pow(10, 1.16);
+      return Optimize(initialLocation, F, maxIterations, T0, b, tc, 1, epsilon, nc, npc);
+    }
+
+    public static BCOResult Optimize(double[] initialLocation, Func<Vector, double> F, int maxIterations,
+      double T0, double b, double tc, double v, double epsilon, int nc, int npc)
     {
       var path = new List<Vector>();
-      var numIterations = 30000;
       Vector x = new DenseVector(initialLocation);
       double f = F(x);
       double fChange = 0;
@@ -40,15 +53,35 @@ namespace Quqe
       Vector bestx = x;
       double bestf = F(x);
       Vector phi = new DenseVector(x.Count - 1, 0);
+      Queue<double> slopeCache = new Queue<double>();
+      Queue<double> fChangeCache = new Queue<double>();
 
-      List.Repeat(numIterations, i => {
+      for (int i = 0; i < maxIterations; i++)
+      {
         // calculate trajectory duration
         double T;
         double lpr = xChange.Norm(2);
-        if (fChange / lpr >= 0)
+        double slope = fChange / lpr;
+        slopeCache.Enqueue(slope);
+        if (slopeCache.Count > nc)
+          slopeCache.Dequeue();
+        if (slope >= 0)
           T = T0;
         else
-          T = T0 * (1.0 + b * Math.Abs(fChange / lpr));
+        {
+          double bActual;
+
+          if (nc == 0)
+            bActual = b;
+          else
+          {
+            double bCorr = b * (1.0 / (1 + Math.Abs(slopeCache.Sum() / nc)));
+            if (i == 1) // not 0 because we don't have a non-zero fChange until i == 1
+              bCorr *= (1.0 / (1 + Math.Abs(fChange)));
+            bActual = bCorr;
+          }
+          T = T0 * (1.0 + bActual * Math.Abs(fChange / lpr));
+        }
         double t = RandomExponential(1.0 / T);
 
         // calculate new angle(s)
@@ -62,6 +95,9 @@ namespace Quqe
 
         xChange = (Vector)(newx - x);
         fChange = newf - f;
+        fChangeCache.Enqueue(fChange);
+        if (fChangeCache.Count > npc)
+          fChangeCache.Dequeue();
         tpr = t;
 
         x = newx;
@@ -73,7 +109,13 @@ namespace Quqe
           bestf = f;
           bestx = x;
         }
-      });
+
+        if (npc > 0 && fChangeCache.Count == npc && fChangeCache.All(c => Math.Abs(c) < epsilon))
+        {
+          Trace.WriteLine("Stopped at iteration " + i);
+          break;
+        }
+      }
 
       return new BCOResult {
         MinimumLocation = bestx.ToArray(),

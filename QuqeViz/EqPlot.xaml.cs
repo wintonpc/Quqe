@@ -41,8 +41,11 @@ namespace QuqeViz
         {
           var p = PixelToPoint(x, y);
           var z = f(p.X, p.Y);
-          //var v = (byte)((int)(z * 3) % 15 == 0 ? 0 : 255);
-          var v = (byte)Math.Min(z * 3, 255);
+          byte v;
+          if (drawMode == DrawMode.Contour)
+            v = (byte)((int)(z * 3) % 15 == 0 ? 0 : 255);
+          else
+            v = (byte)Math.Min(z * 3, 255);
           var c = Color.FromRgb(v, v, v);
           TheBitmap.SetPixel(x, y, c);
         }
@@ -51,9 +54,14 @@ namespace QuqeViz
 
     public void DrawLine(IEnumerable<Point> points, Color color)
     {
-      var ps = points.ToList();
+      var ps = points.Select(PointToPixel).ToList();
       for (int i = 1; i < ps.Count; i++)
         TheBitmap.B.DrawLine((int)ps[i - 1].X, (int)ps[i - 1].Y, (int)ps[i].X, (int)ps[i].Y, color);
+    }
+
+    public void Clear(Color color)
+    {
+      TheBitmap.B.Clear(color);
     }
 
     public Point PixelToPoint(int x, int y)
@@ -71,24 +79,9 @@ namespace QuqeViz
         Y = (1 - ((p.Y - Bounds.Y) / Bounds.Height)) * Height
       };
     }
-
-    private void TheImage_MouseDown(object sender, MouseButtonEventArgs e)
-    {
-      //Bounds = new Rect(0, 0, 1.4, 1.4);
-      //Func<double, double, double> f = (x, y) => Math.Pow(x - 1, 4) + Math.Pow(y - 1, 4);
-      Bounds = new Rect(-5, -5, 10, 10);
-      Func<double, double, double> f = (x, y) =>
-        20 + (Math.Pow(x, 2) - 10 * Math.Cos(2 * Math.PI * x) + Math.Pow(y, 2) - 10 * Math.Cos(2 * Math.PI * y));
-      //var result = BCO.Optimize(new double[] { 0, 0 }, x => f(x[0], x[1]), 0.000026, 1530, 3650, 1);
-      //var result = BCO.Optimize(new double[] { -5, -5 }, x => f(x[0], x[1]), 0.0005, 10, 790, 1);
-      //var result = BCO.Optimize(new double[] { 0, 0 }, x => f(x[0], x[1]), 0.000001);
-      var result = BCO.Optimize(new double[] { -5, -5 }, x => f(x[0], x[1]), 0.000001);
-      DrawSurface(f, DrawMode.Gradient);
-      DrawLine(result.Path.Select(x => PointToPixel(new Point(x[0], x[1]))), Colors.Red);
-    }
   }
 
-  public enum DrawMode { Gradient }
+  public enum DrawMode { Gradient, Contour }
 
   public class Bmp
   {

@@ -10,6 +10,8 @@ using System.IO;
 using System.Diagnostics;
 using System.Windows.Controls;
 using QuqeViz.Properties;
+using DotNumerics.ODE;
+using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace QuqeViz
 {
@@ -658,7 +660,71 @@ namespace QuqeViz
     private void FooButton_Click(object sender, RoutedEventArgs e)
     {
       var w = new EqPlotWindow();
+      //Bounds = new Rect(0, 0, 1.4, 1.4);
+      //Func<double, double, double> f = (x, y) => Math.Pow(x - 1, 4) + Math.Pow(y - 1, 4);
+      w.EqPlot.Bounds= new Rect(-5, -5, 10, 10);
+      Func<double, double, double> f = (x, y) =>
+        20 + (Math.Pow(x, 2) - 10 * Math.Cos(2 * Math.PI * x) + Math.Pow(y, 2) - 10 * Math.Cos(2 * Math.PI * y));
+      //var result = BCO.Optimize(new double[] { 0, 0 }, x => f(x[0], x[1]), 0.000026, 1530, 3650, 1);
+      //var result = BCO.Optimize(new double[] { -5, -5 }, x => f(x[0], x[1]), 0.0005, 10, 790, 1);
+      //var result = BCO.Optimize(new double[] { 0, 0 }, x => f(x[0], x[1]), 0.000001);
+      var result1 = BCO.Optimize(new double[] { -5, -5 }, x => f(x[0], x[1]), 30000, Math.Pow(10, -4), 12, 10);
+      var result2 = BCO.OptimizeWithParameterAdaptation(result1.MinimumLocation, x => f(x[0], x[1]), 3000, 7, 10);
+      var result3 = BCO.Optimize(result2.MinimumLocation, x => f(x[0], x[1]), 3000, Math.Pow(10, -11), 6, 10);
+      w.EqPlot.DrawSurface(f, DrawMode.Gradient);
+      w.EqPlot.DrawLine(result3.Path.Select(x => new Point(x[0], x[1])), Colors.Red);
       w.Show();
+    }
+
+    private void BarButton_Click(object sender, RoutedEventArgs e)
+    {
+      var w = new EqPlotWindow();
+      w.EqPlot.Bounds = new Rect(-20, 0, 40, 1.75);
+      var originalIdeal = new List<Point>();
+      for (double x = -20; x <= 20; x += 0.2)
+        originalIdeal.Add(new Point(x, 0.25 + Math.Sin(1.5*x) / (1.5*x))); // sinc function
+      var noisy = originalIdeal.Select(p => new Point(p.X, p.Y + BCO.RandomGaussian(0, 0.02))).ToList();
+      var noisyValues = noisy.Select(p => p.Y).ToList();
+      var noisyValues2 = noisyValues.Skip(1).ToList();
+      var normalizedNoisyValues = noisyValues.Take(noisyValues.Count - 1).Zip(noisyValues.Skip(1), (v1, v0) => (v0 - v1) / v0).ToList();
+      var ideal = originalIdeal.Skip(1).ToList();
+      Debug.Assert(ideal.Count == normalizedNoisyValues.Count);
+
+      int numInputs = 3;
+      Func<ElmanNet> makeNet = () => new ElmanNet(numInputs, List.Create(20), 1);
+      var net = makeNet();
+      var report = BCO.Optimize(new double[net.WeightVectorLength], weights => {
+        net.SetWeightVector(weights.ToArray());
+        double absoluteErrorSum = 0;
+        for (int i = numInputs; i < ideal.Count; i++)
+        {
+          var output = net.Propagate(new double[] { normalizedNoisyValues[i - 1], normalizedNoisyValues[i - 2], normalizedNoisyValues[i - 3] });
+          absoluteErrorSum += Math.Abs(output - (ideal[i].Y - ideal[i-1].Y) / ideal[i-1].Y);
+        }
+        var error = absoluteErrorSum / (ideal.Count - numInputs);
+        Trace.WriteLine("Error: " + error);
+        return error;
+      }, 30000, Math.Pow(10, -6), 12, 10);
+
+      net = makeNet();
+      net.SetWeightVector(report.MinimumLocation);
+      var prediction = new List<Point>();
+      for (int i = numInputs; i < ideal.Count; i++)
+      {
+        var output = net.Propagate(new double[] {
+          normalizedNoisyValues[i - 1], normalizedNoisyValues[i - 2], normalizedNoisyValues[i - 3] });
+        prediction.Add(new Point(ideal[i].X, noisyValues2[i - 1] * (1 + output)));
+      }
+
+      w.EqPlot.DrawLine(originalIdeal, Colors.Blue);
+      w.EqPlot.DrawLine(noisy, Colors.Red);
+      w.EqPlot.DrawLine(prediction, Colors.Green);
+      w.Show();
+    }
+
+    private void GetVersaceDataButton_Click(object sender, RoutedEventArgs e)
+    {
+      Versace.GetData();
     }
   }
 }
