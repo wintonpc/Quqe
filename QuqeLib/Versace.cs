@@ -7,6 +7,8 @@ using System.IO;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Web;
+using MathNet.Numerics.LinearAlgebra.Double;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -124,6 +126,38 @@ namespace Quqe
       vs.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0]));
 
       _NormalizedValueSeries = vs.Select(s => s.NormalizeUnit()).ToList();
+      var pcs = PrincipleComponents(_NormalizedValueSeries);
+    }
+
+    public static List<DataSeries<Value>> ComplementCode(List<DataSeries<Value>> series)
+    {
+      return series.Concat(series.Select(x => x.MapElements<Value>((s, v) => 1.0 - s[0]))).ToList();
+    }
+
+    public static List<Vector> PrincipleComponents(List<DataSeries<Value>> series)
+    {
+      var m = series.Count;
+      var n = series.First().Length;
+
+      var meanAdjusted = series.Select(x => {
+        var mean = x.Select(v => v.Val).Average();
+        return x.MapElements<Value>((s, _) => s[0] - mean);
+      }).ToList();
+
+      Matrix X = new DenseMatrix(m, n);
+      for (int i = 0; i < m; i++)
+        for (int j = 0; j < n; j++)
+          X[i, j] = meanAdjusted[i][j];
+
+      var svd = X.Transpose().Svd(true);
+      var V = svd.VT().Transpose();
+      return List.Repeat(V.ColumnCount, j => (Vector)V.Column(j));
+    }
+
+    public static Vector NthPrincipleComponent(List<Vector> pcs, int n, Vector x)
+    {
+      var pc = pcs[n];
+      return (Vector)(x.DotProduct(pc) * pc);
     }
 
     public static void GetData()

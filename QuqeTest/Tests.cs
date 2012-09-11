@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Quqe;
 using PCW;
 using System.Diagnostics;
+using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace QuqeTest
 {
@@ -432,6 +433,30 @@ namespace QuqeTest
     {
       var net = new ElmanNet(4, List.Create(3, 2), 1);
       var output = net.Propagate(new double[] { 0.1, 0.2, 0.3, 0.4 });
+    }
+
+    [TestMethod]
+    public void SvdTest()
+    {
+      var points = List.Create<Vector>(
+        new DenseVector(new double[] { 3.1, 2.9 }),
+        new DenseVector(new double[] { 1.0, 0.99 }),
+        new DenseVector(new double[] { 2.2, 2.1 }),
+        new DenseVector(new double[] { 3.8, 4.1 }),
+        new DenseVector(new double[] { 4.4, 4.5 }),
+        new DenseVector(new double[] { 6.1, 6.0 }));
+      var X = new DenseMatrix(points.Count, 2);
+      for (int i = 0; i < points.Count; i++)
+        X.SetRow(i, points[i]);
+      var svd = X.Svd(true);
+      var V = svd.VT().Transpose();
+      Trace.WriteLine(V);
+
+      var a = points[3];
+      var p1 = V.Column(0);
+      var b = a.DotProduct(p1) * p1;
+      var p2 = V.Column(1);
+      var c = a.DotProduct(p2) * p2;
     }
 
     [TestMethod]
