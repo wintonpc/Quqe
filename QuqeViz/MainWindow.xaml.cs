@@ -738,26 +738,6 @@ namespace QuqeViz
         Type = PlotType.Candlestick
       });
       var g2 = w.Chart.AddGraph();
-      g2.Plots.Add(new Plot {
-        DataSeries = Versace.NormalizedValueSeries[0],
-        Type = PlotType.ValueLine,
-        Color = Brushes.Green
-      });
-      g2.Plots.Add(new Plot {
-        DataSeries = Versace.NormalizedValueSeries[1],
-        Type = PlotType.ValueLine,
-        Color = Brushes.Red
-      });
-      g2.Plots.Add(new Plot {
-        DataSeries = Versace.NormalizedValueSeries[2],
-        Type = PlotType.ValueLine,
-        Color = Brushes.Blue
-      });
-      g2.Plots.Add(new Plot {
-        DataSeries = Versace.NormalizedValueSeries[3],
-        Type = PlotType.ValueLine,
-        Color = Brushes.Purple
-      });
       w.Show();
     }
   }

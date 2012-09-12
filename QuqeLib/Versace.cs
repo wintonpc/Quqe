@@ -9,11 +9,21 @@ using System.Text.RegularExpressions;
 using System.Web;
 using MathNet.Numerics.LinearAlgebra.Double;
 using System.Diagnostics;
+using YamlDotNet.RepresentationModel.Serialization;
+using System.Xml.Serialization;
+using System.Xml.Linq;
+using System.Xml;
 
 namespace Quqe
 {
   public static class Versace
   {
+    public const int EXPERTS_PER_MIXTURE = 10;
+    public const int POPULATION_SIZE = 10;
+    public const int SELECTION_SIZE = 4;
+    public const int EPOCH_COUNT = 100;
+    public const double MUTATION_RATE = 0.05;
+
     public static List<string> Tickers = List.Create(
       "DIA", "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP", "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/
       "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU"
@@ -21,6 +31,11 @@ namespace Quqe
 
     static DateTime StartDate = DateTime.Parse("11/11/2001");
     static DateTime EndDate = DateTime.Parse("02/12/2003");
+
+    static Versace()
+    {
+      LoadNormalizedValues();
+    }
 
     public static List<DataSeries<Bar>> GetCleanSeries()
     {
@@ -51,21 +66,19 @@ namespace Quqe
       return supp2.Concat(List.Create(dia)).ToList();
     }
 
-    static List<DataSeries<Value>> _NormalizedValueSeries;
-    public static List<DataSeries<Value>> NormalizedValueSeries
-    {
-      get
-      {
-        if (_NormalizedValueSeries == null)
-          LoadNormalizedValues();
-        return _NormalizedValueSeries;
-      }
-    }
+    public static Matrix TrainingAInput { get; private set; }
+    public static Matrix TrainingBInput { get; private set; }
+    public static Matrix ValidationAInput { get; private set; }
+    public static Matrix ValidationBInput { get; private set; }
+
+    public static Vector TrainingOutput { get; private set; }
+    public static Vector ValidationOutput { get; private set; }
 
     private static void LoadNormalizedValues()
     {
       var clean = GetCleanSeries();
       var vs = new List<DataSeries<Value>>();
+      var bOnly = new List<DataSeries<Value>>();
 
       Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker);
 
@@ -80,7 +93,7 @@ namespace Quqe
       };
 
       // % ROC Close
-      vs.Add(get("DIA").MapElements<Value>((s, v) => {
+      bOnly.Add(get("DIA").MapElements<Value>((s, v) => {
         if (s.Pos == 0)
           return 0;
         else
@@ -88,18 +101,18 @@ namespace Quqe
       }));
 
       // % Diff Open-Close
-      vs.Add(get("DIA").MapElements<Value>((s, v) => (s[0].Open - s[0].Close) / s[0].Open * 100));
+      bOnly.Add(get("DIA").MapElements<Value>((s, v) => (s[0].Open - s[0].Close) / s[0].Open * 100));
 
       // % Diff High-Low
-      vs.Add(get("DIA").MapElements<Value>((s, v) => (s[0].High - s[0].Low) / s[0].Low * 100));
+      bOnly.Add(get("DIA").MapElements<Value>((s, v) => (s[0].High - s[0].Low) / s[0].Low * 100));
 
       addSmaNormOHLC("DIA");
       addSmaNorm("DIA", x => x.Volume);
 
-      vs.Add(get("DIA").ChaikinVolatility(10));
-      vs.Add(get("DIA").Closes().MACD(10, 21));
-      vs.Add(get("DIA").Closes().Momentum(10));
-      vs.Add(get("DIA").VersaceRSI(10));
+      bOnly.Add(get("DIA").ChaikinVolatility(10));
+      bOnly.Add(get("DIA").Closes().MACD(10, 21));
+      bOnly.Add(get("DIA").Closes().Momentum(10));
+      bOnly.Add(get("DIA").VersaceRSI(10));
 
       addSmaNormOHLC("^IXIC");
       addSmaNormOHLC("^GSPC");
@@ -123,10 +136,59 @@ namespace Quqe
       addSmaNorm("^XAU", x => x.Volume);
 
       // % Diff. between Normalized DJIA and Normalized T Bond
-      vs.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0]));
+      bOnly.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0]));
 
-      _NormalizedValueSeries = vs.Select(s => s.NormalizeUnit()).ToList();
-      var pcs = PrincipleComponents(_NormalizedValueSeries);
+      Func<DataSeries<Value>, DataSeries<Value>> removeLastBar = s => new DataSeries<Value>(s.Symbol, s.Take(s.Length - 1));
+
+      var aData = SeriesToMatrix(vs.Select(s => s.NormalizeUnit()).ToList());
+      var bData = SeriesToMatrix(vs.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList());
+      var output = SeriesToMatrix(List.Create(get("DIA").MapElements<Value>((s, _) => s[0].IsGreen ? 1 : -1)));
+
+      var aData2 = MatrixFromColumns(aData.Columns().Take(aData.ColumnCount - 1).ToList());
+      var bData2 = MatrixFromColumns(bData.Columns().Take(bData.ColumnCount - 1).ToList());
+      var output2 = MatrixFromColumns(output.Columns().Skip(1).ToList());
+
+      int validationSize = 67;
+      int trainingSize = aData2.ColumnCount - validationSize;
+      TrainingAInput = MatrixFromColumns(aData2.Columns().Take(trainingSize).ToList());
+      TrainingBInput = MatrixFromColumns(bData2.Columns().Take(trainingSize).ToList());
+      ValidationAInput = MatrixFromColumns(aData2.Columns().Skip(trainingSize).ToList());
+      ValidationBInput = MatrixFromColumns(bData2.Columns().Skip(trainingSize).ToList());
+      
+      TrainingOutput = new DenseVector(output2.Row(0).Take(trainingSize).ToArray());
+      ValidationOutput = new DenseVector(output2.Row(0).Skip(trainingSize).ToArray());
+    }
+
+    public static Matrix MatrixFromColumns(List<Vector> columns)
+    {
+      var m = columns.First().Count;
+      var n = columns.Count;
+      
+      Matrix X = new DenseMatrix(m, n);
+
+      for (int i = 0; i < m; i++)
+        for (int j = 0; j < n; j++)
+          X[i, j] = columns[j][i];
+
+      return X;
+    }
+
+    public static List<Vector> Columns(this Matrix m)
+    {
+      return m.ColumnEnumerator().Select(x => (Vector)x.Item2).ToList();
+    }
+
+    public static Matrix SeriesToMatrix(List<DataSeries<Value>> series)
+    {
+      var m = series.Count;
+      var n = series.First().Length;
+
+      Matrix X = new DenseMatrix(m, n);
+      for (int i = 0; i < m; i++)
+        for (int j = 0; j < n; j++)
+          X[i, j] = series[i][j];
+
+      return X;
     }
 
     public static List<DataSeries<Value>> ComplementCode(List<DataSeries<Value>> series)
@@ -158,6 +220,24 @@ namespace Quqe
     {
       var pc = pcs[n];
       return (Vector)(x.DotProduct(pc) * pc);
+    }
+
+    static Random Random = new Random();
+    public static VMixture Evolve()
+    {
+      var pop = List.Repeat(POPULATION_SIZE, n => new VMixture());
+      for (int epoch = 0; epoch < EPOCH_COUNT; epoch++)
+      {
+        var selected = pop.OrderByDescending(m => m.Fitness()).Take(SELECTION_SIZE).ToList();
+        pop = new List<VMixture>();
+        for (int i = 0; i < POPULATION_SIZE / 2; i++)
+        {
+          var p1 = pop[Random.Next(SELECTION_SIZE)];
+          var p2 = pop.Except(List.Create(p1)).ElementAt(Random.Next(SELECTION_SIZE - 1));
+          pop.AddRange(p1.CrossoverAndMutate(p2));
+        }
+      }
+      return pop.OrderByDescending(m => m.Fitness()).First();
     }
 
     public static void GetData()
@@ -233,23 +313,178 @@ namespace Quqe
     }
   }
 
-  //public class CookieClient
-  //{
-  //  CookieContainer Cookies = new CookieContainer();
-  //  string LastAddress;
+  public abstract class VGene
+  {
+    public readonly string Name;
+    public VGene(string name) { Name = name; }
+    public abstract VGene Mutate();
+    public abstract XElement ToXml();
+    public abstract void SetXmlValue(string value);
+  }
 
-  //  public string Get(string address)
-  //  {
-  //    var request = (HttpWebRequest)HttpWebRequest.Create(address);
-  //    request.CookieContainer = Cookies;
-  //    request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
-  //    request.Referer = LastAddress;
-  //    request.UserAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1180.89 Safari/537.1";
-  //    LastAddress = address;
+  public class VGene<TValue> : VGene
+    where TValue : struct
+  {
+    public readonly double Min;
+    public readonly double Max;
+    public readonly double Granularity;
+    public TValue Value { get; private set; }
 
-  //    var response = request.GetResponse();
-  //    using (var sr = new StreamReader(response.GetResponseStream()))
-  //      return sr.ReadToEnd();
-  //  }
-  //}
+    public VGene(string name, double min, double max, double granularity, TValue? initialValue = null)
+      :base(name)
+    {
+      Min = min;
+      Max = max;
+      Granularity = granularity;
+      Value = initialValue ?? RandomValue();
+    }
+
+    TValue RandomValue()
+    {
+      return (TValue)Convert.ChangeType(
+          Optimizer.Quantize(Optimizer.RandomDouble(Min, Max), Min, Granularity),
+          typeof(TValue));
+    }
+
+    Random Random = new Random();
+    public override VGene Mutate()
+    {
+      return new VGene<TValue>(Name, Min, Max, Granularity, RandomValue());
+    }
+
+    public override XElement ToXml()
+    {
+      return new XElement("Gene", new XAttribute("Name", Name), new XAttribute("Value", Value));
+    }
+
+    public override void SetXmlValue(string value)
+    {
+      Value = (TValue)Convert.ChangeType(value, typeof(TValue));
+    }
+  }
+
+  public class VChrom
+  {
+    public List<VGene> Genes;
+
+    public VChrom()
+    {
+      Genes = new List<VGene> {
+        new VGene<int>("NetworkType", 0, 1, 1),
+        new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
+        new VGene<double>("ElmanLearningRate", 0.1, 0.3, 0.001),
+        new VGene<int>("DatabaseType", 0, 1, 1),
+        new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
+        new VGene<double>("TrainingSizePct", 0, 1, 0.00001),
+        new VGene<int>("UseComplementCoding", 0, 1, 1),
+        new VGene<int>("UsePrincipalComponentAnalysis", 0, 1, 1),
+        new VGene<int>("PrincipalComponent", 0, 100, 1),
+        new VGene<double>("RbfNetMinAccuracy", 0, 10, 0.1),
+        new VGene<double>("RbfGaussianSpread", 0.1, 10, 0.01),
+        new VGene<int>("ElmanHidden1NodeCount", 3, 200, 1),
+        new VGene<int>("ElmanHidden2NodeCount", 3, 200, 1)
+      };
+    }
+
+    VChrom(List<VGene> genes)
+    {
+      Genes = genes;
+    }
+
+    Random Random = new Random();
+    public List<VChrom> CrossoverAndMutate(VChrom other)
+    {
+      var a = Genes.ToList();
+      var b = other.Genes.ToList();
+      for (int i=0; i<a.Count; i++)
+        if (Random.Next(2) == 0)
+        {
+          var t = a[i];
+          a[i] = b[i];
+          b[i] = t;
+        }
+
+      Func<List<VGene>, List<VGene>> mutate = genes => genes.Select(g => Random.NextDouble() < Versace.MUTATION_RATE ? g.Mutate() : g).ToList();
+
+      return List.Create(new VChrom(mutate(a)), new VChrom(mutate(b)));
+    }
+
+    TValue GetGeneValue<TValue>(string name) where TValue: struct
+    {
+      return ((VGene<TValue>)Genes.First(g => g.Name == name)).Value;
+    }
+
+    public NetworkType NetworkType { get { return GetGeneValue<int>("NetworkType") == 0 ? NetworkType.Elman : NetworkType.RBF; } }
+    public int ElmanTrainingEpochs { get { return GetGeneValue<int>("ElmanTrainingEpochs"); } }
+    public double ElmanLearningRate { get { return GetGeneValue<double>("ElmanLearningRate"); } }
+    public DatabaseType DatabaseType { get { return GetGeneValue<int>("DatabaseType") == 0 ? DatabaseType.A : DatabaseType.B; } }
+    public double TrainingOffsetPct { get { return GetGeneValue<double>("TrainingOffsetPct"); } }
+    public double TrainingSizePct { get { return GetGeneValue<double>("TrainingSizePct"); } }
+    public bool UseComplementCoding { get { return GetGeneValue<int>("UseComplementCoding") == 1; } }
+    public bool UsePrincipalComponentAnalysis { get { return GetGeneValue<int>("UsePrincipalComponentAnalysis") == 1; } }
+    public int PrincipalComponent { get { return GetGeneValue<int>("PrincipalComponent"); } }
+    public double RbfNetMinAccuracy { get { return GetGeneValue<double>("RbfNetMinAccuracy"); } }
+    public double RbfGaussianSpread { get { return GetGeneValue<double>("RbfGaussianSpread"); } }
+    public int ElmanHidden1NodeCount { get { return GetGeneValue<int>("ElmanHidden1NodeCount"); } }
+    public int ElmanHidden2NodeCount { get { return GetGeneValue<int>("ElmanHidden2NodeCount"); } }
+
+    public XElement ToXml()
+    {
+      return new XElement("Chromosome", Genes.Select(x => x.ToXml()).ToArray());
+    }
+
+    public static VChrom FromXml(XElement e)
+    {
+      var c = new VChrom();
+      foreach (var ge in e.Elements("Gene"))
+        c.Genes.First(x => x.Name == ge.Attribute("Name").Value).SetXmlValue(ge.Attribute("Value").Value);
+      return c;
+    }
+  }
+
+  public enum NetworkType { Elman, RBF }
+  public enum DatabaseType { A, B }
+
+  public class VMixture
+  {
+    List<VChrom> Chromosomes;
+
+    public VMixture()
+    {
+      Chromosomes = List.Repeat(Versace.EXPERTS_PER_MIXTURE, n => new VChrom());
+    }
+
+    VMixture(List<VChrom> chromosomes)
+    {
+      Chromosomes = chromosomes;
+    }
+
+    public List<VMixture> CrossoverAndMutate(VMixture other)
+    {
+      var q = Chromosomes.Zip(other.Chromosomes, (a, b) => a.CrossoverAndMutate(b));
+      return List.Create(
+        new VMixture(q.Select(x => x[0]).ToList()),
+        new VMixture(q.Select(x => x[1]).ToList()));
+    }
+
+    internal double Fitness()
+    {
+      throw new NotImplementedException();
+    }
+
+    public XElement ToXml()
+    {
+      return new XElement("Chromosomes", Chromosomes.Select(x => x.ToXml()).ToArray());
+    }
+
+    public static VMixture FromXml(string fn)
+    {
+      return new VMixture(XDocument.Load(fn).Element("Chromosomes").Elements("Chromosome").Select(x => VChrom.FromXml(x)).ToList());
+    }
+  }
+
+  public interface IExpert
+  {
+    bool Predict(double[] input);
+  }
 }

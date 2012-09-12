@@ -518,7 +518,7 @@ namespace Quqe
     static double GeneMax { get { return GeneMagnitude; } }
     const double GeneMagnitude = 1;
 
-    static double RandomDouble(double min, double max)
+    public static double RandomDouble(double min, double max)
     {
       return Random.NextDouble() * (max - min) + min;
     }
