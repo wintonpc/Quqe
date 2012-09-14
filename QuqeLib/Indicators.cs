@@ -819,6 +819,11 @@ namespace Quqe
         .Select(x => new Value(x.Timestamp, x.Open)));
     }
 
+    public static DataSeries<Value> ToDataSeries(this IEnumerable<double> values, DataSeries timeSource)
+    {
+      return new DataSeries<Value>("", timeSource.Elements.Select(x => x.Timestamp).Zip(values, (t, v) => new Value(t, v)));
+    }
+
     public static DataSeries<Value> NormalizeSma10(this DataSeries<Value> values)
     {
       var sma10 = values.SMA(10);

@@ -7,6 +7,8 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using MathNet.Numerics.LinearAlgebra.Double;
+using MathNet.Numerics.Distributions;
 
 namespace Quqe
 {
@@ -325,14 +327,21 @@ namespace Quqe
       return (double)numCorrect / set.Count;
     }
 
-    static Genome MutateGenome(Genome genome, double temperature)
+    static Genome TransitionGenome(Genome genome, double temperature)
     {
       return new Genome {
         Genes = genome.Genes.Select(g => Clip(GeneMin, GeneMax, g + RandomDouble(-temperature, temperature))).ToList()
       };
     }
 
-    static List<StrategyParameter> MutateSParams(IEnumerable<StrategyParameter> sParams, IEnumerable<OptimizerParameter> oParams, double temperature)
+    static Vector TransitionVector(Vector v, double temperature, double maxWeightMagnitude)
+    {
+      var d = (Vector)(RandomVector(v.Count, -1, 1).Normalize(2) * temperature * maxWeightMagnitude);
+      var next = v + d;
+      return new DenseVector(next.Select(x => Clip(-maxWeightMagnitude, maxWeightMagnitude, x)).ToArray());
+    }
+
+    static List<StrategyParameter> TransitionSParams(IEnumerable<StrategyParameter> sParams, IEnumerable<OptimizerParameter> oParams, double temperature)
     {
       return sParams.Select(p => {
         var op = oParams.First(x => x.Name == p.Name);
@@ -394,20 +403,32 @@ namespace Quqe
 
     public static AnnealResult<Genome> Anneal(Genome seed, Func<Genome, double> costFunc)
     {
-      return Anneal(seed, MutateGenome, costFunc, 25000);
+      return Anneal(seed, TransitionGenome, costFunc, 25000);
     }
 
     public static AnnealResult<IEnumerable<StrategyParameter>> Anneal(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000, bool partialCool = false)
     {
-      return Anneal(MakeSParamsSeed(oParams).ToList(), (sp, temp) => MutateSParams(sp, oParams, temp), costFunc, iterations: iterations, partialCool: partialCool);
+      return Anneal(MakeSParamsSeed(oParams).ToList(), (sp, temp) => TransitionSParams(sp, oParams, temp), costFunc, iterations: iterations, partialCool: partialCool);
     }
 
     public static AnnealResult<IEnumerable<StrategyParameter>> AnnealParallel(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000)
     {
-      return AnnealParallel(() => MakeSParamsSeed(oParams).ToList(), (sp, temp) => MutateSParams(sp, oParams, temp), costFunc, iterations);
+      return AnnealParallel(() => MakeSParamsSeed(oParams).ToList(), (sp, temp) => TransitionSParams(sp, oParams, temp), costFunc, iterations);
     }
 
-    static AnnealResult<TParams> Anneal<TParams>(TParams initialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc, int iterations = 25000,
+    public static AnnealResult<Vector> Anneal(int vectorSize, double maxWeightMagnitude, Func<Vector, double> costFunc)
+    {
+      return Anneal(RandomVector(vectorSize, -maxWeightMagnitude, maxWeightMagnitude),
+        (v, temp) => TransitionVector(v, temp, maxWeightMagnitude), costFunc);
+    }
+
+    public static Vector RandomVector(int size, double min, double max)
+    {
+      return (Vector)new DenseVector(size).Random(size, new ContinuousUniform(min, max));
+    }
+
+    static AnnealResult<TParams> Anneal<TParams>(TParams initialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc,
+      int iterations = 40000,
       int? firstIteration = null, int? lastIteration = null, bool partialCool = false)
     {
       firstIteration = firstIteration ?? 0;
@@ -415,11 +436,11 @@ namespace Quqe
 
       Func<double, double> schedule = t => Math.Sqrt(Math.Exp((partialCool ? -4 :-11) * t));
       var escapeCostPremiumSma = MakeSMA(25);
-      var costSma = MakeSMA(2000);
-      var costStdDev = MakeStdDev(2000);
+      var acceptSma = MakeSMA(50);
+      var rejectSma = MakeSMA(50);
+      double avgAccept = 1;
+      double avgReject = 1;
 
-      var acceptCount = 0;
-      var rejectCount = 0;
       double takeAnywayProbability = 0;
       TParams currentParams = initialParams;
       var currentCost = costFunc(currentParams);
@@ -436,8 +457,8 @@ namespace Quqe
         if (i % divisor == 0)
         {
           if (ShowTrace)
-            Trace.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  P = {5:N4}",
-              i + divisor, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability));
+            Trace.WriteLine(string.Format("{0} / {1}  Cost = {2:N8}  ECP = {3}  T = {4:N4}  TAP = {5:N4}  A/R = {6:N4}",
+              i + divisor, iterations, currentCost, averageEscapeCostPremium, temperature, takeAnywayProbability, avgAccept / avgReject));
         }
 
         Action takeNext = () => {
@@ -448,7 +469,8 @@ namespace Quqe
             bestParams = currentParams;
             bestCost = currentCost;
           }
-          acceptCount++;
+          avgAccept = acceptSma(1);
+          avgReject = rejectSma(0);
         };
 
         if (nextCost < currentCost)
@@ -462,7 +484,10 @@ namespace Quqe
           if (takeItAnyway)
             takeNext();
           else
-            rejectCount++;
+          {
+            avgAccept = acceptSma(0);
+            avgReject = rejectSma(1);
+          }
         }
       }
 

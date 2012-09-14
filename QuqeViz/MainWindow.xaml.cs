@@ -12,6 +12,7 @@ using System.Windows.Controls;
 using QuqeViz.Properties;
 using DotNumerics.ODE;
 using MathNet.Numerics.LinearAlgebra.Double;
+using Vector = MathNet.Numerics.LinearAlgebra.Double.Vector;
 
 namespace QuqeViz
 {
@@ -676,49 +677,97 @@ namespace QuqeViz
       w.Show();
     }
 
+    //private void BarButton_Click(object sender, RoutedEventArgs e)
+    //{
+    //  var w = new EqPlotWindow();
+    //  w.EqPlot.Bounds = new Rect(-20, 0, 40, 1.75);
+    //  var originalIdeal = new List<Point>();
+    //  for (double x = -20; x <= 20; x += 0.2)
+    //    originalIdeal.Add(new Point(x, 0.25 + Math.Sin(1.5 * x) / (1.5 * x))); // sinc function
+    //  var noisy = originalIdeal.Select(p => new Point(p.X, p.Y + BCO.RandomGaussian(0, 0.02))).ToList();
+    //  var noisyValues = noisy.Select(p => p.Y).ToList();
+    //  var noisyValues2 = noisyValues.Skip(1).ToList();
+    //  var normalizedNoisyValues = noisyValues.Take(noisyValues.Count - 1).Zip(noisyValues.Skip(1), (v1, v0) => (v0 - v1) / v0).ToList();
+    //  var ideal = originalIdeal.Skip(1).ToList();
+    //  Debug.Assert(ideal.Count == normalizedNoisyValues.Count);
+
+    //  int numInputs = 3;
+    //  Func<ElmanNet> makeNet = () => new ElmanNet(numInputs, List.Create(20), 1);
+    //  var net = makeNet();
+    //  var report = BCO.Optimize(new double[net.WeightVectorLength], weights => {
+    //    net.SetWeightVector(weights.ToArray());
+    //    double absoluteErrorSum = 0;
+    //    for (int i = numInputs; i < ideal.Count; i++)
+    //    {
+    //      var output = net.Propagate(new double[] { normalizedNoisyValues[i - 1], normalizedNoisyValues[i - 2], normalizedNoisyValues[i - 3] });
+    //      absoluteErrorSum += Math.Abs(output - (ideal[i].Y - ideal[i - 1].Y) / ideal[i - 1].Y);
+    //    }
+    //    var error = absoluteErrorSum / (ideal.Count - numInputs);
+    //    Trace.WriteLine("Error: " + error);
+    //    return error;
+    //  }, 30000, Math.Pow(10, -6), 12, 10);
+
+    //  net = makeNet();
+    //  net.SetWeightVector(report.MinimumLocation);
+    //  var prediction = new List<Point>();
+    //  for (int i = numInputs; i < ideal.Count; i++)
+    //  {
+    //    var output = net.Propagate(new double[] {
+    //      normalizedNoisyValues[i - 1], normalizedNoisyValues[i - 2], normalizedNoisyValues[i - 3] });
+    //    prediction.Add(new Point(ideal[i].X, noisyValues2[i - 1] * (1 + output)));
+    //  }
+
+    //  w.EqPlot.DrawLine(originalIdeal, Colors.Blue);
+    //  w.EqPlot.DrawLine(noisy, Colors.Red);
+    //  w.EqPlot.DrawLine(prediction, Colors.Green);
+    //  w.Show();
+    //}
+
     private void BarButton_Click(object sender, RoutedEventArgs e)
     {
-      var w = new EqPlotWindow();
-      w.EqPlot.Bounds = new Rect(-20, 0, 40, 1.75);
-      var originalIdeal = new List<Point>();
-      for (double x = -20; x <= 20; x += 0.2)
-        originalIdeal.Add(new Point(x, 0.25 + Math.Sin(1.5 * x) / (1.5 * x))); // sinc function
-      var noisy = originalIdeal.Select(p => new Point(p.X, p.Y + BCO.RandomGaussian(0, 0.02))).ToList();
-      var noisyValues = noisy.Select(p => p.Y).ToList();
-      var noisyValues2 = noisyValues.Skip(1).ToList();
-      var normalizedNoisyValues = noisyValues.Take(noisyValues.Count - 1).Zip(noisyValues.Skip(1), (v1, v0) => (v0 - v1) / v0).ToList();
-      var ideal = originalIdeal.Skip(1).ToList();
-      Debug.Assert(ideal.Count == normalizedNoisyValues.Count);
+      var inputSetSize = 20;
+      var trainingInput = Versace.MatrixFromColumns(Versace.TrainingInput.Columns().Take(inputSetSize).ToList());
+      var trainingOutput = (Vector)Versace.TrainingOutput.SubVector(0, inputSetSize);
+      var net = new ElmanNet(trainingInput.RowCount, List.Create(20, 10), 1);
+      ElmanNet.Train(net, trainingInput, trainingOutput);
 
-      int numInputs = 3;
-      Func<ElmanNet> makeNet = () => new ElmanNet(numInputs, List.Create(20), 1);
-      var net = makeNet();
-      var report = BCO.Optimize(new double[net.WeightVectorLength], weights => {
-        net.SetWeightVector(weights.ToArray());
-        double absoluteErrorSum = 0;
-        for (int i = numInputs; i < ideal.Count; i++)
-        {
-          var output = net.Propagate(new double[] { normalizedNoisyValues[i - 1], normalizedNoisyValues[i - 2], normalizedNoisyValues[i - 3] });
-          absoluteErrorSum += Math.Abs(output - (ideal[i].Y - ideal[i - 1].Y) / ideal[i - 1].Y);
-        }
-        var error = absoluteErrorSum / (ideal.Count - numInputs);
-        Trace.WriteLine("Error: " + error);
-        return error;
-      }, 30000, Math.Pow(10, -6), 12, 10);
+      net.Reset();
+      var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x.ToArray()))).ToList();
 
-      net = makeNet();
-      net.SetWeightVector(report.MinimumLocation);
-      var prediction = new List<Point>();
-      for (int i = numInputs; i < ideal.Count; i++)
-      {
-        var output = net.Propagate(new double[] {
-          normalizedNoisyValues[i - 1], normalizedNoisyValues[i - 2], normalizedNoisyValues[i - 3] });
-        prediction.Add(new Point(ideal[i].X, noisyValues2[i - 1] * (1 + output)));
-      }
+      var inputSeries = new DataSeries<Bar>(Versace.DIA.Symbol, Versace.DIA.Take(inputSetSize));
+      var idealSignal = new DataSeries<Value>("", trainingOutput.ToDataSeries(inputSeries));
+      var actualSignal = new DataSeries<Value>("", output.ToDataSeries(inputSeries));
+      var diff = idealSignal.ZipElements<Value, Value>(actualSignal, (i, a, _) => i[0].Val == a[0].Val ? 1 : -1);
+      Trace.WriteLine(string.Format("Accuracy: {0:N1}%", (double)diff.Count(x => x.Val == 1) / diff.Length * 100));
 
-      w.EqPlot.DrawLine(originalIdeal, Colors.Blue);
-      w.EqPlot.DrawLine(noisy, Colors.Red);
-      w.EqPlot.DrawLine(prediction, Colors.Green);
+      var w = new ChartWindow();
+      var g1 = w.Chart.AddGraph();
+      g1.Plots.Add(new Plot {
+        Title = "DIA",
+        DataSeries = inputSeries,
+        Type = PlotType.Candlestick
+      });
+      var g2 = w.Chart.AddGraph();
+      g2.Plots.Add(new Plot {
+        Title = "IdealSignal",
+        DataSeries = idealSignal,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+      var g3 = w.Chart.AddGraph();
+      g3.Plots.Add(new Plot {
+        Title = "ActualSignal",
+        DataSeries = actualSignal,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+      var g4 = w.Chart.AddGraph();
+      g4.Plots.Add(new Plot {
+        Title = "Diff",
+        DataSeries = diff,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
       w.Show();
     }
 

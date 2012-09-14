@@ -66,24 +66,23 @@ namespace Quqe
       return supp2.Concat(List.Create(dia)).ToList();
     }
 
-    public static Matrix TrainingAInput { get; private set; }
-    public static Matrix TrainingBInput { get; private set; }
-    public static Matrix ValidationAInput { get; private set; }
-    public static Matrix ValidationBInput { get; private set; }
-
+    public static Matrix TrainingInput { get; private set; }
+    public static Matrix ValidationInput { get; private set; }
     public static Vector TrainingOutput { get; private set; }
     public static Vector ValidationOutput { get; private set; }
+    public static int DatabaseADimension { get; private set; }
+    public static DataSeries<Bar> DIA { get; private set; }
 
     private static void LoadNormalizedValues()
     {
       var clean = GetCleanSeries();
-      var vs = new List<DataSeries<Value>>();
+      var aOnly = new List<DataSeries<Value>>();
       var bOnly = new List<DataSeries<Value>>();
 
       Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker);
 
       Action<string, Func<Bar, Value>> addSmaNorm = (ticker, getValue) =>
-        vs.Add(get(ticker).NormalizeSma10(getValue));
+        aOnly.Add(get(ticker).NormalizeSma10(getValue));
 
       Action<string> addSmaNormOHLC = (ticker) => {
         addSmaNorm(ticker, x => x.Open);
@@ -91,6 +90,8 @@ namespace Quqe
         addSmaNorm(ticker, x => x.Low);
         addSmaNorm(ticker, x => x.Close);
       };
+
+      DIA = get("DIA");
 
       // % ROC Close
       bOnly.Add(get("DIA").MapElements<Value>((s, v) => {
@@ -140,23 +141,19 @@ namespace Quqe
 
       Func<DataSeries<Value>, DataSeries<Value>> removeLastBar = s => new DataSeries<Value>(s.Symbol, s.Take(s.Length - 1));
 
-      var aData = SeriesToMatrix(vs.Select(s => s.NormalizeUnit()).ToList());
-      var bData = SeriesToMatrix(vs.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList());
-      var output = SeriesToMatrix(List.Create(get("DIA").MapElements<Value>((s, _) => s[0].IsGreen ? 1 : -1)));
+      var unalignedData = SeriesToMatrix(aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList());
+      var unalignedOutput = SeriesToMatrix(List.Create(get("DIA").MapElements<Value>((s, _) => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close))));
 
-      var aData2 = MatrixFromColumns(aData.Columns().Take(aData.ColumnCount - 1).ToList());
-      var bData2 = MatrixFromColumns(bData.Columns().Take(bData.ColumnCount - 1).ToList());
-      var output2 = MatrixFromColumns(output.Columns().Skip(1).ToList());
+      var data = MatrixFromColumns(unalignedData.Columns().Take(unalignedData.ColumnCount - 1).ToList());
+      var output = MatrixFromColumns(unalignedOutput.Columns().Skip(1).ToList());
 
       int validationSize = 67;
-      int trainingSize = aData2.ColumnCount - validationSize;
-      TrainingAInput = MatrixFromColumns(aData2.Columns().Take(trainingSize).ToList());
-      TrainingBInput = MatrixFromColumns(bData2.Columns().Take(trainingSize).ToList());
-      ValidationAInput = MatrixFromColumns(aData2.Columns().Skip(trainingSize).ToList());
-      ValidationBInput = MatrixFromColumns(bData2.Columns().Skip(trainingSize).ToList());
-      
-      TrainingOutput = new DenseVector(output2.Row(0).Take(trainingSize).ToArray());
-      ValidationOutput = new DenseVector(output2.Row(0).Skip(trainingSize).ToArray());
+      int trainingSize = output.ColumnCount - validationSize;
+      TrainingInput = MatrixFromColumns(data.Columns().Take(trainingSize).ToList());
+      ValidationInput = MatrixFromColumns(data.Columns().Skip(trainingSize).ToList());
+      TrainingOutput = new DenseVector(output.Row(0).Take(trainingSize).ToArray());
+      ValidationOutput = new DenseVector(output.Row(0).Skip(trainingSize).ToArray());
+      DatabaseADimension = aOnly.Count;
     }
 
     public static Matrix MatrixFromColumns(List<Vector> columns)
@@ -175,7 +172,12 @@ namespace Quqe
 
     public static List<Vector> Columns(this Matrix m)
     {
-      return m.ColumnEnumerator().Select(x => (Vector)x.Item2).ToList();
+      return List.Repeat(m.ColumnCount, j => (Vector)m.Column(j));
+    }
+
+    public static List<Vector> Rows(this Matrix m)
+    {
+      return List.Repeat(m.RowCount, j => (Vector)m.Row(j));
     }
 
     public static Matrix SeriesToMatrix(List<DataSeries<Value>> series)
@@ -191,34 +193,25 @@ namespace Quqe
       return X;
     }
 
-    public static List<DataSeries<Value>> ComplementCode(List<DataSeries<Value>> series)
+    public static Vector ComplementCode(Vector input)
     {
-      return series.Concat(series.Select(x => x.MapElements<Value>((s, v) => 1.0 - s[0]))).ToList();
+      return new DenseVector(input.Concat(input.Select(x => 1.0 - x)).ToArray());
     }
 
-    public static List<Vector> PrincipleComponents(List<DataSeries<Value>> series)
+    public static Matrix PrincipleComponents(Matrix data)
     {
-      var m = series.Count;
-      var n = series.First().Length;
+      var rows = data.Rows();
+      var meanAdjustedRows = rows.Select(x => (Vector)x.Subtract(x.Average())).ToList();
+      var X = MatrixFromColumns(meanAdjustedRows); // we needed to transpose it anyway
 
-      var meanAdjusted = series.Select(x => {
-        var mean = x.Select(v => v.Val).Average();
-        return x.MapElements<Value>((s, _) => s[0] - mean);
-      }).ToList();
-
-      Matrix X = new DenseMatrix(m, n);
-      for (int i = 0; i < m; i++)
-        for (int j = 0; j < n; j++)
-          X[i, j] = meanAdjusted[i][j];
-
-      var svd = X.Transpose().Svd(true);
-      var V = svd.VT().Transpose();
-      return List.Repeat(V.ColumnCount, j => (Vector)V.Column(j));
+      var svd = X.Svd(true);
+      var V = (Matrix)svd.VT().Transpose();
+      return V;
     }
 
-    public static Vector NthPrincipleComponent(List<Vector> pcs, int n, Vector x)
+    public static Vector NthPrincipleComponent(Matrix pcs, int n, Vector x)
     {
-      var pc = pcs[n];
+      var pc = pcs.Column(n);
       return (Vector)(x.DotProduct(pc) * pc);
     }
 
@@ -469,7 +462,20 @@ namespace Quqe
 
     internal double Fitness()
     {
-      throw new NotImplementedException();
+      var experts = Chromosomes.Select(x => new Expert(x)).ToList();
+      foreach (var x in experts)
+        x.Train();
+      int correctCount = 0;
+      for (int j = 0; j < Versace.ValidationOutput.Count; j++)
+      {
+        var vote = Math.Sign(experts.Average(x => {
+          return x.Predict(Versace.ValidationInput.Column(j).ToArray());
+        }));
+        Debug.Assert(vote != 0);
+        if (Versace.ValidationOutput[j] == vote)
+          correctCount++;
+      }
+      return (double)correctCount / Versace.ValidationOutput.Count;
     }
 
     public XElement ToXml()
@@ -483,8 +489,73 @@ namespace Quqe
     }
   }
 
-  public interface IExpert
+  public interface IPredictor
   {
-    bool Predict(double[] input);
+    double Predict(double[] input);
+    void Reset();
+  }
+
+  public class Expert : IPredictor
+  {
+    VChrom Chromosome;
+    IPredictor Network;
+    Matrix PrincipalComponents;
+
+    public Expert(VChrom chrom, Vector parameters, Matrix principalComponents)
+    {
+      Chromosome = chrom;
+      int inputDimension = chrom.DatabaseType == DatabaseType.A ? Versace.DatabaseADimension : Versace.TrainingInput.RowCount;
+      PrincipalComponents = principalComponents;
+
+      if (chrom.NetworkType == NetworkType.Elman)
+        Network = new ElmanNet(inputDimension, List.Create(chrom.ElmanHidden1NodeCount, chrom.ElmanHidden2NodeCount), 1);
+      else
+      {
+        throw new NotImplementedException();
+      }
+    }
+
+    public Expert(VChrom chrom)
+    {
+      Chromosome = chrom;
+      int inputDimension = chrom.DatabaseType == DatabaseType.A ? Versace.DatabaseADimension : Versace.TrainingInput.RowCount;
+      if (chrom.UseComplementCoding)
+        inputDimension *= 2;
+      if (chrom.NetworkType == NetworkType.Elman)
+        Network = new ElmanNet(inputDimension, List.Create(chrom.ElmanHidden1NodeCount, chrom.ElmanHidden2NodeCount), 1);
+      else
+      {
+        throw new NotImplementedException();
+      }
+    }
+
+    public void Train()
+    {
+      var inputs = Versace.TrainingInput.Columns();
+      if (Chromosome.UseComplementCoding)
+        inputs = inputs.Select(x => Versace.ComplementCode(x)).ToList();
+      if (Chromosome.UsePrincipalComponentAnalysis)
+      {
+        var pcs = Versace.PrincipleComponents(Versace.MatrixFromColumns(inputs));
+        inputs = inputs.Select(x => Versace.NthPrincipleComponent(pcs, Chromosome.PrincipalComponent, x)).ToList();
+      }
+
+      if (Chromosome.NetworkType == NetworkType.Elman)
+        ElmanNet.Train((ElmanNet)Network, Versace.MatrixFromColumns(inputs), Versace.TrainingOutput);
+      else
+      {
+        throw new NotImplementedException();
+      }
+    }
+
+    public double Predict(double[] input)
+    {
+      return Network.Predict(input);
+    }
+
+    public void Reset()
+    {
+      Network.Reset();
+    }
   }
 }

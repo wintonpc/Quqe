@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using PCW;
+using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace Quqe
 {
-  public class ElmanNet
+  public class ElmanNet : IPredictor
   {
     double[, ,] Weights; // Weights[layer, node, input]
     double[,] Registers; // Registers[layer, node]
@@ -25,8 +26,15 @@ namespace Quqe
       NumInputs = numInputs;
       NodeCounts = hiddenNodeCounts.Concat(List.Create(numOutputs)).ToArray();
       NumLayers = NodeCounts.Length;
-      for (int layer = 0; layer < numLayers - 1; layer++)
-        for (int node = 0; node < maxNodesPerLayer; node++)
+      Reset();
+    }
+
+    double IPredictor.Predict(double[] input) { return Propagate(input); }
+
+    public void Reset()
+    {
+      for (int layer = 0; layer < NumLayers - 1; layer++)
+        for (int node = 0; node < Registers.GetLength(1); node++)
           Registers[layer, node] = 0.5;
     }
 
@@ -114,6 +122,28 @@ namespace Quqe
     static double LogisticSigmoid(double x)
     {
       return 1 / (1 + Math.Exp(-x));
+    }
+
+    public static void Train(ElmanNet net, Matrix trainingData, Vector outputData)
+    {
+      var result = Optimizer.Anneal(net.WeightVectorLength, 5, w => {
+        ((IPredictor)net).Reset();
+        net.SetWeightVector(w.ToArray());
+        int correctCount = 0;
+        double errorSum = 0;
+        for (int i = 0; i < trainingData.ColumnCount; i++)
+        {
+          var output = net.Propagate(trainingData.Column(i).ToArray());
+          errorSum += Math.Abs(output - outputData[i]);
+          if (Math.Sign(output) == Math.Sign(outputData[i]))
+            correctCount++;
+        }
+        //return (double)correctCount / trainingData.ColumnCount;
+        return errorSum / trainingData.ColumnCount;
+      });
+
+      ((IPredictor)net).Reset();
+      net.SetWeightVector(result.Params.ToArray());
     }
   }
 }
