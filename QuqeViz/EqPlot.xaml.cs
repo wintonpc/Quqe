@@ -22,7 +22,7 @@ namespace QuqeViz
   public partial class EqPlot : UserControl
   {
     Bmp TheBitmap;
-    new int Width = 512;
+    new int Width = 1024;
     new int Height = 512;
     public EqPlot()
     {

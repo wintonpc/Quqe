@@ -336,9 +336,10 @@ namespace Quqe
 
     static Vector TransitionVector(Vector v, double temperature, double maxWeightMagnitude)
     {
-      var d = (Vector)(RandomVector(v.Count, -1, 1).Normalize(2) * temperature * maxWeightMagnitude);
-      var next = v + d;
-      return new DenseVector(next.Select(x => Clip(-maxWeightMagnitude, maxWeightMagnitude, x)).ToArray());
+      var d = (Vector)(RandomVector(v.Count, -1, 1).Normalize(2).Multiply(temperature * maxWeightMagnitude));
+      return (Vector)(v + d);
+      //var next = v + d;
+      //return new DenseVector(next.Select(x => Clip(-maxWeightMagnitude, maxWeightMagnitude, x)).ToArray());
     }
 
     static List<StrategyParameter> TransitionSParams(IEnumerable<StrategyParameter> sParams, IEnumerable<OptimizerParameter> oParams, double temperature)
@@ -514,13 +515,14 @@ namespace Quqe
 
       var bestList = List.Create(new { Params = bestParams, Cost = bestCost });
 
-      int randomSearchIters = (int)(15000 * Math.Log(dimensions) / Math.Log(40));
+      int randomSearchIters = (int)(12000 * Math.Log(dimensions) / Math.Log(40));
       // coarse sampling
       {
-        for (int i = 0; i < randomSearchIters; i++)
+        var iters = randomSearchIters;
+        for (int i = 0; i < iters; i++)
         {
           if (i % 100 == 0)
-            Trace.WriteLine(string.Format("Coarse sampling {0} / {1}  C = {2}", i, randomSearchIters, currentCost));
+            Trace.WriteLine(string.Format("Coarse sampling {0} / {1}  C = {2}", i, iters, currentCost));
           //var nextParams = mutate(currentParams, 1.0);
           var nextParams = randomParams();
           var nextCost = costFunc(nextParams);

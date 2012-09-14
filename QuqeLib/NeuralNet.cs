@@ -291,6 +291,17 @@ namespace Quqe
       return result;
     }
 
+    public static double DotProduct(double[] a, double[] b)
+    {
+      if (a.Length != b.Length)
+        throw new ArgumentException("Argument lengths must be equal.");
+      double result = 0;
+      var len = a.Length;
+      for (int i = 0; i < len; i++)
+        result += a[i] * b[i];
+      return result;
+    }
+
     static List<double[,]> MakeHiddenLayers(int nInputs, IEnumerable<int> hiddenLayers)
     {
       return hiddenLayers.Select(nodeCount => {

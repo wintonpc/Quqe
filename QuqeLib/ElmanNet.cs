@@ -55,17 +55,33 @@ namespace Quqe
       var numNodes = NodeCounts[layer];
       var outputs = NeuralNet.Repeat(numNodes, node => {
         bool isOutputLayer = layer == NumLayers - 1;
-        var inputsPlusRegisters = isOutputLayer ? inputs :
-          inputs.Concat(NeuralNet.Repeat(numNodes, nd => Registers[layer, nd])).ToArray();
-        var weights = NeuralNet.Repeat(inputsPlusRegisters.Length, input => Weights[layer, node, input]);
-        var activation = NeuralNet.DotProduct(inputsPlusRegisters, weights) - (isOutputLayer ? 0 : Biases[layer, node]);
-        var activationFunc = isOutputLayer ? (Func<double, double>)Linear : (Func<double, double>)LogisticSigmoid;
-        var output = activationFunc(activation);
+        var inputsPlusRegisters = isOutputLayer ? inputs : AppendRegisters(inputs, layer, numNodes);
+        var activation = CalculateActivation(inputsPlusRegisters, layer, node, isOutputLayer);
+        var output = isOutputLayer ? activation : LogisticSigmoid(activation);
         if (!isOutputLayer)
           Registers[layer, node] = output;
         return output;
       });
       return Propagate(outputs, layer + 1);
+    }
+
+    double CalculateActivation(double[] inputsPlusRegisters, int layer, int node, bool isOutputLayer)
+    {
+      double result = 0;
+      var inputLen = inputsPlusRegisters.Length;
+      for (int i = 0; i < inputLen; i++)
+        result += Weights[layer, node, i] * inputsPlusRegisters[i];
+      return result - (isOutputLayer ? 0 : Biases[layer, node]);
+    }
+
+    double[] AppendRegisters(double[] inputs, int layer, int numNodes)
+    {
+      var inputsLen = inputs.Length;
+      var result = new double[inputsLen + numNodes];
+      Array.Copy(inputs, 0, result, 0, inputsLen);
+      for (int nd = 0; nd < numNodes; nd++)
+        result[inputsLen + nd] = Registers[layer, nd];
+      return result;
     }
 
     public double[] GetWeightVector()
