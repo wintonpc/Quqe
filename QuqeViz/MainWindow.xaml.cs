@@ -728,8 +728,13 @@ namespace QuqeViz
       var inputSetSize = 20;
       var trainingInput = Versace.MatrixFromColumns(Versace.TrainingInput.Columns().Take(inputSetSize).ToList());
       var trainingOutput = (Vector)Versace.TrainingOutput.SubVector(0, inputSetSize);
-      var net = new ElmanNet(trainingInput.RowCount, List.Create(20, 10), 1);
-      ElmanNet.Train(net, trainingInput, trainingOutput);
+      var net = new ElmanNet(trainingInput.RowCount, List.Create(8, 4), 1);
+      var costHistory = ElmanNet.Train(net, trainingInput, trainingOutput);
+      var logCostHistory = costHistory.Select(x => Math.Log10(x)).ToList();
+      var ch = new EqPlotWindow();
+      ch.EqPlot.Bounds = new Rect(0, logCostHistory.Min(), logCostHistory.Count, logCostHistory.Max() - logCostHistory.Min());
+      ch.EqPlot.DrawLine(List.Repeat(logCostHistory.Count, i => new Point(i, logCostHistory[i])), Colors.Blue);
+      ch.Show();
 
       net.Reset();
       var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x.ToArray()))).ToList();

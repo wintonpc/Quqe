@@ -419,7 +419,8 @@ namespace Quqe
     public static AnnealResult<Vector> Anneal(int vectorSize, double maxWeightMagnitude, Func<Vector, double> costFunc)
     {
       return Anneal(RandomVector(vectorSize, -maxWeightMagnitude, maxWeightMagnitude),
-        (v, temp) => TransitionVector(v, temp, maxWeightMagnitude), costFunc);
+        (v, temp) => TransitionVector(v, temp, maxWeightMagnitude),
+        costFunc, () => RandomVector(vectorSize, -maxWeightMagnitude, maxWeightMagnitude), vectorSize);
     }
 
     public static Vector RandomVector(int size, double min, double max)
@@ -434,7 +435,7 @@ namespace Quqe
       firstIteration = firstIteration ?? 0;
       lastIteration = lastIteration ?? iterations;
 
-      Func<double, double> schedule = t => Math.Sqrt(Math.Exp((partialCool ? -4 :-11) * t));
+      Func<double, double> schedule = t => Math.Sqrt(Math.Exp((partialCool ? -4 : -11) * t));
       var escapeCostPremiumSma = MakeSMA(25);
       var acceptSma = MakeSMA(50);
       var rejectSma = MakeSMA(50);
@@ -499,6 +500,156 @@ namespace Quqe
       };
     }
 
+    static AnnealResult<TParams> Anneal<TParams>(TParams initialParams,
+      Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc,
+      Func<TParams> randomParams,
+      int dimensions)
+    {
+      List<double> costHistory = new List<double>();
+
+      TParams currentParams = initialParams;
+      var currentCost = costFunc(currentParams);
+      var bestParams = currentParams;
+      var bestCost = currentCost;
+
+      var bestList = List.Create(new { Params = bestParams, Cost = bestCost });
+
+      int randomSearchIters = (int)(15000 * Math.Log(dimensions) / Math.Log(40));
+      // coarse sampling
+      {
+        for (int i = 0; i < randomSearchIters; i++)
+        {
+          if (i % 100 == 0)
+            Trace.WriteLine(string.Format("Coarse sampling {0} / {1}  C = {2}", i, randomSearchIters, currentCost));
+          //var nextParams = mutate(currentParams, 1.0);
+          var nextParams = randomParams();
+          var nextCost = costFunc(nextParams);
+
+          Action takeNext = () => {
+            currentParams = nextParams;
+            currentCost = nextCost;
+            costHistory.Add(currentCost);
+            if (currentCost < bestCost)
+            {
+              bestParams = currentParams;
+              bestCost = currentCost;
+              bestList.Add(new { Params = bestParams, Cost = bestCost });
+              bestList = bestList.OrderBy(x => x.Cost).Take(2).ToList();
+            }
+          };
+
+          takeNext();
+        }
+      }
+
+      //// start at best found so far
+      //currentParams = bestParams;
+      //currentCost = bestCost;
+
+      //// A/R ratio-maintaining search
+      //{
+      //  int iters = randomSearchIters / 2;
+      //  var acceptPctTarget = 0.5;
+      //  var acceptSma = MakeSMA(50);
+      //  var rejectSma = MakeSMA(50);
+      //  var escapeCostSma = MakeSMA(50);
+      //  double avgAccept = 1;
+      //  double avgReject = 1;
+      //  double avgEscapeCost;
+      //  for (int i = 0; i < iters; i++)
+      //  {
+      //    if (i % 100 == 0)
+      //      Trace.WriteLine(string.Format("A/R ratio {0} / {1}  C = {2}  A/R = {3}", i, iters, currentCost, avgAccept / avgReject));
+
+      //    var time = (double)i / iters;
+      //    var temp = 0.1 * Math.Exp(-Math.Pow(2.3 * time, 2));
+      //    var nextParams = mutate(currentParams, temp);
+      //    var nextCost = costFunc(nextParams);
+
+      //    Action takeNext = () => {
+      //      currentParams = nextParams;
+      //      currentCost = nextCost;
+      //      costHistory.Add(currentCost);
+      //      if (currentCost < bestCost)
+      //      {
+      //        bestParams = currentParams;
+      //        bestCost = currentCost;
+      //      }
+      //      avgAccept = acceptSma(1);
+      //      avgReject = rejectSma(0);
+      //    };
+
+      //    if (nextCost < currentCost)
+      //      takeNext();
+      //    else
+      //    {
+      //      //var prob = acceptPctTarget * Math.Sqrt(Clip(0, 2, avgReject / Math.Max(0.01, avgAccept)))
+      //      //  * Math.Exp(currentCost - nextCost);
+      //      var escapeCost = nextCost - currentCost;
+      //      avgEscapeCost = escapeCostSma(escapeCost);
+      //      var prob = Math.Exp(-0.5 * escapeCost / avgEscapeCost / temp);
+      //      bool takeItAnyway = WithProb(prob);
+      //      if (takeItAnyway)
+      //        takeNext();
+      //      else
+      //      {
+      //        avgAccept = acceptSma(0);
+      //        avgReject = rejectSma(1);
+      //        costHistory.Add(costHistory.Last());
+      //      }
+      //    }
+      //  }
+      //}
+
+      // start at best found so far
+      currentParams = bestParams;
+      currentCost = bestCost;
+
+      // quench
+      {
+        int iters = randomSearchIters / 3;
+        for (int i = 0; i < iters; i++)
+        {
+          if (i % 100 == 0)
+            Trace.WriteLine(string.Format("Quench {0} / {1}  C = {2}", i, iters, currentCost));
+          var time = (double)i / iters;
+          var nextParams = mutate(currentParams, 0.1 * Math.Exp(-6 * time));
+          var nextCost = costFunc(nextParams);
+
+          Action takeNext = () => {
+            currentParams = nextParams;
+            currentCost = nextCost;
+            costHistory.Add(currentCost);
+            if (currentCost < bestCost)
+            {
+              bestParams = currentParams;
+              bestCost = currentCost;
+            }
+          };
+
+          if (nextCost < currentCost)
+            takeNext();
+          else
+          {
+            var prob = 0.1 * Math.Exp(-2 * (nextCost - currentCost) / (1 - time));
+            if (WithProb(prob))
+              takeNext();
+            else
+              costHistory.Add(costHistory.Last());
+          }
+        }
+      }
+
+
+      if (ShowTrace)
+        Trace.WriteLine("Best cost: " + bestCost);
+      return new AnnealResult<TParams> {
+        Params = bestParams,
+        Cost = bestCost,
+        CostHistory = costHistory
+      };
+    }
+
     static AnnealResult<TParams> AnnealParallel<TParams>(Func<TParams> makeInitialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc, int iterations = 25000)
     {
       int parallelism = 16;
@@ -513,7 +664,7 @@ namespace Quqe
       {
         var results = new List<AnnealResult<TParams>>();
         Parallel.For(0, parallelism, new ParallelOptions { MaxDegreeOfParallelism = parallelism }, z => {
-          var ar = Anneal(best != null ? best.Params : makeInitialParams(), mutate, costFunc, modifiedNumIterations, j * iterationsBeforeRejoin, (j+1) * iterationsBeforeRejoin);
+          var ar = Anneal(best != null ? best.Params : makeInitialParams(), mutate, costFunc, modifiedNumIterations, j * iterationsBeforeRejoin, (j + 1) * iterationsBeforeRejoin);
           lock (results)
           {
             results.Add(ar);
@@ -648,5 +799,6 @@ namespace Quqe
   {
     public TParams Params;
     public double Cost;
+    public List<double> CostHistory;
   }
 }

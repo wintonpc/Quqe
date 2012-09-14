@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using PCW;
 using MathNet.Numerics.LinearAlgebra.Double;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -124,7 +125,7 @@ namespace Quqe
       return 1 / (1 + Math.Exp(-x));
     }
 
-    public static void Train(ElmanNet net, Matrix trainingData, Vector outputData)
+    public static List<double> Train(ElmanNet net, Matrix trainingData, Vector outputData)
     {
       var result = Optimizer.Anneal(net.WeightVectorLength, 5, w => {
         ((IPredictor)net).Reset();
@@ -144,6 +145,31 @@ namespace Quqe
 
       ((IPredictor)net).Reset();
       net.SetWeightVector(result.Params.ToArray());
+      return result.CostHistory;
     }
+
+    //public static void Train(ElmanNet net, Matrix trainingData, Vector outputData)
+    //{
+    //  var result = BCO.Optimize(Optimizer.RandomVector(net.WeightVectorLength, -5, 5).ToArray(), w => {
+    //    ((IPredictor)net).Reset();
+    //    net.SetWeightVector(w.ToArray());
+    //    int correctCount = 0;
+    //    double errorSum = 0;
+    //    for (int i = 0; i < trainingData.ColumnCount; i++)
+    //    {
+    //      var output = net.Propagate(trainingData.Column(i).ToArray());
+    //      errorSum += Math.Abs(output - outputData[i]);
+    //      if (Math.Sign(output) == Math.Sign(outputData[i]))
+    //        correctCount++;
+    //    }
+    //    //return (double)correctCount / trainingData.ColumnCount;
+    //    var cost = errorSum / trainingData.ColumnCount;
+    //    Trace.WriteLine("Accuracy: " + cost);
+    //    return cost;
+    //  }, 30000, Math.Pow(10, -3), 10, 10);
+
+    //  ((IPredictor)net).Reset();
+    //  net.SetWeightVector(result.MinimumLocation);
+    //}
   }
 }
