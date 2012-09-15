@@ -53,15 +53,17 @@ namespace Quqe
       if (layer >= NumLayers)
         return inputs;
       var numNodes = NodeCounts[layer];
-      var outputs = NeuralNet.Repeat(numNodes, node => {
+      var outputs = new double[numNodes];
+      for (int node=0; node<numNodes; node++)
+      {
         bool isOutputLayer = layer == NumLayers - 1;
         var inputsPlusRegisters = isOutputLayer ? inputs : AppendRegisters(inputs, layer, numNodes);
         var activation = CalculateActivation(inputsPlusRegisters, layer, node, isOutputLayer);
         var output = isOutputLayer ? activation : LogisticSigmoid(activation);
         if (!isOutputLayer)
           Registers[layer, node] = output;
-        return output;
-      });
+        outputs[node] = output;
+      }
       return Propagate(outputs, layer + 1);
     }
 
