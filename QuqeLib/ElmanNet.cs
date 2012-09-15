@@ -10,10 +10,9 @@ namespace Quqe
 {
   public class ElmanNet : IPredictor
   {
-    //double[, ,] Weights; // Weights[layer, node, input]
     FastArray3 Weights; // Weights[layer, node, input]
     double[,] Registers; // Registers[layer, node]
-    double[,] Biases; // Biases[layer, node]
+    FastArray2 Biases; // Biases[layer, node]
     int NumInputs;
     int[] NodeCounts; // NodeCounts[layer]
     int NumLayers;
@@ -24,7 +23,7 @@ namespace Quqe
       var maxInputs = Math.Max(numInputs, maxNodesPerLayer);
       Weights = new FastArray3(numLayers, maxNodesPerLayer, maxInputs + maxNodesPerLayer); // +maxNodesPerLayer for registers
       Registers = new double[numLayers - 1, maxNodesPerLayer]; // none for output layer
-      Biases = new double[numLayers - 1, maxNodesPerLayer]; // none for output layer
+      Biases = new FastArray2(numLayers - 1, maxNodesPerLayer); // none for output layer
       NumInputs = numInputs;
       NodeCounts = hiddenNodeCounts.Concat(List.Create(numOutputs)).ToArray();
       NumLayers = NodeCounts.Length;
@@ -141,6 +140,25 @@ namespace Quqe
       return result;
     }
 
+    // OPTIMIZED VERSION (POSSIBLY BUGGY??)
+    //double[] AppendRegisters(double[] inputs, int layer, int numNodes)
+    //{
+    //  var inputsLen = inputs.Length;
+    //  var result = new double[inputsLen + numNodes];
+    //  Array.Copy(inputs, 0, result, 0, inputsLen);
+    //  unsafe
+    //  {
+    //    fixed (double* resBase = result, regBase = Registers.GetUnderlyingArray())
+    //    {
+    //      double* res = resBase + inputsLen;
+    //      double* reg = regBase + layer * Registers.Length1;
+    //      for (int i = 0; i < numNodes; i++)
+    //        res[i] = reg[i];
+    //    }
+    //  }
+    //  return result;
+    //}
+
     public double[] GetWeightVector()
     {
       var weights = new List<double>();
@@ -151,7 +169,30 @@ namespace Quqe
     public void SetWeightVector(double[] w)
     {
       var q = new Queue<double>(w);
-      WalkWeights(set: () => q.Dequeue());
+      //WalkWeights(set: () => q.Dequeue());
+      int wl1 = Weights.Length1;
+      int wl2 = Weights.Length1;
+      for (int layer = 0; layer < NumLayers; layer++)
+      {
+        int numInputs = layer == 0 ? NumInputs : NodeCounts[layer - 1];
+        bool isOutputLayer = layer == NumLayers - 1;
+        var numNodesInThisLayer = NodeCounts[layer];
+        for (int node = 0; node < numNodesInThisLayer; node++)
+        {
+          if (!isOutputLayer)
+            Biases[layer, node] = q.Dequeue();
+
+          unsafe
+          {
+            fixed (double* wsBase = Weights.GetUnderlyingArray())
+            {
+              double* ws = wsBase + layer * wl1 * wl2 + node * wl2;
+              for (int input = 0; input < numInputs; input++)
+                ws[input] = q.Dequeue();
+            }
+          }
+        }
+      }
     }
 
     int _WeightVectorLength = -1;
