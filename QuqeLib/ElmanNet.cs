@@ -10,7 +10,8 @@ namespace Quqe
 {
   public class ElmanNet : IPredictor
   {
-    double[, ,] Weights; // Weights[layer, node, input]
+    //double[, ,] Weights; // Weights[layer, node, input]
+    FastArray3 Weights; // Weights[layer, node, input]
     double[,] Registers; // Registers[layer, node]
     double[,] Biases; // Biases[layer, node]
     int NumInputs;
@@ -21,7 +22,7 @@ namespace Quqe
       var numLayers = hiddenNodeCounts.Count + 1;
       var maxNodesPerLayer = hiddenNodeCounts.Max();
       var maxInputs = Math.Max(numInputs, maxNodesPerLayer);
-      Weights = new double[numLayers, maxNodesPerLayer, maxInputs + maxNodesPerLayer]; // +maxNodesPerLayer for registers
+      Weights = new FastArray3(numLayers, maxNodesPerLayer, maxInputs + maxNodesPerLayer); // +maxNodesPerLayer for registers
       Registers = new double[numLayers - 1, maxNodesPerLayer]; // none for output layer
       Biases = new double[numLayers - 1, maxNodesPerLayer]; // none for output layer
       NumInputs = numInputs;
@@ -54,11 +55,11 @@ namespace Quqe
         return inputs;
       var numNodes = NodeCounts[layer];
       var outputs = new double[numNodes];
-      for (int node=0; node<numNodes; node++)
+      for (int node = 0; node < numNodes; node++)
       {
         bool isOutputLayer = layer == NumLayers - 1;
         var inputsPlusRegisters = isOutputLayer ? inputs : AppendRegisters(inputs, layer, numNodes);
-        var activation = CalculateActivation(inputsPlusRegisters, layer, node, isOutputLayer);
+        var activation = UnrolledFastCalculateActivation(inputsPlusRegisters, layer, node, isOutputLayer);
         var output = isOutputLayer ? activation : LogisticSigmoid(activation);
         if (!isOutputLayer)
           Registers[layer, node] = output;
@@ -67,12 +68,66 @@ namespace Quqe
       return Propagate(outputs, layer + 1);
     }
 
-    double CalculateActivation(double[] inputsPlusRegisters, int layer, int node, bool isOutputLayer)
+    //double CalculateActivation(double[] inputsPlusRegisters, int layer, int node, bool isOutputLayer)
+    //{
+    //  double result = 0;
+    //  var inputLen = inputsPlusRegisters.Length;
+    //  for (int i = 0; i < inputLen; i++)
+    //    result += Weights[layer, node, i] * inputsPlusRegisters[i];
+    //  return result - (isOutputLayer ? 0 : Biases[layer, node]);
+    //}
+
+    //double FastCalculateActivation(double[] inputsPlusRegisters, int layer, int node, bool isOutputLayer)
+    //{
+    //  double result = 0;
+    //  var inputLen = inputsPlusRegisters.Length;
+    //  int wl1 = Weights.Length1;
+    //  int wl2 = Weights.Length1;
+    //  unsafe
+    //  {
+    //    fixed (double* wsBase = Weights.GetUnderlyingArray(), ins = inputsPlusRegisters)
+    //    {
+    //      double* ws = wsBase + layer * wl1 * wl2 + node * wl2;
+    //      for (int i = inputLen - 1; i >= 0; i--)
+    //        result += ws[i] * ins[i];
+    //    }
+    //  }
+    //  return result - (isOutputLayer ? 0 : Biases[layer, node]);
+    //}
+
+    double UnrolledFastCalculateActivation(double[] inputsPlusRegisters, int layer, int node, bool isOutputLayer)
     {
       double result = 0;
       var inputLen = inputsPlusRegisters.Length;
-      for (int i = 0; i < inputLen; i++)
-        result += Weights[layer, node, i] * inputsPlusRegisters[i];
+      int unrollLen = (int)(inputLen & 0xfffffffc);
+      int remainderLen = (int)(inputLen & 0x00000003);
+
+      int wl1 = Weights.Length1;
+      int wl2 = Weights.Length1;
+      unsafe
+      {
+        fixed (double* wsBase = Weights.GetUnderlyingArray(), ins = inputsPlusRegisters)
+        {
+          double* ws = wsBase + layer * wl1 * wl2 + node * wl2;
+          int i = 0;
+          while (i < unrollLen)
+          {
+            result += ws[i] * ins[i];
+            i++;
+            result += ws[i] * ins[i];
+            i++;
+            result += ws[i] * ins[i];
+            i++;
+            result += ws[i] * ins[i];
+            i++;
+          }
+          while (i < remainderLen)
+          {
+            result += ws[i] * ins[i];
+            i++;
+          }
+        }
+      }
       return result - (isOutputLayer ? 0 : Biases[layer, node]);
     }
 
