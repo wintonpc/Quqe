@@ -515,7 +515,7 @@ namespace Quqe
 
       var bestList = List.Create(new { Params = bestParams, Cost = bestCost });
 
-      int randomSearchIters = (int)(12000 * Math.Log(dimensions) / Math.Log(40));
+      int randomSearchIters = (int)(10000 * Math.Log(dimensions) / Math.Log(15));
       // coarse sampling
       {
         var iters = randomSearchIters;
@@ -535,8 +535,12 @@ namespace Quqe
             {
               bestParams = currentParams;
               bestCost = currentCost;
+            }
+            int bestListMaxSize = 7;
+            if (bestList.Count < bestListMaxSize || currentCost < bestList.Max(q => q.Cost))
+            {
               bestList.Add(new { Params = bestParams, Cost = bestCost });
-              bestList = bestList.OrderBy(x => x.Cost).Take(2).ToList();
+              bestList = bestList.OrderBy(x => x.Cost).Take(bestListMaxSize).ToList();
             }
           };
 
@@ -603,45 +607,49 @@ namespace Quqe
       //  }
       //}
 
-      // start at best found so far
-      currentParams = bestParams;
-      currentCost = bestCost;
-
-      // quench
+      foreach (var q in bestList)
       {
-        int iters = randomSearchIters / 3;
-        for (int i = 0; i < iters; i++)
+        // start at best found so far
+        //currentParams = bestParams;
+        //currentCost = bestCost;
+        currentParams = q.Params;
+        currentCost = q.Cost;
+
+        // quench
         {
-          if (i % 100 == 0)
-            Trace.WriteLine(string.Format("Quench {0} / {1}  C = {2}", i, iters, currentCost));
-          var time = (double)i / iters;
-          var nextParams = mutate(currentParams, 0.1 * Math.Exp(-6 * time));
-          var nextCost = costFunc(nextParams);
-
-          Action takeNext = () => {
-            currentParams = nextParams;
-            currentCost = nextCost;
-            costHistory.Add(currentCost);
-            if (currentCost < bestCost)
-            {
-              bestParams = currentParams;
-              bestCost = currentCost;
-            }
-          };
-
-          if (nextCost < currentCost)
-            takeNext();
-          else
+          int iters = (int)(randomSearchIters / 2.5);
+          for (int i = 0; i < iters; i++)
           {
-            var prob = 0.1 * Math.Exp(-2 * (nextCost - currentCost) / (1 - time));
-            if (WithProb(prob))
+            if (i % 100 == 0)
+              Trace.WriteLine(string.Format("Quench {0} / {1}  C = {2}", i, iters, currentCost));
+            var time = (double)i / iters;
+            var nextParams = mutate(currentParams, 0.1 * Math.Exp(-3 * time));
+            var nextCost = costFunc(nextParams);
+
+            Action takeNext = () => {
+              currentParams = nextParams;
+              currentCost = nextCost;
+              costHistory.Add(currentCost);
+              if (currentCost < bestCost)
+              {
+                bestParams = currentParams;
+                bestCost = currentCost;
+              }
+            };
+
+            if (nextCost < currentCost)
               takeNext();
             else
-              costHistory.Add(costHistory.Last());
+            {
+              var prob = 0.1 * Math.Exp(-2 * (nextCost - currentCost) / (1 - time));
+              if (WithProb(prob))
+                takeNext();
+              else
+                costHistory.Add(costHistory.Last());
+            }
           }
         }
       }
-
 
       if (ShowTrace)
         Trace.WriteLine("Best cost: " + bestCost);
