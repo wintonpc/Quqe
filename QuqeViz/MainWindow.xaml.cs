@@ -13,6 +13,7 @@ using QuqeViz.Properties;
 using DotNumerics.ODE;
 using MathNet.Numerics.LinearAlgebra.Double;
 using Vector = MathNet.Numerics.LinearAlgebra.Double.Vector;
+using Matrix = MathNet.Numerics.LinearAlgebra.Double.Matrix;
 
 namespace QuqeViz
 {
@@ -793,6 +794,63 @@ namespace QuqeViz
       });
       var g2 = w.Chart.AddGraph();
       w.Show();
+    }
+
+    private void BazButton_Click(object sender, RoutedEventArgs e)
+    {
+      double spread = 0.4;
+
+      Func<Vector, Vector, double> phi = (x, c) => {
+        return RBFNet.Gaussian(spread, (x - c).Norm(2));
+      };
+
+      var xs = new List<double>();
+      for (double x = 0; x < 10; x += 0.05)
+        xs.Add(x);
+
+      var ys = xs.Select(x => Math.Sin(Math.Pow(x / 2, 2)) + 1).ToList();
+
+      var samples = xs.Select(x => (Vector)new DenseVector(new double[] { x })).ToList();
+      var centers = List.Repeat(samples.Count, n => n % 10 == 0 ? samples[n] : null).Where(x => x != null).ToList();
+
+      Matrix P = new DenseMatrix(samples.Count, centers.Count + 1);
+      Vector d = new DenseVector(ys.ToArray());
+      for (int i = 0; i < P.RowCount; i++)
+      {
+        P[i, 0] = 1;
+        for (int j = 1; j < P.ColumnCount; j++)
+          P[i, j] = phi(samples[i], centers[j - 1]);
+      }
+
+      var win = new EqPlotWindow();
+      win.EqPlot.Bounds = new Rect(0, -1, 10, 4);
+      win.EqPlot.DrawLine(xs.Zip(ys, (x, y) => new Point(x, y)).ToList(), Colors.Blue);
+      win.EqPlot.DrawLine(xs.Zip(P.Column(3), (x, y) => new Point(x, y)).ToList(), Colors.Green);
+      win.EqPlot.DrawLine(xs.Zip(P.Column(4), (x, y) => new Point(x, y)).ToList(), Colors.Green);
+      win.Show();
+
+      // linear example
+      //Matrix P2 = new DenseMatrix(new double[,] {
+      //  { 1, 1 },
+      //  { 1, 2 },
+      //  { 1, 3 }
+      //});
+      //Vector yHat = new DenseVector(new double[] { 1.1, 1.8, 3.1 });
+
+      var weights = RBFNet.SolveRBFNet(P, d, (m, title) => {
+        var pWin = new EqPlotWindow();
+        var min = m.ToColumnWiseArray().Min();
+        var max = m.ToColumnWiseArray().Max();
+        pWin.EqPlot.DrawPixels(m.ColumnCount, m.RowCount, (x, y) => { byte v = (byte)((m[y, x] - min) / (max - min) * 255); return Color.FromRgb(v, v, v); });
+        pWin.Title = title;
+        pWin.Show();
+      });
+
+      //var estimatePoints = samples.Select(x => new Point(x[0], weights[0] + samples.Zip(weights.Skip(1), (c, w) => w * phi(x, c)).Sum())).ToList();
+      var estimatePoints2 = samples.Select(inputVec => {
+        return new Point(inputVec[0], weights[0] + centers.Zip(weights.Skip(1), (c, w) => w * phi(inputVec, c)).Sum());
+      }).ToList();
+      win.EqPlot.DrawLine(estimatePoints2, Colors.Red);
     }
   }
 }

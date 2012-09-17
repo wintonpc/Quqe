@@ -33,6 +33,15 @@ namespace QuqeViz
 
     public Rect Bounds { get; set; }
 
+    public void DrawPixels(int width, int height, Func<int, int, Color> f)
+    {
+      TheBitmap.Lock();
+      for (int x = 0; x < width; x++)
+        for (int y = 0; y < height; y++)
+          TheBitmap.SetPixel(x, y, f(x, y));
+      TheBitmap.Unlock();
+    }
+
     public void DrawSurface(Func<double, double, double> f, DrawMode drawMode)
     {
       TheBitmap.Lock();

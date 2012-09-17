@@ -460,6 +460,25 @@ namespace QuqeTest
     }
 
     [TestMethod]
+    public void GramSchmidtTest()
+    {
+      var points = List.Create<Vector>(
+        new DenseVector(new double[] { 1, 2 }),
+        new DenseVector(new double[] { 3, 4 }),
+        new DenseVector(new double[] { 5, 6 }));
+      var P = new DenseMatrix(points.Count, points.First().Count);
+      for (int i = 0; i < points.Count; i++)
+        P.SetRow(i, points[i]);
+
+      var gs = RBFNet.GramSchmidt(P);
+      Trace.WriteLine("With Gram-Schmidt:");
+      Trace.WriteLine("P = \r\n" + P);
+      Trace.WriteLine("W = \r\n" + gs.W);
+      Trace.WriteLine("A = \r\n" + gs.A);
+      Trace.WriteLine("P' = \r\n" + (gs.W * gs.A));
+    }
+
+    [TestMethod]
     public void GaussianRandoms()
     {
       List.Repeat(100, n => {

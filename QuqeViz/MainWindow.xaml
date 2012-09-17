@@ -13,6 +13,7 @@
       <Button x:Name="OptimizeTrending1Button" Click="OptimizeTrending1Button_Click">Optimize Trending1</Button>
       <Button x:Name="FooButton" Click="FooButton_Click">Test BCO</Button>
       <Button x:Name="BarButton" Click="BarButton_Click">Test Elman</Button>
+      <Button x:Name="BazButton" Click="BazButton_Click">Test RBF</Button>
       <Button x:Name="GetVersaceDataButton" Click="GetVersaceDataButton_Click">Get Versace Data</Button>
       <StackPanel Orientation="Horizontal">
         <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
