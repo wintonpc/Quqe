@@ -798,17 +798,28 @@ namespace QuqeViz
 
     private void BazButton_Click(object sender, RoutedEventArgs e)
     {
-      double spread = 0.4;
+      double spread = 0.35;
 
       Func<Vector, Vector, double> phi = (x, c) => {
         return RBFNet.Gaussian(spread, (x - c).Norm(2));
       };
 
       var xs = new List<double>();
-      for (double x = 0; x < 10; x += 0.05)
-        xs.Add(x);
+      for (int i = 0; i < 200; i++)
+        xs.Add((double)i / 200 * 10.0);
+      //for (double x = 0; x<10.0; x+=0.05)
+      //  xs.Add(x);
 
-      var ys = xs.Select(x => Math.Sin(Math.Pow(x / 2, 2)) + 1).ToList();
+      //var ys = xs.Select(x => Math.Sin(Math.Pow(x / 2, 2)) + 1).ToList();
+      //var ys = xs.Select(x => x == 5 ? 2.5 : 2.5 * Math.Sin(4 * (x - 5)) / (4 * (x - 5))).ToList();
+      //var ys = xs.Select(x => {
+      //  var s = (int)x;
+      //  return s % 2 == 0 ? (x - s) : (1 - (x - s));
+      //}).ToList();
+      var ys = xs.Select(x => {
+        var s = (int)x;
+        return (s % 2 == 0 ? (x - s) : (1 - (x - s))) + (x == 5 ? 2 : 2 * Math.Sin(8 * (x - 5)) / (8 * (x - 5)));
+      }).ToList();
 
       var samples = xs.Select(x => (Vector)new DenseVector(new double[] { x })).ToList();
       var centers = List.Repeat(samples.Count, n => n % 10 == 0 ? samples[n] : null).Where(x => x != null).ToList();
@@ -824,9 +835,11 @@ namespace QuqeViz
 
       var win = new EqPlotWindow();
       win.EqPlot.Bounds = new Rect(0, -1, 10, 4);
-      win.EqPlot.DrawLine(xs.Zip(ys, (x, y) => new Point(x, y)).ToList(), Colors.Blue);
-      win.EqPlot.DrawLine(xs.Zip(P.Column(3), (x, y) => new Point(x, y)).ToList(), Colors.Green);
-      win.EqPlot.DrawLine(xs.Zip(P.Column(4), (x, y) => new Point(x, y)).ToList(), Colors.Green);
+      win.EqPlot.DrawLine(xs.Zip(ys, (x, y) => new Point(x, y)).ToList(), Colors.Black);
+      win.EqPlot.DrawLine(xs.Zip(P.Column(3), (x, y) => new Point(x, y)).ToList(), Colors.LightGray);
+      win.EqPlot.DrawLine(xs.Zip(P.Column(4), (x, y) => new Point(x, y)).ToList(), Colors.LightGray);
+      //win.EqPlot.DrawLine(xs.Zip(RBFNet.Orthogonalize((Vector)P.Column(4), List.Create((Vector)P.Column(3))), (x, y) => new Point(x, y)).ToList(), Colors.Brown);
+      //win.EqPlot.DrawLine(xs.Zip(P.Column(4).PointwiseMultiply((-1*P.Column(3)).Add(1)), (x, y) => new Point(x, y)).ToList(), Colors.HotPink);
       win.Show();
 
       // linear example
@@ -837,20 +850,33 @@ namespace QuqeViz
       //});
       //Vector yHat = new DenseVector(new double[] { 1.1, 1.8, 3.1 });
 
-      var weights = RBFNet.SolveRBFNet(P, d, (m, title) => {
-        var pWin = new EqPlotWindow();
-        var min = m.ToColumnWiseArray().Min();
-        var max = m.ToColumnWiseArray().Max();
-        pWin.EqPlot.DrawPixels(m.ColumnCount, m.RowCount, (x, y) => { byte v = (byte)((m[y, x] - min) / (max - min) * 255); return Color.FromRgb(v, v, v); });
-        pWin.Title = title;
-        pWin.Show();
-      });
+      // LS
+      //var weights = RBFNet.SolveRBFNet(P, d, (m, title) => {
+      //  //var pWin = new EqPlotWindow();
+      //  //var min = m.ToColumnWiseArray().Min();
+      //  //var max = m.ToColumnWiseArray().Max();
+      //  //pWin.EqPlot.DrawPixels(m.ColumnCount, m.RowCount, (x, y) => { byte v = (byte)((m[y, x] - min) / (max - min) * 255); return Color.FromRgb(v, v, v); });
+      //  //pWin.Title = title;
+      //  //pWin.Show();
+      //});
+      //var estimatePointsLS = samples.Select(inputVec => {
+      //  return new Point(inputVec[0], weights[0] + centers.Zip(weights.Skip(1), (c, w) => w * phi(inputVec, c)).Sum());
+      //}).ToList();
+      //var mse = 1.0 / ys.Count * ys.Zip(estimatePointsLS, (y, est) => Math.Pow(y - est.Y, 2)).Sum();
+      //Trace.WriteLine("LS Bases: " + centers.Count);
+      //Trace.WriteLine("LS MSE = " + mse);
+      //win.EqPlot.DrawLine(estimatePointsLS, Colors.Red);
 
-      //var estimatePoints = samples.Select(x => new Point(x[0], weights[0] + samples.Zip(weights.Skip(1), (c, w) => w * phi(x, c)).Sum())).ToList();
-      var estimatePoints2 = samples.Select(inputVec => {
-        return new Point(inputVec[0], weights[0] + centers.Zip(weights.Skip(1), (c, w) => w * phi(inputVec, c)).Sum());
+      // OLS
+      //var solution = RBFNet.SolveRBFNet(P, centers, d, 0.000001);
+      var solution = RBFNet.Solve(samples, ys, phi, 0.03);
+      var estimatePointsOLS = samples.Select(inputVec => {
+        return new Point(inputVec[0], solution.Bases.Sum(b => b.Weight * (b.Center == null ? 1 : phi(inputVec, b.Center))));
       }).ToList();
-      win.EqPlot.DrawLine(estimatePoints2, Colors.Red);
+      var mseOLS = 1.0 / ys.Count * ys.Zip(estimatePointsOLS, (y, est) => Math.Pow(y - est.Y, 2)).Sum();
+      Trace.WriteLine("OLS Bases: " + solution.Bases.Count);
+      Trace.WriteLine("OLS MSE = " + mseOLS);
+      win.EqPlot.DrawLine(estimatePointsOLS, Colors.Red);
     }
   }
 }

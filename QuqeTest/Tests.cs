@@ -479,11 +479,56 @@ namespace QuqeTest
     }
 
     [TestMethod]
+    public void QRDecompTest()
+    {
+      var points = List.Create<Vector>(
+        new DenseVector(new double[] { 1, 2 }),
+        new DenseVector(new double[] { 3, 4 }),
+        new DenseVector(new double[] { 5, 6 }));
+      var P = new DenseMatrix(points.Count, points.First().Count);
+      for (int i = 0; i < points.Count; i++)
+        P.SetRow(i, points[i]);
+
+      var qr = RBFNet.QRDecomposition(P);
+      Trace.WriteLine("With Gram-Schmidt QR:");
+      Trace.WriteLine("P = \r\n" + P);
+      Trace.WriteLine("Q = \r\n" + qr.Q);
+      Trace.WriteLine("R = \r\n" + qr.R);
+      Trace.WriteLine("P' = \r\n" + (qr.Q * qr.R));
+
+      var qr1 = RBFNet.QR2(P);
+      Trace.WriteLine("With QR2:");
+      Trace.WriteLine("P = \r\n" + P);
+      Trace.WriteLine("Q = \r\n" + qr1.Q);
+      Trace.WriteLine("R = \r\n" + qr1.R);
+      Trace.WriteLine("P' = \r\n" + (qr1.Q * qr1.R));
+
+      var qr2 = P.QR();
+      Trace.WriteLine("With Math.NET QR:");
+      Trace.WriteLine("P = \r\n" + P);
+      Trace.WriteLine("Q = \r\n" + qr2.Q);
+      Trace.WriteLine("R = \r\n" + qr2.R);
+      Trace.WriteLine("P' = \r\n" + (qr2.Q * qr2.R));
+    }
+
+    [TestMethod]
     public void GaussianRandoms()
     {
       List.Repeat(100, n => {
         var x = BCO.RandomGaussian(0, 100);
         Trace.WriteLine(x);
+      });
+    }
+
+    [TestMethod]
+    public void OrthoTest()
+    {
+      var w = RBFNet.Orthogonalize(new DenseVector(new double[] { 1, 1, 0 }), new List<Vector> {
+        new DenseVector(new double[] { 1, 0, 0 })
+      });
+      var w2 = RBFNet.Orthogonalize(new DenseVector(new double[] { 1, 1, 1 }), new List<Vector> {
+        new DenseVector(new double[] { 1, 0, 0 }),
+        w
       });
     }
   }
