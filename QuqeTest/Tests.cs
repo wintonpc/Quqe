@@ -459,57 +459,57 @@ namespace QuqeTest
       var c = a.DotProduct(p2) * p2;
     }
 
-    [TestMethod]
-    public void GramSchmidtTest()
-    {
-      var points = List.Create<Vector>(
-        new DenseVector(new double[] { 1, 2 }),
-        new DenseVector(new double[] { 3, 4 }),
-        new DenseVector(new double[] { 5, 6 }));
-      var P = new DenseMatrix(points.Count, points.First().Count);
-      for (int i = 0; i < points.Count; i++)
-        P.SetRow(i, points[i]);
+    //[TestMethod]
+    //public void GramSchmidtTest()
+    //{
+    //  var points = List.Create<Vector>(
+    //    new DenseVector(new double[] { 1, 2 }),
+    //    new DenseVector(new double[] { 3, 4 }),
+    //    new DenseVector(new double[] { 5, 6 }));
+    //  var P = new DenseMatrix(points.Count, points.First().Count);
+    //  for (int i = 0; i < points.Count; i++)
+    //    P.SetRow(i, points[i]);
 
-      var gs = RBFNet.GramSchmidt(P);
-      Trace.WriteLine("With Gram-Schmidt:");
-      Trace.WriteLine("P = \r\n" + P);
-      Trace.WriteLine("W = \r\n" + gs.W);
-      Trace.WriteLine("A = \r\n" + gs.A);
-      Trace.WriteLine("P' = \r\n" + (gs.W * gs.A));
-    }
+    //  var gs = RBFNet.GramSchmidt(P);
+    //  Trace.WriteLine("With Gram-Schmidt:");
+    //  Trace.WriteLine("P = \r\n" + P);
+    //  Trace.WriteLine("W = \r\n" + gs.W);
+    //  Trace.WriteLine("A = \r\n" + gs.A);
+    //  Trace.WriteLine("P' = \r\n" + (gs.W * gs.A));
+    //}
 
-    [TestMethod]
-    public void QRDecompTest()
-    {
-      var points = List.Create<Vector>(
-        new DenseVector(new double[] { 1, 2 }),
-        new DenseVector(new double[] { 3, 4 }),
-        new DenseVector(new double[] { 5, 6 }));
-      var P = new DenseMatrix(points.Count, points.First().Count);
-      for (int i = 0; i < points.Count; i++)
-        P.SetRow(i, points[i]);
+    //[TestMethod]
+    //public void QRDecompTest()
+    //{
+    //  var points = List.Create<Vector>(
+    //    new DenseVector(new double[] { 1, 2 }),
+    //    new DenseVector(new double[] { 3, 4 }),
+    //    new DenseVector(new double[] { 5, 6 }));
+    //  var P = new DenseMatrix(points.Count, points.First().Count);
+    //  for (int i = 0; i < points.Count; i++)
+    //    P.SetRow(i, points[i]);
 
-      var qr = RBFNet.QRDecomposition(P);
-      Trace.WriteLine("With Gram-Schmidt QR:");
-      Trace.WriteLine("P = \r\n" + P);
-      Trace.WriteLine("Q = \r\n" + qr.Q);
-      Trace.WriteLine("R = \r\n" + qr.R);
-      Trace.WriteLine("P' = \r\n" + (qr.Q * qr.R));
+    //  var qr = RBFNet.QRDecomposition(P);
+    //  Trace.WriteLine("With Gram-Schmidt QR:");
+    //  Trace.WriteLine("P = \r\n" + P);
+    //  Trace.WriteLine("Q = \r\n" + qr.Q);
+    //  Trace.WriteLine("R = \r\n" + qr.R);
+    //  Trace.WriteLine("P' = \r\n" + (qr.Q * qr.R));
 
-      var qr1 = RBFNet.QR2(P);
-      Trace.WriteLine("With QR2:");
-      Trace.WriteLine("P = \r\n" + P);
-      Trace.WriteLine("Q = \r\n" + qr1.Q);
-      Trace.WriteLine("R = \r\n" + qr1.R);
-      Trace.WriteLine("P' = \r\n" + (qr1.Q * qr1.R));
+    //  var qr1 = RBFNet.QR2(P);
+    //  Trace.WriteLine("With QR2:");
+    //  Trace.WriteLine("P = \r\n" + P);
+    //  Trace.WriteLine("Q = \r\n" + qr1.Q);
+    //  Trace.WriteLine("R = \r\n" + qr1.R);
+    //  Trace.WriteLine("P' = \r\n" + (qr1.Q * qr1.R));
 
-      var qr2 = P.QR();
-      Trace.WriteLine("With Math.NET QR:");
-      Trace.WriteLine("P = \r\n" + P);
-      Trace.WriteLine("Q = \r\n" + qr2.Q);
-      Trace.WriteLine("R = \r\n" + qr2.R);
-      Trace.WriteLine("P' = \r\n" + (qr2.Q * qr2.R));
-    }
+    //  var qr2 = P.QR();
+    //  Trace.WriteLine("With Math.NET QR:");
+    //  Trace.WriteLine("P = \r\n" + P);
+    //  Trace.WriteLine("Q = \r\n" + qr2.Q);
+    //  Trace.WriteLine("R = \r\n" + qr2.R);
+    //  Trace.WriteLine("P' = \r\n" + (qr2.Q * qr2.R));
+    //}
 
     [TestMethod]
     public void GaussianRandoms()

@@ -726,19 +726,29 @@ namespace QuqeViz
 
     private void BarButton_Click(object sender, RoutedEventArgs e)
     {
-      var inputSetSize = 20;
+      var inputSetSize = Versace.TrainingInput.ColumnCount / 2;
       var trainingInput = Versace.MatrixFromColumns(Versace.TrainingInput.Columns().Take(inputSetSize).ToList());
       var trainingOutput = (Vector)Versace.TrainingOutput.SubVector(0, inputSetSize);
-      var net = new ElmanNet(trainingInput.RowCount, List.Create(40, 20), 1);
-      var costHistory = ElmanNet.Train(net, trainingInput, trainingOutput);
-      var logCostHistory = costHistory.Select(x => Math.Log10(x)).ToList();
-      var ch = new EqPlotWindow();
-      ch.EqPlot.Bounds = new Rect(0, logCostHistory.Min(), logCostHistory.Count, logCostHistory.Max() - logCostHistory.Min());
-      ch.EqPlot.DrawLine(List.Repeat(logCostHistory.Count, i => new Point(i, logCostHistory[i])), Colors.Blue);
-      ch.Show();
 
-      net.Reset();
-      var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x.ToArray()))).ToList();
+      List<double> logCostHistory = null;
+
+      // elman
+      //var net = new ElmanNet(trainingInput.RowCount, List.Create(8, 4), 1);
+      //var costHistory = ElmanNet.Train(net, trainingInput, trainingOutput);
+      //logCostHistory = costHistory.Select(x => Math.Log10(x)).ToList();
+      //net.Reset();
+      //var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x.ToArray()))).ToList();
+
+      var net = RBFNet.Train(trainingInput, trainingOutput, 0.5, 0.03);
+      var output = Versace.TrainingInput.Columns().Skip(inputSetSize).Select(x => (double)Math.Sign(net.Propagate(x))).ToList();
+
+      if (logCostHistory != null)
+      {
+        var ch = new EqPlotWindow();
+        ch.EqPlot.Bounds = new Rect(0, logCostHistory.Min(), logCostHistory.Count, logCostHistory.Max() - logCostHistory.Min());
+        ch.EqPlot.DrawLine(List.Repeat(logCostHistory.Count, i => new Point(i, logCostHistory[i])), Colors.Blue);
+        ch.Show();
+      }
 
       var inputSeries = new DataSeries<Bar>(Versace.DIA.Symbol, Versace.DIA.Take(inputSetSize));
       var idealSignal = new DataSeries<Value>("", trainingOutput.ToDataSeries(inputSeries));
@@ -869,7 +879,7 @@ namespace QuqeViz
 
       // OLS
       //var solution = RBFNet.SolveRBFNet(P, centers, d, 0.000001);
-      var solution = RBFNet.Solve(samples, ys, phi, 0.03);
+      var solution = RBFNet.SolveOLS(samples, ys, phi, 0.03);
       var estimatePointsOLS = samples.Select(inputVec => {
         return new Point(inputVec[0], solution.Bases.Sum(b => b.Weight * (b.Center == null ? 1 : phi(inputVec, b.Center))));
       }).ToList();
