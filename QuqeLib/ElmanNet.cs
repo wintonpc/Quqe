@@ -239,9 +239,33 @@ namespace Quqe
       return 1 / (1 + Math.Exp(-x));
     }
 
-    public static List<double> Train(ElmanNet net, Matrix trainingData, Vector outputData)
+    public static AnnealResult<Vector> Train(ElmanNet net, Matrix trainingData, Vector outputData)
     {
       var result = Optimizer.Anneal(net.WeightVectorLength, 5, w => {
+      //var result = Optimizer.AnnealMomentum(Optimizer.RandomVector(net.WeightVectorLength, -1, 1), w => {
+        ((IPredictor)net).Reset();
+        net.SetWeightVector(w.ToArray());
+        int correctCount = 0;
+        double errorSum = 0;
+        for (int i = 0; i < trainingData.ColumnCount; i++)
+        {
+          var output = net.Propagate(trainingData.Column(i).ToArray());
+          errorSum += Math.Pow(output - outputData[i], 2);
+          if (Math.Sign(output) == Math.Sign(outputData[i]))
+            correctCount++;
+        }
+        //return (double)correctCount / trainingData.ColumnCount;
+        return errorSum / trainingData.ColumnCount;
+      });
+
+      ((IPredictor)net).Reset();
+      net.SetWeightVector(result.Params.ToArray());
+      return result;
+    }
+
+    public static List<double> TrainBCO(ElmanNet net, Matrix trainingData, Vector outputData)
+    {
+      var result = BCO.Optimize(Optimizer.RandomVector(net.WeightVectorLength, -0.5, 0.5).ToArray(), w => {
         ((IPredictor)net).Reset();
         net.SetWeightVector(w.ToArray());
         int correctCount = 0;
@@ -255,10 +279,10 @@ namespace Quqe
         }
         //return (double)correctCount / trainingData.ColumnCount;
         return errorSum / trainingData.ColumnCount;
-      });
+      }, 5000, Math.Pow(10, -2), 10, 0);
 
       ((IPredictor)net).Reset();
-      net.SetWeightVector(result.Params.ToArray());
+      net.SetWeightVector(result.MinimumLocation);
       return result.CostHistory;
     }
 

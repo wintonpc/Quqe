@@ -726,27 +726,31 @@ namespace QuqeViz
 
     private void BarButton_Click(object sender, RoutedEventArgs e)
     {
-      var inputSetSize = Versace.TrainingInput.ColumnCount / 2;
+      //var inputSetSize = Versace.TrainingInput.ColumnCount;
+      var inputSetSize = 247;
       var trainingInput = Versace.MatrixFromColumns(Versace.TrainingInput.Columns().Take(inputSetSize).ToList());
       var trainingOutput = (Vector)Versace.TrainingOutput.SubVector(0, inputSetSize);
 
       List<double> logCostHistory = null;
 
-      // elman
-      //var net = new ElmanNet(trainingInput.RowCount, List.Create(8, 4), 1);
-      //var costHistory = ElmanNet.Train(net, trainingInput, trainingOutput);
-      //logCostHistory = costHistory.Select(x => Math.Log10(x)).ToList();
-      //net.Reset();
-      //var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x.ToArray()))).ToList();
+      // Elman
+      var net = new ElmanNet(trainingInput.RowCount, List.Create(8, 4), 1);
+      var result = ElmanNet.Train(net, trainingInput, trainingOutput);
+      logCostHistory = result.CostHistory.Select(x => Math.Log10(x)).ToList();
+      net.Reset();
+      var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x.ToArray()))).ToList();
 
-      var net = RBFNet.Train(trainingInput, trainingOutput, 0.5, 0.03);
-      var output = Versace.TrainingInput.Columns().Skip(inputSetSize).Select(x => (double)Math.Sign(net.Propagate(x))).ToList();
+      // RBF
+      //var net = RBFNet.Train(trainingInput, trainingOutput, 0.5, 0.03);
+      //var output = Versace.TrainingInput.Columns().Skip(inputSetSize).Select(x => (double)Math.Sign(net.Propagate(x))).ToList();
 
       if (logCostHistory != null)
       {
         var ch = new EqPlotWindow();
         ch.EqPlot.Bounds = new Rect(0, logCostHistory.Min(), logCostHistory.Count, logCostHistory.Max() - logCostHistory.Min());
         ch.EqPlot.DrawLine(List.Repeat(logCostHistory.Count, i => new Point(i, logCostHistory[i])), Colors.Blue);
+        if (result.AcceptRatioHistory != null)
+          ch.EqPlot.DrawLine(List.Repeat(result.AcceptRatioHistory.Count, i => new Point(i, 0.4 * (result.AcceptRatioHistory[i] - 1))), Colors.Green);
         ch.Show();
       }
 

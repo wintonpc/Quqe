@@ -13,6 +13,7 @@ namespace Quqe
     public double[] MinimumLocation;
     public double MinimumValue;
     public List<Vector> Path;
+    public List<double> CostHistory;
   }
 
   public class BCO
@@ -55,9 +56,12 @@ namespace Quqe
       Vector phi = new DenseVector(x.Count - 1, 0);
       Queue<double> slopeCache = new Queue<double>();
       Queue<double> fChangeCache = new Queue<double>();
+      List<double> costHistory = new List<double>();
 
       for (int i = 0; i < maxIterations; i++)
       {
+        if (i % 1000 == 0)
+          Trace.WriteLine(string.Format("{0} / {1}", i, maxIterations));
         // calculate trajectory duration
         double T;
         double lpr = xChange.Norm(2);
@@ -102,6 +106,7 @@ namespace Quqe
 
         x = newx;
         f = newf;
+        costHistory.Add(f);
         path.Add(x);
 
         if (f < bestf)
@@ -120,7 +125,8 @@ namespace Quqe
       return new BCOResult {
         MinimumLocation = bestx.ToArray(),
         MinimumValue = bestf,
-        Path = path
+        Path = path,
+        CostHistory = costHistory
       };
     }
 
