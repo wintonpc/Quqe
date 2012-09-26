@@ -31,6 +31,7 @@ namespace Quqe
       public bool IsRecurrent;
       public ActivationFunc ActivationFunction;
       public ActivationFunc ActivationFunctionPrime;
+      public int NodeCount { get { return W.RowCount; } }
     }
 
     int NumInputs;
@@ -42,12 +43,13 @@ namespace Quqe
     {
       NumInputs = numInputs;
       LayerSpecs = layerSpecs;
-      Reset();
+      Layers = SpecsToLayers(NumInputs, LayerSpecs);
     }
 
-    public void Reset()
+    public void ResetState()
     {
-      Layers = SpecsToLayers(NumInputs, LayerSpecs);
+      foreach (var l in Layers)
+        l.z = GetTimeZeroRecurrentInput(l.NodeCount);
     }
 
     public Vector<double> Propagate(Vector<double> input)
@@ -85,11 +87,15 @@ namespace Quqe
         var layer = new Layer {
           W = new DenseMatrix(s.NodeCount, layers.Any() ? layers.Last().z.Count : numInputs),
           Bias = new DenseVector(s.NodeCount),
-          IsRecurrent = s.IsRecurrent,
-          z = new DenseVector(s.NodeCount, TimeZeroRecurrentInputValue)
+          IsRecurrent = s.IsRecurrent
         };
+
         if (s.IsRecurrent)
+        {
           layer.Wr = new DenseMatrix(s.NodeCount, s.NodeCount);
+          layer.z = GetTimeZeroRecurrentInput(s.NodeCount);
+        }
+
         if (s.ActivationType == ActivationType.LogisticSigmoid)
         {
           layer.ActivationFunction = LogisticSigmoid;
@@ -102,9 +108,15 @@ namespace Quqe
         }
         else
           throw new Exception("Unexpected ActivationType: " + s.ActivationType);
+
         layers.Add(layer);
       }
       return layers;
+    }
+
+    static Vector<double> GetTimeZeroRecurrentInput(int size)
+    {
+      return new DenseVector(size, TimeZeroRecurrentInputValue);
     }
 
     public Vector<double> GetWeightVector()
@@ -179,13 +191,10 @@ namespace Quqe
       return v * (1 - v);
     }
 
-
-
     public static AnnealResult<Vector> TrainSA(RNN net, Matrix trainingData, Vector outputData)
     {
       var result = Optimizer.Anneal(net.GetWeightVector().Count, 1, w => {
-        //var result = Optimizer.AnnealMomentum(Optimizer.RandomVector(net.WeightVectorLength, -1, 1), w => {
-        ((IPredictor)net).Reset();
+        net.ResetState();
         net.SetWeightVector(w);
         int correctCount = 0;
         double errorSum = 0;
@@ -200,7 +209,7 @@ namespace Quqe
         return errorSum / trainingData.ColumnCount;
       });
 
-      ((IPredictor)net).Reset();
+      net.ResetState();
       net.SetWeightVector(result.Params);
       return result;
     }

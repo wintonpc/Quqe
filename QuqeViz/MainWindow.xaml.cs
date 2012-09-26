@@ -727,18 +727,41 @@ namespace QuqeViz
     private void BarButton_Click(object sender, RoutedEventArgs e)
     {
       //var inputSetSize = Versace.TrainingInput.ColumnCount;
-      var inputSetSize = 20;
+      var inputSetSize = 247;
       var trainingInput = Versace.MatrixFromColumns(Versace.TrainingInput.Columns().Take(inputSetSize).ToList());
       var trainingOutput = (Vector)Versace.TrainingOutput.SubVector(0, inputSetSize);
 
       List<double> logCostHistory = null;
 
-      // Elman
-      var net = new ElmanNet(trainingInput.RowCount, List.Create(8, 4), 1);
-      var result = ElmanNet.Train(net, trainingInput, trainingOutput);
+      //// Elman
+      //var net = new ElmanNet(trainingInput.RowCount, List.Create(8, 4), 1);
+      //var result = ElmanNet.Train(net, trainingInput, trainingOutput);
+      //logCostHistory = result.CostHistory.Select(x => Math.Log10(x)).ToList();
+      //net.Reset();
+      //var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x.ToArray()))).ToList();
+
+      // RNN
+      var net = new RNN(trainingInput.RowCount, new List<LayerSpec> {
+        new LayerSpec {
+          NodeCount = 8,
+          IsRecurrent = true,
+          ActivationType = ActivationType.LogisticSigmoid
+        },
+        new LayerSpec {
+          NodeCount = 4,
+          IsRecurrent = true,
+          ActivationType = ActivationType.LogisticSigmoid
+        },
+        new LayerSpec {
+          NodeCount = 1,
+          IsRecurrent = false,
+          ActivationType = ActivationType.Linear
+        }
+      });
+      var result = RNN.TrainSA(net, trainingInput, trainingOutput);
       logCostHistory = result.CostHistory.Select(x => Math.Log10(x)).ToList();
-      net.Reset();
-      var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x.ToArray()))).ToList();
+      net.ResetState();
+      var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x)[0])).ToList();
 
       // RBF
       //var net = RBFNet.Train(trainingInput, trainingOutput, 0.5, 0.03);

@@ -726,10 +726,10 @@ namespace Quqe
       var passes = new[] {
         new {
           Name = "Refine",
-          Iters = 20000,
+          Iters = 25000,
           BestCount = 1,
-          Schedule = (Func<double, double>)(t => 0.5 * (t < 0.75 ? Math.Exp(-4 * t) : 0.19 * (1 - t))),
-          TakeAnywayProbability = (Func<double, double, double>)((temp, cp) => 0.25 * /* Math.Sqrt(temp) * */ Math.Exp(-30 * cp))
+          Schedule = (Func<double, double>)(t => 3 * (t < 0.75 ? Math.Exp(-4 * t) : 0.19 * (1 - t))),
+          TakeAnywayProbability = (Func<double, double, double>)((temp, cp) => 0.25 * /* Math.Sqrt(temp) * */ Math.Exp(-70 * cp))
         },
         //new {
         //  Name = "Cool",
