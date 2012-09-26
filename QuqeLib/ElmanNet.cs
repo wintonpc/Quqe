@@ -241,7 +241,7 @@ namespace Quqe
 
     public static AnnealResult<Vector> Train(ElmanNet net, Matrix trainingData, Vector outputData)
     {
-      var result = Optimizer.Anneal(net.WeightVectorLength, 5, w => {
+      var result = Optimizer.Anneal(net.WeightVectorLength, 1, w => {
       //var result = Optimizer.AnnealMomentum(Optimizer.RandomVector(net.WeightVectorLength, -1, 1), w => {
         ((IPredictor)net).Reset();
         net.SetWeightVector(w.ToArray());

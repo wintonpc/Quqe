@@ -419,9 +419,9 @@ namespace Quqe
 
     public static AnnealResult<Vector> Anneal(int vectorSize, double maxWeightMagnitude, Func<Vector, double> costFunc)
     {
-      return Anneal(RandomVector(vectorSize, -maxWeightMagnitude, maxWeightMagnitude),
+      return AnnealFast(RandomVector(vectorSize, -maxWeightMagnitude, maxWeightMagnitude),
         (v, temp) => TransitionVector(v, temp, maxWeightMagnitude),
-        costFunc, () => RandomVector(vectorSize, -maxWeightMagnitude, maxWeightMagnitude), vectorSize);
+        costFunc, () => RandomVector(vectorSize, -maxWeightMagnitude, maxWeightMagnitude));
     }
 
     public static Vector RandomVector(int size, double min, double max)
@@ -690,7 +690,7 @@ namespace Quqe
 
       // coarse sampling
       {
-        var iters = 8000;
+        var iters = 3000;
         for (int i = 0; i < iters; i++)
         {
           if (i % 100 == 0)
@@ -726,10 +726,10 @@ namespace Quqe
       var passes = new[] {
         new {
           Name = "Refine",
-          Iters = 10000,
+          Iters = 20000,
           BestCount = 1,
-          Schedule = (Func<double, double>)(t => 0.1 * Math.Exp(-3 * t)),
-          TakeAnywayProbability = (Func<double, double, double>)((cp, t) => 0.1 * Math.Exp(-2 * cp / (1 - t)))
+          Schedule = (Func<double, double>)(t => 0.5 * (t < 0.75 ? Math.Exp(-4 * t) : 0.19 * (1 - t))),
+          TakeAnywayProbability = (Func<double, double, double>)((temp, cp) => 0.25 * /* Math.Sqrt(temp) * */ Math.Exp(-30 * cp))
         },
         //new {
         //  Name = "Cool",
@@ -762,7 +762,6 @@ namespace Quqe
           currentParams = q.Params;
           currentCost = q.Cost;
 
-          // quench
           {
             //int iters = (int)(randomSearchIters / 2.5);
             for (int i = 0; i < pass.Iters; i++)
@@ -796,7 +795,7 @@ namespace Quqe
                 takeNext();
               else
               {
-                var prob = pass.TakeAnywayProbability(nextCost - currentCost, time);
+                var prob = pass.TakeAnywayProbability(temp, nextCost - bestCost);
                 if (WithProb(prob))
                   takeNext();
                 else
@@ -805,15 +804,15 @@ namespace Quqe
                 }
               }
 
-              // if time is up but still making progress, freeze time until progress stops
-              int slopeWindowSize = (pass.Iters / 5);
-              if (i + 1 == pass.Iters)
-              {
-                var earlier = costHistory[costHistory.Count - 1 - slopeWindowSize];
-                var now = costHistory[costHistory.Count - 1];
-                if (earlier > now && (earlier - now) / now > 0.0075)
-                  i -= slopeWindowSize;
-              }
+              //// if time is up but still making progress, freeze time until progress stops
+              //int slopeWindowSize = (pass.Iters / 5);
+              //if (i + 1 == pass.Iters)
+              //{
+              //  var earlier = costHistory[costHistory.Count - 1 - slopeWindowSize];
+              //  var now = costHistory[costHistory.Count - 1];
+              //  if (earlier > now && (earlier - now) / now > 0.0075)
+              //    i -= slopeWindowSize;
+              //}
             }
           }
         }

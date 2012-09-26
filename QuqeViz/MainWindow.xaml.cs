@@ -727,7 +727,7 @@ namespace QuqeViz
     private void BarButton_Click(object sender, RoutedEventArgs e)
     {
       //var inputSetSize = Versace.TrainingInput.ColumnCount;
-      var inputSetSize = 247;
+      var inputSetSize = 20;
       var trainingInput = Versace.MatrixFromColumns(Versace.TrainingInput.Columns().Take(inputSetSize).ToList());
       var trainingOutput = (Vector)Versace.TrainingOutput.SubVector(0, inputSetSize);
 
