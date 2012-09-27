@@ -48,49 +48,57 @@ namespace Quqe
 
     public static AnnealResult<Vector> TrainBPTT(RNN net, double rate, Matrix trainingData, Vector outputData)
     {
-      var time = new List<Frame>();
-      var weights = net.GetWeightVector();
-
-      for (int t = 0; t < trainingData.ColumnCount; t++)
+      int epoch_max = 1000;
+      for (int epoch = 0; epoch < epoch_max; epoch++)
       {
-        time.Add(new Frame { Layers = SpecsToLayers(net.NumInputs, net.LayerSpecs, true) });
-        SetWeightVector(time[t].Layers, weights);
+        var time = new List<Frame>();
 
-        Propagate(trainingData.Column(t), time[t].Layers, l => t == 0 ? MakeTimeZeroRecurrentInput(net.Layers[l].NodeCount)
-          : time[t - 1].Layers[l].z);
-      }
-
-      int t_max = trainingData.ColumnCount - 1;
-      for (int t = t_max; t >= 0; t--)
-      {
-        var outputLayer = time[t].Layers.Last();
-        var out_d = outputLayer.d;
-        var expected = outputData[t];
-        for (int i = 0; i < out_d.Count; i++)
+        // propagate inputs forward
+        var weights = net.GetWeightVector();
+        for (int t = 0; t < trainingData.ColumnCount; t++)
         {
-          double err = (expected - outputLayer.z[i]);
-          if (t < t_max)
-          {
-            var nextLayerInTime = time[t + 1].Layers.Last();
-            err += nextLayerInTime.Wr.Column(i) * nextLayerInTime.d;
-          }
-          out_d[i] = err * outputLayer.ActivationFunctionPrime(outputLayer.a[i]);
+          time.Add(new Frame { Layers = SpecsToLayers(net.NumInputs, net.LayerSpecs, true) });
+          SetWeightVector(time[t].Layers, weights);
+
+          Propagate(trainingData.Column(t), time[t].Layers, l => t == 0 ? MakeTimeZeroRecurrentInput(net.Layers[l].NodeCount)
+            : time[t - 1].Layers[l].z);
         }
-        for (int l = time[t].Layers.Count - 2; l >= 0; l--)
+
+        // propagate error backward
+        int t_max = trainingData.ColumnCount - 1;
+        for (int t = t_max; t >= 0; t--)
         {
-          var layer = time[t].Layers[l];
-          for (int i = 0; i < layer.NodeCount; i++)
+          int l_max = time[t].Layers.Count - 1;
+          for (int l = l_max; l >= 0; l--)
           {
-            var subsequentLayer = time[t].Layers[l+1];
-            double err = (subsequentLayer.W.Column(i) * subsequentLayer.d);
-            if (t < t_max)
+            var layer = time[t].Layers[l];
+            for (int i = 0; i < layer.NodeCount; i++)
             {
-              var nextLayerInTime = time[t + 1].Layers.Last();
-              err += nextLayerInTime.Wr.Column(i) * nextLayerInTime.d;
+              double err;
+
+              // calculate error propagated to next layer
+              if (l == l_max)
+                err = (outputData[t] - layer.z[i]);
+              else
+              {
+                var subsequentLayer = time[t].Layers[l + 1];
+                err = (subsequentLayer.W.Column(i) * subsequentLayer.d);
+              }
+
+              // calculate error propagated forward in time (recurrently)
+              if (t < t_max && layer.IsRecurrent)
+              {
+                var nextLayerInTime = time[t + 1].Layers[l];
+                err += nextLayerInTime.Wr.Column(i) * nextLayerInTime.d;
+              }
+
+              layer.d[i] = err * layer.ActivationFunctionPrime(layer.a[i]);
             }
-            layer.d[i] = err * layer.ActivationFunctionPrime(layer.a[i]);
           }
         }
+
+        // TODO: update weights
+        throw new NotImplementedException();
       }
 
       throw new NotImplementedException();
