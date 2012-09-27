@@ -690,7 +690,7 @@ namespace Quqe
 
       // coarse sampling
       {
-        var iters = 3000;
+        var iters = 1000;
         for (int i = 0; i < iters; i++)
         {
           if (i % 100 == 0)
@@ -726,7 +726,7 @@ namespace Quqe
       var passes = new[] {
         new {
           Name = "Refine",
-          Iters = 25000,
+          Iters = 1,
           BestCount = 1,
           Schedule = (Func<double, double>)(t => 3 * (t < 0.75 ? Math.Exp(-4 * t) : 0.19 * (1 - t))),
           TakeAnywayProbability = (Func<double, double, double>)((temp, cp) => 0.25 * /* Math.Sqrt(temp) * */ Math.Exp(-70 * cp))

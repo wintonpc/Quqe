@@ -759,8 +759,10 @@ namespace QuqeViz
         }
       });
       //var result = RNN.TrainSA(net, trainingInput, trainingOutput);
-      net.SetWeightVector(new DenseVector(net.GetWeightVector().Count, 0.1));
-      var result = RNN.TrainBPTT(net, 0.0001, trainingInput, trainingOutput);
+      //net.SetWeightVector(Optimizer.RandomVector(net.GetWeightVector().Count, -5, 5));
+      var saResult = RNN.TrainSA(net, trainingInput, trainingOutput);
+      net.SetWeightVector(saResult.Params);
+      var result = RNN.TrainBPTT(net, 0.001, trainingInput, trainingOutput);
       logCostHistory = result.CostHistory.Select(x => Math.Log10(x)).ToList();
       net.ResetState();
       var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x)[0])).ToList();

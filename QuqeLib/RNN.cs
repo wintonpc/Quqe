@@ -27,6 +27,7 @@ namespace Quqe
       public Matrix<double> W; // [node, input] (input weights)
       public Matrix<double> Wr; // [node, node] (recurrent weights)
       public Vector<double> Bias; // [node] (per-node bias)
+      public Vector<double> x; // [input] (input vector)
       public Vector<double> a; // [node] (summed input)
       public Vector<double> z; // [node] (node output)
       public Vector<double> d; // [node] (this node's error contribution, training-only)
@@ -34,6 +35,7 @@ namespace Quqe
       public ActivationFunc ActivationFunction;
       public ActivationFunc ActivationFunctionPrime;
       public int NodeCount { get { return W.RowCount; } }
+      public int InputCount { get { return W.ColumnCount; } }
     }
 
     class Frame
@@ -48,21 +50,25 @@ namespace Quqe
 
     public static AnnealResult<Vector> TrainBPTT(RNN net, double rate, Matrix trainingData, Vector outputData)
     {
+      var outputErrorHistory = new List<double>();
+
       int epoch_max = 1000;
       for (int epoch = 0; epoch < epoch_max; epoch++)
       {
         var time = new List<Frame>();
+        var currentWeights = net.GetWeightVector();
 
         // propagate inputs forward
-        var weights = net.GetWeightVector();
         for (int t = 0; t < trainingData.ColumnCount; t++)
         {
           time.Add(new Frame { Layers = SpecsToLayers(net.NumInputs, net.LayerSpecs, true) });
-          SetWeightVector(time[t].Layers, weights);
+          SetWeightVector(time[t].Layers, currentWeights);
 
           Propagate(trainingData.Column(t), time[t].Layers, l => t == 0 ? MakeTimeZeroRecurrentInput(net.Layers[l].NodeCount)
             : time[t - 1].Layers[l].z);
         }
+
+        double totalOutputErrorForThisEpoch = 0;
 
         // propagate error backward
         int t_max = trainingData.ColumnCount - 1;
@@ -78,7 +84,10 @@ namespace Quqe
 
               // calculate error propagated to next layer
               if (l == l_max)
+              {
                 err = (outputData[t] - layer.z[i]);
+                totalOutputErrorForThisEpoch += Math.Pow(err, 2);
+              }
               else
               {
                 var subsequentLayer = time[t].Layers[l + 1];
@@ -97,11 +106,42 @@ namespace Quqe
           }
         }
 
-        // TODO: update weights
-        throw new NotImplementedException();
+        outputErrorHistory.Add(totalOutputErrorForThisEpoch / t_max);
+
+        // update weights
+        var newLayers = SpecsToLayers(net.NumInputs, net.LayerSpecs);
+        SetWeightVector(newLayers, currentWeights);
+        for (int t = 0; t < time.Count; t++)
+        {
+          for (int l = 0; l < newLayers.Count; l++)
+          {
+            // W
+            for (int i = 0; i < newLayers[l].NodeCount; i++)
+              for (int j = 0; j < newLayers[l].InputCount; j++)
+                newLayers[l].W[i, j] += rate * time[t].Layers[l].d[i] * time[t].Layers[l].x[j];
+
+            // Wr
+            if (t > 0 && newLayers[l].IsRecurrent)
+              for (int i = 0; i < newLayers[l].NodeCount; i++)
+                for (int j = 0; j < newLayers[l].NodeCount; j++)
+                  newLayers[l].Wr[i, j] += rate * time[t].Layers[l].d[i] * time[t - 1].Layers[l].z[j];
+
+            // Bias
+            for (int i = 0; i < newLayers[l].NodeCount; i++)
+              newLayers[l].Bias[i] += rate * time[t].Layers[l].d[i]; // (bias input is always 1)
+          }
+        }
+
+        net.Layers = newLayers;
       }
 
-      throw new NotImplementedException();
+      net.ResetState();
+
+      return new AnnealResult<Vector> {
+        Params = (Vector)net.GetWeightVector(),
+        CostHistory = outputErrorHistory,
+        Cost = outputErrorHistory.Last()
+      };
     }
 
     public RNN(int numInputs, List<LayerSpec> layerSpecs)
@@ -135,6 +175,7 @@ namespace Quqe
 
     static void PropagateLayer(Vector<double> input, Layer layer, Vector<double> recurrentInput)
     {
+      layer.x = input;
       layer.a = layer.W * input + layer.Bias;
       if (layer.IsRecurrent)
         layer.a += layer.Wr * recurrentInput;
