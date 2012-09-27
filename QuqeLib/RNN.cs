@@ -9,6 +9,7 @@ namespace Quqe
 {
   public enum ActivationType { LogisticSigmoid, Linear }
   public delegate double ActivationFunc(double a);
+  public delegate Vector<double> GetRecurrentInputFunc(int layer);
 
   public class LayerSpec
   {
@@ -28,16 +29,72 @@ namespace Quqe
       public Vector<double> Bias; // [node] (per-node bias)
       public Vector<double> a; // [node] (summed input)
       public Vector<double> z; // [node] (node output)
+      public Vector<double> d; // [node] (this node's error contribution, training-only)
       public bool IsRecurrent;
       public ActivationFunc ActivationFunction;
       public ActivationFunc ActivationFunctionPrime;
       public int NodeCount { get { return W.RowCount; } }
     }
 
+    class Frame
+    {
+      public List<Layer> Layers;
+    }
+
     int NumInputs;
     List<LayerSpec> LayerSpecs;
     List<Layer> Layers;
     const double TimeZeroRecurrentInputValue = 0.5;
+
+    public static AnnealResult<Vector> TrainBPTT(RNN net, double rate, Matrix trainingData, Vector outputData)
+    {
+      var time = new List<Frame>();
+      var weights = net.GetWeightVector();
+
+      for (int t = 0; t < trainingData.ColumnCount; t++)
+      {
+        time.Add(new Frame { Layers = SpecsToLayers(net.NumInputs, net.LayerSpecs, true) });
+        SetWeightVector(time[t].Layers, weights);
+
+        Propagate(trainingData.Column(t), time[t].Layers, l => t == 0 ? MakeTimeZeroRecurrentInput(net.Layers[l].NodeCount)
+          : time[t - 1].Layers[l].z);
+      }
+
+      int t_max = trainingData.ColumnCount - 1;
+      for (int t = t_max; t >= 0; t--)
+      {
+        var outputLayer = time[t].Layers.Last();
+        var out_d = outputLayer.d;
+        var expected = outputData[t];
+        for (int i = 0; i < out_d.Count; i++)
+        {
+          double err = (expected - outputLayer.z[i]);
+          if (t < t_max)
+          {
+            var nextLayerInTime = time[t + 1].Layers.Last();
+            err += nextLayerInTime.Wr.Column(i) * nextLayerInTime.d;
+          }
+          out_d[i] = err * outputLayer.ActivationFunctionPrime(outputLayer.a[i]);
+        }
+        for (int l = time[t].Layers.Count - 2; l >= 0; l--)
+        {
+          var layer = time[t].Layers[l];
+          for (int i = 0; i < layer.NodeCount; i++)
+          {
+            var subsequentLayer = time[t].Layers[l+1];
+            double err = (subsequentLayer.W.Column(i) * subsequentLayer.d);
+            if (t < t_max)
+            {
+              var nextLayerInTime = time[t + 1].Layers.Last();
+              err += nextLayerInTime.Wr.Column(i) * nextLayerInTime.d;
+            }
+            layer.d[i] = err * layer.ActivationFunctionPrime(layer.a[i]);
+          }
+        }
+      }
+
+      throw new NotImplementedException();
+    }
 
     public RNN(int numInputs, List<LayerSpec> layerSpecs)
     {
@@ -49,24 +106,30 @@ namespace Quqe
     public void ResetState()
     {
       foreach (var l in Layers)
-        l.z = GetTimeZeroRecurrentInput(l.NodeCount);
+        l.z = MakeTimeZeroRecurrentInput(l.NodeCount);
     }
 
     public Vector<double> Propagate(Vector<double> input)
     {
-      foreach (var layer in Layers)
-      {
-        PropagateLayer(input, layer);
-        input = layer.z;
-      }
-      return Layers.Last().z;
+      return Propagate(input, Layers, l => Layers[l].z); // recursive inputs are previous outputs (z)
     }
 
-    static void PropagateLayer(Vector<double> input, Layer layer)
+    static Vector<double> Propagate(Vector<double> input, List<Layer> layers, GetRecurrentInputFunc getRecurrentInput)
+    {
+      for (int l = 0; l < layers.Count; l++)
+      {
+        var layer = layers[l];
+        PropagateLayer(input, layer, getRecurrentInput(l));
+        input = layer.z;
+      }
+      return layers.Last().z;
+    }
+
+    static void PropagateLayer(Vector<double> input, Layer layer, Vector<double> recurrentInput)
     {
       layer.a = layer.W * input + layer.Bias;
       if (layer.IsRecurrent)
-        layer.a += layer.Wr * layer.z; // recursive inputs (a) are previous outputs (z)
+        layer.a += layer.Wr * recurrentInput;
       layer.z = ApplyActivationFunction(layer.a, layer.ActivationFunction);
     }
 
@@ -79,7 +142,7 @@ namespace Quqe
       return z;
     }
 
-    static List<Layer> SpecsToLayers(int numInputs, List<LayerSpec> specs)
+    static List<Layer> SpecsToLayers(int numInputs, List<LayerSpec> specs, bool isTraining = false)
     {
       var layers = new List<Layer>();
       foreach (var s in specs)
@@ -93,7 +156,7 @@ namespace Quqe
         if (s.IsRecurrent)
         {
           layer.Wr = new DenseMatrix(s.NodeCount, s.NodeCount);
-          layer.z = GetTimeZeroRecurrentInput(s.NodeCount);
+          layer.z = MakeTimeZeroRecurrentInput(s.NodeCount);
         }
 
         if (s.ActivationType == ActivationType.LogisticSigmoid)
@@ -109,12 +172,15 @@ namespace Quqe
         else
           throw new Exception("Unexpected ActivationType: " + s.ActivationType);
 
+        if (isTraining)
+          layer.d = new DenseVector(s.NodeCount);
+
         layers.Add(layer);
       }
       return layers;
     }
 
-    static Vector<double> GetTimeZeroRecurrentInput(int size)
+    static Vector<double> MakeTimeZeroRecurrentInput(int size)
     {
       return new DenseVector(size, TimeZeroRecurrentInputValue);
     }
@@ -122,33 +188,38 @@ namespace Quqe
     public Vector<double> GetWeightVector()
     {
       List<double> weights = new List<double>();
-      WalkWeights(w => weights.Add(w), null);
+      WalkWeights(Layers, w => weights.Add(w), null);
       return new DenseVector(weights.ToArray());
     }
 
     public void SetWeightVector(Vector<double> weights)
     {
+      SetWeightVector(Layers, weights);
+    }
+
+    static void SetWeightVector(List<Layer> layers, Vector<double> weights)
+    {
       var i = 0;
-      WalkWeights(null, () => {
+      WalkWeights(layers, null, () => {
         var w = weights[i];
         i++;
         return w;
       });
     }
 
-    void WalkWeights(Action<double> observe, Func<double> getNextValue)
+    static void WalkWeights(List<Layer> layers, Action<double> observe, Func<double> getNextValue)
     {
-      for (int layer = 0; layer < Layers.Count; layer++)
+      for (int layer = 0; layer < layers.Count; layer++)
       {
-        var l = Layers[layer];
+        var l = layers[layer];
         WalkMatrix(l.W, observe, getNextValue);
         if (l.IsRecurrent)
           WalkMatrix(l.Wr, observe, getNextValue);
-        WalkVector(Layers[layer].Bias, observe, getNextValue);
+        WalkVector(layers[layer].Bias, observe, getNextValue);
       }
     }
 
-    void WalkVector(Vector<double> v, Action<double> observe, Func<double> getNextValue)
+    static void WalkVector(Vector<double> v, Action<double> observe, Func<double> getNextValue)
     {
       var len = v.Count;
       for (int i = 0; i < len; i++)
@@ -158,7 +229,7 @@ namespace Quqe
           observe(v[i]);
     }
 
-    void WalkMatrix(Matrix<double> m, Action<double> observe, Func<double> getNextValue)
+    static void WalkMatrix(Matrix<double> m, Action<double> observe, Func<double> getNextValue)
     {
       var nRows = m.RowCount;
       var nCols = m.ColumnCount;
