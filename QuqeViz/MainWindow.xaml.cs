@@ -727,7 +727,7 @@ namespace QuqeViz
     private void BarButton_Click(object sender, RoutedEventArgs e)
     {
       //var inputSetSize = Versace.TrainingInput.ColumnCount;
-      var inputSetSize = 60;
+      var inputSetSize = 247;
       var trainingInput = Versace.MatrixFromColumns(Versace.TrainingInput.Columns().Take(inputSetSize).ToList());
       var trainingOutput = (Vector)Versace.TrainingOutput.SubVector(0, inputSetSize);
 
@@ -762,8 +762,9 @@ namespace QuqeViz
       //net.SetWeightVector(Optimizer.RandomVector(net.GetWeightVector().Count, -5, 5));
       var saResult = RNN.TrainSA(net, trainingInput, trainingOutput);
       net.SetWeightVector(saResult.Params);
-      var result = RNN.TrainBPTT(net, 0.001, trainingInput, trainingOutput);
-      logCostHistory = result.CostHistory.Select(x => Math.Log10(x)).ToList();
+      var result = RNN.TrainBPTT(net, 0.02, trainingInput, trainingOutput);
+      //logCostHistory = result.CostHistory.Select(x => Math.Log10(x)).ToList();
+      logCostHistory = result.CostHistory;
       net.ResetState();
       var output = trainingInput.Columns().Select(x => (double)Math.Sign(net.Propagate(x)[0])).ToList();
 

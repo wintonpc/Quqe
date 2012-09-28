@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -53,7 +54,8 @@ namespace Quqe
       var outputErrorHistory = new List<double>();
 
       int epoch_max = 1000;
-      for (int epoch = 0; epoch < epoch_max; epoch++)
+      int epoch = 0;
+      while (true)
       {
         var time = new List<Frame>();
         var currentWeights = net.GetWeightVector();
@@ -133,9 +135,33 @@ namespace Quqe
         }
 
         net.Layers = newLayers;
+
+        epoch++;
+
+        //var ehn = 100;
+        //if (outputErrorHistory.Count > ehn)
+        //{
+        //  //double rs = 0;
+        //  //for (int i = 0; i < ehn; i++)
+        //  //  rs += outputErrorHistory[outputErrorHistory.Count - 2 - i] - outputErrorHistory[outputErrorHistory.Count - 1 - i];
+        //  //Trace.WriteLine("rs = " + (rs / ehn));
+        //  //if (rs / ehn < 0.000005)
+        //  //  break;
+
+        //  var errNow = outputErrorHistory[outputErrorHistory.Count - 1];
+        //  var errBefore = outputErrorHistory[outputErrorHistory.Count - 1 - 100];
+        //  Trace.WriteLine("s = " + (errBefore - errNow));
+        //  if (errBefore - errNow < 0.001)
+        //    break;
+        //}
+
+        if (epoch == epoch_max)
+          break;
       }
 
       net.ResetState();
+
+      Trace.WriteLine(epoch + " epochs");
 
       return new AnnealResult<Vector> {
         Params = (Vector)net.GetWeightVector(),
