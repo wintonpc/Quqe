@@ -239,7 +239,7 @@ namespace Quqe
       return 1 / (1 + Math.Exp(-x));
     }
 
-    public static AnnealResult<Vector> Train(ElmanNet net, Matrix trainingData, Vector outputData)
+    public static TrainResult<Vector> Train(ElmanNet net, Matrix trainingData, Vector outputData)
     {
       var result = Optimizer.Anneal(net.WeightVectorLength, 1, w => {
       //var result = Optimizer.AnnealMomentum(Optimizer.RandomVector(net.WeightVectorLength, -1, 1), w => {

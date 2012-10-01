@@ -45,97 +45,113 @@ namespace Quqe
       public List<Layer> Layers;
     }
 
+    class ErrorInfo
+    {
+      public double Error;
+      public Vector<double> Gradient;
+    }
+
     int NumInputs;
     List<LayerSpec> LayerSpecs;
     List<Layer> Layers;
     const double TimeZeroRecurrentInputValue = 0.5;
 
-    public static AnnealResult<Vector> TrainBPTT(RNN net, double rate, Matrix trainingData, Vector outputData)
+    static ErrorInfo EvaluateWeights(RNN net, Vector<double> weights, Matrix trainingData, Vector outputData)
+    {
+      var time = new List<Frame>();
+      var oldWeights = net.GetWeightVector();
+      net.SetWeightVector(weights);
+      double totalOutputError = 0;
+
+      // propagate inputs forward
+      for (int t = 0; t < trainingData.ColumnCount; t++)
+      {
+        time.Add(new Frame { Layers = SpecsToLayers(net.NumInputs, net.LayerSpecs, true) });
+        SetWeightVector(time[t].Layers, weights);
+
+        Propagate(trainingData.Column(t), time[t].Layers, l => t == 0 ? MakeTimeZeroRecurrentInput(net.Layers[l].NodeCount)
+          : time[t - 1].Layers[l].z);
+      }
+
+      // propagate error backward
+      int t_max = trainingData.ColumnCount - 1;
+      for (int t = t_max; t >= 0; t--)
+      {
+        int l_max = time[t].Layers.Count - 1;
+        for (int l = l_max; l >= 0; l--)
+        {
+          var layer = time[t].Layers[l];
+          for (int i = 0; i < layer.NodeCount; i++)
+          {
+            double err;
+
+            // calculate error propagated to next layer
+            if (l == l_max)
+            {
+              err = (outputData[t] - layer.z[i]);
+              totalOutputError += 0.5 * Math.Pow(err, 2);
+            }
+            else
+            {
+              var subsequentLayer = time[t].Layers[l + 1];
+              err = (subsequentLayer.W.Column(i) * subsequentLayer.d);
+            }
+
+            // calculate error propagated forward in time (recurrently)
+            if (t < t_max && layer.IsRecurrent)
+            {
+              var nextLayerInTime = time[t + 1].Layers[l];
+              err += nextLayerInTime.Wr.Column(i) * nextLayerInTime.d;
+            }
+
+            layer.d[i] = err * layer.ActivationFunctionPrime(layer.a[i]);
+          }
+        }
+      }
+
+      // calculate gradient
+      var gradientLayers = SpecsToLayers(net.NumInputs, net.LayerSpecs);
+      for (int t = 0; t < time.Count; t++)
+      {
+        for (int l = 0; l < gradientLayers.Count; l++)
+        {
+          // W
+          for (int i = 0; i < gradientLayers[l].NodeCount; i++)
+            for (int j = 0; j < gradientLayers[l].InputCount; j++)
+              gradientLayers[l].W[i, j] += -1 * time[t].Layers[l].d[i] * time[t].Layers[l].x[j];
+
+          // Wr
+          if (t > 0 && gradientLayers[l].IsRecurrent)
+            for (int i = 0; i < gradientLayers[l].NodeCount; i++)
+              for (int j = 0; j < gradientLayers[l].NodeCount; j++)
+                gradientLayers[l].Wr[i, j] += -1 * time[t].Layers[l].d[i] * time[t - 1].Layers[l].z[j];
+
+          // Bias
+          for (int i = 0; i < gradientLayers[l].NodeCount; i++)
+            gradientLayers[l].Bias[i] += -1 * time[t].Layers[l].d[i]; // (bias input is always 1)
+        }
+      }
+
+      net.SetWeightVector(oldWeights);
+
+      return new ErrorInfo {
+        Error = totalOutputError,
+        Gradient = GetWeightVector(gradientLayers)
+      };
+    }
+
+    public static TrainResult<Vector> TrainBPTT(RNN net, double rate, Matrix trainingData, Vector outputData)
     {
       var outputErrorHistory = new List<double>();
 
-      int epoch_max = 2000;
+      int epoch_max = 1000;
       int epoch = 0;
+      var weights = net.GetWeightVector();
       while (true)
       {
-        var time = new List<Frame>();
-        var currentWeights = net.GetWeightVector();
-
-        // propagate inputs forward
-        for (int t = 0; t < trainingData.ColumnCount; t++)
-        {
-          time.Add(new Frame { Layers = SpecsToLayers(net.NumInputs, net.LayerSpecs, true) });
-          SetWeightVector(time[t].Layers, currentWeights);
-
-          Propagate(trainingData.Column(t), time[t].Layers, l => t == 0 ? MakeTimeZeroRecurrentInput(net.Layers[l].NodeCount)
-            : time[t - 1].Layers[l].z);
-        }
-
-        double totalOutputErrorForThisEpoch = 0;
-
-        // propagate error backward
-        int t_max = trainingData.ColumnCount - 1;
-        for (int t = t_max; t >= 0; t--)
-        {
-          int l_max = time[t].Layers.Count - 1;
-          for (int l = l_max; l >= 0; l--)
-          {
-            var layer = time[t].Layers[l];
-            for (int i = 0; i < layer.NodeCount; i++)
-            {
-              double err;
-
-              // calculate error propagated to next layer
-              if (l == l_max)
-              {
-                err = (outputData[t] - layer.z[i]);
-                totalOutputErrorForThisEpoch += Math.Pow(err, 2);
-              }
-              else
-              {
-                var subsequentLayer = time[t].Layers[l + 1];
-                err = (subsequentLayer.W.Column(i) * subsequentLayer.d);
-              }
-
-              // calculate error propagated forward in time (recurrently)
-              if (t < t_max && layer.IsRecurrent)
-              {
-                var nextLayerInTime = time[t + 1].Layers[l];
-                err += nextLayerInTime.Wr.Column(i) * nextLayerInTime.d;
-              }
-
-              layer.d[i] = err * layer.ActivationFunctionPrime(layer.a[i]);
-            }
-          }
-        }
-
-        outputErrorHistory.Add(totalOutputErrorForThisEpoch / t_max);
-
-        // update weights
-        var newLayers = SpecsToLayers(net.NumInputs, net.LayerSpecs);
-        SetWeightVector(newLayers, currentWeights);
-        for (int t = 0; t < time.Count; t++)
-        {
-          for (int l = 0; l < newLayers.Count; l++)
-          {
-            // W
-            for (int i = 0; i < newLayers[l].NodeCount; i++)
-              for (int j = 0; j < newLayers[l].InputCount; j++)
-                newLayers[l].W[i, j] += rate * time[t].Layers[l].d[i] * time[t].Layers[l].x[j];
-
-            // Wr
-            if (t > 0 && newLayers[l].IsRecurrent)
-              for (int i = 0; i < newLayers[l].NodeCount; i++)
-                for (int j = 0; j < newLayers[l].NodeCount; j++)
-                  newLayers[l].Wr[i, j] += rate * time[t].Layers[l].d[i] * time[t - 1].Layers[l].z[j];
-
-            // Bias
-            for (int i = 0; i < newLayers[l].NodeCount; i++)
-              newLayers[l].Bias[i] += rate * time[t].Layers[l].d[i]; // (bias input is always 1)
-          }
-        }
-
-        net.Layers = newLayers;
+        var errorInfo = EvaluateWeights(net, weights, trainingData, outputData);
+        outputErrorHistory.Add(errorInfo.Error);
+        weights = weights - rate * errorInfo.Gradient;
 
         epoch++;
 
@@ -145,35 +161,159 @@ namespace Quqe
           net.ToPng("net" + epoch.ToString("D4") + ".png");
         }
 
-        //var ehn = 100;
-        //if (outputErrorHistory.Count > ehn)
-        //{
-        //  //double rs = 0;
-        //  //for (int i = 0; i < ehn; i++)
-        //  //  rs += outputErrorHistory[outputErrorHistory.Count - 2 - i] - outputErrorHistory[outputErrorHistory.Count - 1 - i];
-        //  //Trace.WriteLine("rs = " + (rs / ehn));
-        //  //if (rs / ehn < 0.000005)
-        //  //  break;
-
-        //  var errNow = outputErrorHistory[outputErrorHistory.Count - 1];
-        //  var errBefore = outputErrorHistory[outputErrorHistory.Count - 1 - 100];
-        //  Trace.WriteLine("s = " + (errBefore - errNow));
-        //  if (errBefore - errNow < 0.001)
-        //    break;
-        //}
-
         if (epoch == epoch_max)
           break;
       }
 
-      net.ResetState();
+      net.SetWeightVector(weights);
 
       Trace.WriteLine(epoch + " epochs");
 
-      return new AnnealResult<Vector> {
-        Params = (Vector)net.GetWeightVector(),
+      return new TrainResult<Vector> {
+        Params = (Vector)weights,
         CostHistory = outputErrorHistory,
         Cost = outputErrorHistory.Last()
+      };
+    }
+
+    /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
+    public static TrainResult<Vector> TrainSCG(RNN net, int restartPeriod, double tolerance, Matrix trainingData, Vector outputData)
+    {
+      Func<Vector<double>, Vector<double>, Vector<double>, double, Vector<double>> approximateCurvature =
+        (w1, gradientAtW1, searchDirection, sig) => {
+          var w2 = w1 + sig * searchDirection;
+          var gradientAtW2 = EvaluateWeights(net, w2, trainingData, outputData).Gradient;
+          return (gradientAtW2 - gradientAtW1) / sig;
+        };
+
+      double lambda_min = double.Epsilon;
+      double lambda_max = double.MaxValue;
+      double S_max = Math.Min(net.GetWeightVector().Count, restartPeriod);
+      double tau = tolerance;
+
+      // 0. initialize variables
+      var w = net.GetWeightVector();
+      double epsilon = Math.Pow(10, -3);
+      double lambda = 1;
+      double pi = 0.05;
+      var errInfo = EvaluateWeights(net, w, trainingData, outputData);
+      var errAtW = errInfo.Error;
+      List<double> errHistory = new List<double> { errAtW };
+      Vector<double> g = errInfo.Gradient;
+      Vector<double> s = -g;
+      bool success = true;
+      int S = 0;
+
+      double kappa = 0; // will be assigned in (1) on first iteration
+      double sigma = 0; // will be assigned in (1) on first iteration
+      double gamma = 0; // will be assigned in (1) on first iteration
+      double mu = 0;    // will be assigned in (1) on first iteration
+      int n = 0;
+      while (true)
+      {
+        // 1. if success == true, calculate first and second order directional derivatives
+        if (success)
+        {
+          mu = s.DotProduct(g); // (directional gradient)
+          if (mu >= 0)
+          {
+            s = -g;
+            mu = s.DotProduct(g);
+            S = 0;
+          }
+          kappa = s.DotProduct(s);
+          sigma = epsilon / Math.Sqrt(kappa);
+          gamma = s.DotProduct(approximateCurvature(w, g, s, sigma)); // (directional curvature)
+        }
+
+        // 2. increase the working curvature
+        double delta = gamma + lambda * kappa;
+
+        // 3. if delta <= 0, make delta positive and increase lambda
+        if (delta <= 0)
+        {
+          delta = lambda * kappa;
+          lambda = lambda - gamma / kappa;
+        }
+
+        // 4. calculate step size and adapt epsilon
+        double alpha = -mu / delta;
+        double epsilon1 = epsilon * Math.Pow(alpha / sigma, pi);
+
+        // 5. calculate the comparison ratio
+        double rho = 2 * (EvaluateWeights(net, w + alpha * s, trainingData, outputData).Error - errAtW) / (alpha * mu);
+        success = rho >= 0;
+
+        // 6. revise lambda
+        double lambda1;
+        if (rho < 0.25)
+          lambda1 = Math.Min(lambda + delta * (1 - rho) / kappa, lambda_max);
+        else if (rho > 0.75)
+          lambda1 = Math.Max(lambda / 2, lambda_min);
+        else
+          lambda1 = lambda;
+
+        // 7. if success == true, adjust weights
+        Vector<double> w1;
+        double errAtW1;
+        Vector<double> g1;
+        if (success)
+        {
+          w1 = w + alpha * s;
+          var ei1 = EvaluateWeights(net, w1, trainingData, outputData);
+          errAtW1 = ei1.Error;
+          g1 = ei1.Gradient;
+          S++;
+        }
+        else
+        {
+          errAtW1 = errAtW;
+          w1 = w;
+          g1 = g;
+        }
+
+        // 8. choose the new search direction
+        Vector<double> s1;
+        if (S == S_max) // restart
+        {
+          s1 = -g1;
+          success = true;
+          S = 0;
+        }
+        else
+        {
+          if (success) // create new conjugate direction
+          {
+            double beta = (g - g1).DotProduct(g1) / mu;
+            s1 = -g1 + beta * s;
+          }
+          else // use current direction again
+          {
+            s1 = s;
+            // mu, kappa, sigma, and gamma stay the same;
+          }
+        }
+
+        // 9. check tolerance and keep iterating if we're not there yet
+        epsilon = epsilon1;
+        lambda = lambda1;
+        errAtW = errAtW1;
+        errHistory.Add(errAtW);
+        g = g1;
+        s = s1;
+        w = w1;
+
+        n++;
+        Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
+
+        if (g.Norm(2) < tau)
+          break;
+      }
+
+      return new TrainResult<Vector> {
+        Params = (Vector)w,
+        Cost = errAtW,
+        CostHistory = errHistory
       };
     }
 
@@ -269,14 +409,20 @@ namespace Quqe
 
     public Vector<double> GetWeightVector()
     {
+      return GetWeightVector(Layers);
+    }
+
+    static Vector<double> GetWeightVector(List<Layer> layers)
+    {
       List<double> weights = new List<double>();
-      WalkWeights(Layers, w => weights.Add(w), null);
+      WalkWeights(layers, w => weights.Add(w), null);
       return new DenseVector(weights.ToArray());
     }
 
     public void SetWeightVector(Vector<double> weights)
     {
       SetWeightVector(Layers, weights);
+      ResetState();
     }
 
     static void SetWeightVector(List<Layer> layers, Vector<double> weights)
@@ -344,10 +490,9 @@ namespace Quqe
       return v * (1 - v);
     }
 
-    public static AnnealResult<Vector> TrainSA(RNN net, Matrix trainingData, Vector outputData)
+    public static TrainResult<Vector> TrainSA(RNN net, Matrix trainingData, Vector outputData)
     {
       var result = Optimizer.Anneal(net.GetWeightVector().Count, 1, w => {
-        net.ResetState();
         net.SetWeightVector(w);
         int correctCount = 0;
         double errorSum = 0;
@@ -362,7 +507,6 @@ namespace Quqe
         return errorSum / trainingData.ColumnCount;
       });
 
-      net.ResetState();
       net.SetWeightVector(result.Params);
       return result;
     }

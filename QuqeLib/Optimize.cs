@@ -268,7 +268,7 @@ namespace Quqe
     static StrategyOptimizerReport MakeReport(string name, DataSeries<Bar> bars,
       Func<IEnumerable<StrategyParameter>, double> getChiSquareThresh,
       Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples,
-      bool silent, AnnealResult<IEnumerable<StrategyParameter>> annealResult)
+      bool silent, TrainResult<IEnumerable<StrategyParameter>> annealResult)
     {
       var report = new StrategyOptimizerReport {
         StrategyName = name,
@@ -402,22 +402,22 @@ namespace Quqe
       return Math.Sqrt(xs.Select(x => Math.Pow(x - avg, 2)).Sum() / xs.Count());
     }
 
-    public static AnnealResult<Genome> Anneal(Genome seed, Func<Genome, double> costFunc)
+    public static TrainResult<Genome> Anneal(Genome seed, Func<Genome, double> costFunc)
     {
       return Anneal(seed, TransitionGenome, costFunc, 25000);
     }
 
-    public static AnnealResult<IEnumerable<StrategyParameter>> Anneal(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000, bool partialCool = false)
+    public static TrainResult<IEnumerable<StrategyParameter>> Anneal(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000, bool partialCool = false)
     {
       return Anneal(MakeSParamsSeed(oParams).ToList(), (sp, temp) => TransitionSParams(sp, oParams, temp), costFunc, iterations: iterations, partialCool: partialCool);
     }
 
-    public static AnnealResult<IEnumerable<StrategyParameter>> AnnealParallel(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000)
+    public static TrainResult<IEnumerable<StrategyParameter>> AnnealParallel(IEnumerable<OptimizerParameter> oParams, Func<IEnumerable<StrategyParameter>, double> costFunc, int iterations = 25000)
     {
       return AnnealParallel(() => MakeSParamsSeed(oParams).ToList(), (sp, temp) => TransitionSParams(sp, oParams, temp), costFunc, iterations);
     }
 
-    public static AnnealResult<Vector> Anneal(int vectorSize, double maxWeightMagnitude, Func<Vector, double> costFunc)
+    public static TrainResult<Vector> Anneal(int vectorSize, double maxWeightMagnitude, Func<Vector, double> costFunc)
     {
       return AnnealFast(RandomVector(vectorSize, -maxWeightMagnitude, maxWeightMagnitude),
         (v, temp) => TransitionVector(v, temp, maxWeightMagnitude),
@@ -429,7 +429,7 @@ namespace Quqe
       return (Vector)new DenseVector(size).Random(size, new ContinuousUniform(min, max));
     }
 
-    static AnnealResult<TParams> Anneal<TParams>(TParams initialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc,
+    static TrainResult<TParams> Anneal<TParams>(TParams initialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc,
       int iterations = 40000,
       int? firstIteration = null, int? lastIteration = null, bool partialCool = false)
     {
@@ -495,13 +495,13 @@ namespace Quqe
 
       if (ShowTrace)
         Trace.WriteLine("Best cost: " + bestCost);
-      return new AnnealResult<TParams> {
+      return new TrainResult<TParams> {
         Params = bestParams,
         Cost = bestCost
       };
     }
 
-    static AnnealResult<TParams> Anneal<TParams>(TParams initialParams,
+    static TrainResult<TParams> Anneal<TParams>(TParams initialParams,
       Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc,
       Func<TParams> randomParams,
       int dimensions)
@@ -666,7 +666,7 @@ namespace Quqe
           }
         }
       }
-      return new AnnealResult<TParams> {
+      return new TrainResult<TParams> {
         Params = bestParams,
         Cost = bestCost,
         CostHistory = costHistory,
@@ -674,7 +674,7 @@ namespace Quqe
       };
     }
 
-    static AnnealResult<TParams> AnnealFast<TParams>(TParams initialParams,
+    static TrainResult<TParams> AnnealFast<TParams>(TParams initialParams,
       Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc,
       Func<TParams> randomParams)
     {
@@ -833,7 +833,7 @@ namespace Quqe
           }
         }
       }
-      return new AnnealResult<TParams> {
+      return new TrainResult<TParams> {
         Params = bestParams,
         Cost = bestCost,
         CostHistory = costHistory
@@ -842,7 +842,7 @@ namespace Quqe
 
 
 
-    public static AnnealResult<Vector> AnnealMomentum(Vector initialPosition, Func<Vector, double> costFunc)
+    public static TrainResult<Vector> AnnealMomentum(Vector initialPosition, Func<Vector, double> costFunc)
     {
       var dt = 0.5;
       var mass = 1;
@@ -901,14 +901,14 @@ namespace Quqe
 
       Trace.WriteLine("Best cost: " + bestCost);
 
-      return new AnnealResult<Vector> {
+      return new TrainResult<Vector> {
         Params = bestPos,
         Cost = bestCost,
         CostHistory = costHistory
       };
     }
 
-    static AnnealResult<TParams> AnnealParallel<TParams>(Func<TParams> makeInitialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc, int iterations = 25000)
+    static TrainResult<TParams> AnnealParallel<TParams>(Func<TParams> makeInitialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc, int iterations = 25000)
     {
       int parallelism = 16;
       int numRejoins = 12;
@@ -917,10 +917,10 @@ namespace Quqe
 
       var oldShowTrace = ShowTrace;
       ShowTrace = false;
-      AnnealResult<TParams> best = null;
+      TrainResult<TParams> best = null;
       for (int j = 0; j < numRejoins; j++)
       {
-        var results = new List<AnnealResult<TParams>>();
+        var results = new List<TrainResult<TParams>>();
         Parallel.For(0, parallelism, new ParallelOptions { MaxDegreeOfParallelism = parallelism }, z => {
           var ar = Anneal(best != null ? best.Params : makeInitialParams(), mutate, costFunc, modifiedNumIterations, j * iterationsBeforeRejoin, (j + 1) * iterationsBeforeRejoin);
           lock (results)
@@ -1053,7 +1053,7 @@ namespace Quqe
     }
   }
 
-  public class AnnealResult<TParams>
+  public class TrainResult<TParams>
   {
     public TParams Params;
     public double Cost;

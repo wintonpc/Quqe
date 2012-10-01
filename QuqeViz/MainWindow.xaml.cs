@@ -762,7 +762,8 @@ namespace QuqeViz
       //net.SetWeightVector(Optimizer.RandomVector(net.GetWeightVector().Count, -5, 5));
       var saResult = RNN.TrainSA(net, trainingInput, trainingOutput);
       net.SetWeightVector(saResult.Params);
-      var result = RNN.TrainBPTT(net, 0.0005, trainingInput, trainingOutput);
+      //var result = RNN.TrainBPTT(net, 0.0005, trainingInput, trainingOutput);
+      var result = RNN.TrainSCG(net, 100, 0.01, trainingInput, trainingOutput);
       net.ToDot("net.dot");
       //logCostHistory = result.CostHistory.Select(x => Math.Log10(x)).ToList();
       logCostHistory = result.CostHistory;
