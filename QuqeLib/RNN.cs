@@ -306,9 +306,11 @@ namespace Quqe
         n++;
         Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
 
-        if (g.Norm(2) < tau)
+        if (n > S_max && g.Norm(2) < tau)
           break;
       }
+
+      net.SetWeightVector(w);
 
       return new TrainResult<Vector> {
         Params = (Vector)w,
