@@ -177,7 +177,7 @@ namespace Quqe
     }
 
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
-    public static TrainResult<Vector> TrainSCG(RNN net, int restartPeriod, double tolerance, Matrix trainingData, Vector outputData)
+    public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix trainingData, Vector outputData)
     {
       Func<Vector<double>, Vector<double>, Vector<double>, double, Vector<double>> approximateCurvature =
         (w1, gradientAtW1, searchDirection, sig) => {
@@ -188,8 +188,8 @@ namespace Quqe
 
       double lambda_min = double.Epsilon;
       double lambda_max = double.MaxValue;
-      double S_max = Math.Min(net.GetWeightVector().Count, restartPeriod);
-      double tau = tolerance;
+      double S_max = net.GetWeightVector().Count;
+      double tau = 0.001; // a value this low effectively disables early termination
 
       // 0. initialize variables
       var w = net.GetWeightVector();
@@ -274,8 +274,9 @@ namespace Quqe
 
         // 8. choose the new search direction
         Vector<double> s1;
-        if (S == S_max) // restart
+        if (S == S_max || (S >= 2 && g.DotProduct(g1) >= 0.2 * g1.DotProduct(g1))) // Powell-Beale restarts
         {
+          Trace.WriteLine("*** RESTARTED ***");
           s1 = -g1;
           success = true;
           S = 0;
@@ -306,7 +307,7 @@ namespace Quqe
         n++;
         Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
 
-        if (n > S_max && g.Norm(2) < tau)
+        if (n == epoch_max || n > S_max && g.Norm(2) < tau)
           break;
       }
 

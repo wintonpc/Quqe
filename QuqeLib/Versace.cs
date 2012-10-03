@@ -107,6 +107,15 @@ namespace Quqe
       // % Diff High-Low
       bOnly.Add(get("DIA").MapElements<Value>((s, v) => (s[0].High - s[0].Low) / s[0].Low * 100));
 
+      // my own LinReg stuff
+      {
+        var fast = get("DIA").Closes().LinReg(2, 1);
+        var slow = get("DIA").Closes().LinReg(7, 1);
+        bOnly.Add(fast.ZipElements<Value, Value>(slow, (f, s, _) => f[0] - s[0]));
+        bOnly.Add(get("DIA").Closes().RSquared(10));
+        bOnly.Add(get("DIA").Closes().LinRegSlope(4));
+      }
+
       addSmaNormOHLC("DIA");
       addSmaNorm("DIA", x => x.Volume);
 
