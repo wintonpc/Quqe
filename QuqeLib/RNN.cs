@@ -6,6 +6,7 @@ using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace Quqe
 {
@@ -140,42 +141,6 @@ namespace Quqe
       };
     }
 
-    public static TrainResult<Vector> TrainBPTT(RNN net, double rate, Matrix trainingData, Vector outputData)
-    {
-      var outputErrorHistory = new List<double>();
-
-      int epoch_max = 1000;
-      int epoch = 0;
-      var weights = net.GetWeightVector();
-      while (true)
-      {
-        var errorInfo = EvaluateWeights(net, weights, trainingData, outputData);
-        outputErrorHistory.Add(errorInfo.Error);
-        weights = weights - rate * errorInfo.Gradient;
-
-        epoch++;
-
-        if (epoch % 100 == 0)
-        {
-          Trace.WriteLine("Error = " + outputErrorHistory.Last());
-          net.ToPng("net" + epoch.ToString("D4") + ".png");
-        }
-
-        if (epoch == epoch_max)
-          break;
-      }
-
-      net.SetWeightVector(weights);
-
-      Trace.WriteLine(epoch + " epochs");
-
-      return new TrainResult<Vector> {
-        Params = (Vector)weights,
-        CostHistory = outputErrorHistory,
-        Cost = outputErrorHistory.Last()
-      };
-    }
-
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
     public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix trainingData, Vector outputData)
     {
@@ -196,7 +161,16 @@ namespace Quqe
       double epsilon = Math.Pow(10, -3);
       double lambda = 1;
       double pi = 0.05;
-      var errInfo = EvaluateWeights(net, w, trainingData, outputData);
+
+      //var errInfo = EvaluateWeights(net, w, trainingData, outputData);
+      ErrorInfo errInfo = new ErrorInfo();
+      double error;
+      double[] grad = new double[w.Count];
+      QMEvaluateWeights(net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray(), net.LayerSpecs.Count,
+        new QMVector(w), new QMMatrix(trainingData), new QMVector(outputData), out error, grad);
+      errInfo.Error = error;
+      errInfo.Gradient = new DenseVector(grad);
+
       var errAtW = errInfo.Error;
       List<double> errHistory = new List<double> { errAtW };
       Vector<double> g = errInfo.Gradient;
@@ -319,6 +293,52 @@ namespace Quqe
         CostHistory = errHistory
       };
     }
+
+    const int ACTIVATION_LOGSIG = 0;
+    const int ACTIVATION_PURELIN = 1;
+    struct QMLayerSpec
+    {
+      public QMLayerSpec(LayerSpec spec)
+      {
+        NodeCount = spec.NodeCount;
+        IsRecurrent = spec.IsRecurrent;
+        ActivationType = spec.ActivationType == Quqe.ActivationType.LogisticSigmoid ?
+          ACTIVATION_LOGSIG : ACTIVATION_PURELIN;
+      }
+
+      int NodeCount;
+      bool IsRecurrent;
+      int ActivationType;
+    };
+    struct QMMatrix
+    {
+      public QMMatrix(Matrix<double> m)
+      {
+        RowCount = m.RowCount;
+        ColumnCount = m.ColumnCount;
+        Data = m.ToRowWiseArray();
+      }
+
+      int RowCount;
+      int ColumnCount;
+      double[] Data;
+    };
+    struct QMVector
+    {
+      public QMVector(Vector<double> v)
+      {
+        Count = v.Count;
+        Data = v.ToArray();
+      }
+
+      int Count;
+      double[] Data;
+    };
+
+    [DllImport("QuqeMath.dll", EntryPoint = "EvaluateWeights", CallingConvention = CallingConvention.Cdecl)]
+    extern static void QMEvaluateWeights(
+      QMLayerSpec[] layerSpecs, int numLayers, QMVector weights, QMMatrix trainingData, QMVector outputData,
+      out double error, double[] gradient);
 
     public RNN(int numInputs, List<LayerSpec> layerSpecs)
     {
@@ -446,7 +466,7 @@ namespace Quqe
         WalkMatrix(l.W, observe, getNextValue);
         if (l.IsRecurrent)
           WalkMatrix(l.Wr, observe, getNextValue);
-        WalkVector(layers[layer].Bias, observe, getNextValue);
+        WalkVector(l.Bias, observe, getNextValue);
       }
     }
 
@@ -491,27 +511,6 @@ namespace Quqe
     {
       var v = LogisticSigmoid(x);
       return v * (1 - v);
-    }
-
-    public static TrainResult<Vector> TrainSA(RNN net, Matrix trainingData, Vector outputData)
-    {
-      var result = Optimizer.Anneal(net.GetWeightVector().Count, 1, w => {
-        net.SetWeightVector(w);
-        int correctCount = 0;
-        double errorSum = 0;
-        for (int i = 0; i < trainingData.ColumnCount; i++)
-        {
-          var output = net.Propagate(trainingData.Column(i))[0];
-          errorSum += Math.Pow(output - outputData[i], 2);
-          if (Math.Sign(output) == Math.Sign(outputData[i]))
-            correctCount++;
-        }
-        //return (double)correctCount / trainingData.ColumnCount;
-        return errorSum / trainingData.ColumnCount;
-      });
-
-      net.SetWeightVector(result.Params);
-      return result;
     }
 
     public void ToPng(string fn)

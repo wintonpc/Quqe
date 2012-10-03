@@ -1,10 +1,12 @@
 Share/*.exe
 Share/*.dll
 Share/*.pdb
+*.vsp
 */bin
 */obj
 *.suo
 *.vsmdi
 *.testsettings
 *.vshost.exe.manifest
+*/*.user
 TestResults
