@@ -31,59 +31,47 @@ public:
 	Matrix* W;
   Matrix* Wr;
   Vector* Bias;
-  Vector* x;
-  Vector* a;
-  Vector* z;
-  Vector* d;
+  Vector x;
+  Vector a;
+  Vector z;
+  Vector d;
   bool IsRecurrent;
   ActivationFunc ActivationFunction;
   ActivationFunc ActivationFunctionPrime;
+  int NodeCount;
+  int InputCount;
 
-  Layer()
-  {
-    W = NULL;
-    Wr = NULL;
-    Bias = NULL;
-    x = NULL;
-    a = NULL;
-    z = NULL;
-    d = NULL;
-  }
-
-  int NodeCount()
-  {
-    return W->RowCount;
-  }
-
-  int InputCount()
-  {
-    return W->ColumnCount;
-  }
-
-  ~Layer()
-  {
-    if (W != NULL) delete W;
-    if (Wr != NULL) delete Wr;
-    if (Bias != NULL) delete Bias;
-    if (x != NULL) delete x;
-    if (a != NULL) delete a;
-    if (z != NULL) delete z;
-    if (d != NULL) delete d;
-  }
+  Layer();
+  Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, ActivationFunc activation,
+    ActivationFunc activationPrime);
 };
 
 class Frame
 {
 public:
   Layer* Layers;
+
+  ~Frame();
+};
+
+class WeightContext
+{
+public:
+  Matrix TrainingInput;
+  Vector TrainingOutput;
+  Frame* Frames;
   int NumLayers;
 
-  ~Frame()
-  {
-    if (Layers != NULL)
-      delete [] Layers;
-  }
+  WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame* frames, int nLayers);
+  ~WeightContext();
 };
+
+extern "C" QUQEMATH_API void* CreateWeightContext(
+  LayerSpec* layerSpecs, int nLayers,
+  double* trainingData, double* outputData,
+  int nInputs, int nSamples);
+
+extern "C" QUQEMATH_API void DestroyWeightContext(void* context);
 
 extern "C" QUQEMATH_API void EvaluateWeights(
   // in

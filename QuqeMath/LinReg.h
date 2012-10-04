@@ -6,9 +6,11 @@ class Vector
 public:
   int Count;
   double* Data;
+
+  Vector();
+  Vector(const Vector &v);
   Vector(int count);
   Vector(int count, double* data);
-  Vector* Copy();
   ~Vector();
 };
 
@@ -19,7 +21,9 @@ public:
   int ColumnCount;
   double* Data;
   int DataLen;
-
+  
+  Matrix();
+  Matrix(const Matrix &m);
   Matrix(int nRows, int nCols);
   Matrix(int nRows, int nCols, double* data);
   void Set(int i, int j, double v);

@@ -1,6 +1,11 @@
 #include "stdafx.h"
 #include "LinReg.h"
 
+Vector::Vector()
+{
+  Data = NULL;
+}
+
 Vector::Vector(int count)
 {
   Count = count;
@@ -14,15 +19,22 @@ Vector::Vector(int count, double* data)
   memcpy(Data, data, count * sizeof(double));
 }
 
-Vector* Vector::Copy()
+Vector::Vector(const Vector &v)
 {
-  return new Vector(Count, Data);
+  Count = v.Count;
+  Data = new double[Count];
+  memcpy(Data, v.Data, Count * sizeof(double));
 }
 
 Vector::~Vector()
 {
   if (Data != NULL)
     delete [] Data;
+}
+
+Matrix::Matrix()
+{
+  Data = NULL;
 }
 
 Matrix::Matrix(int nRows, int nCols)
@@ -40,6 +52,15 @@ Matrix::Matrix(int nRows, int nCols, double* data)
   DataLen = nRows * nCols;
   Data = new double[DataLen];
   memcpy(Data, data, DataLen * sizeof(double));
+}
+
+Matrix::Matrix(const Matrix &m)
+{
+  RowCount = m.RowCount;
+  ColumnCount = m.ColumnCount;
+  DataLen = RowCount * ColumnCount;
+  Data = new double[DataLen];
+  memcpy(Data, m.Data, DataLen * sizeof(double));
 }
 
 void Matrix::Set(int i, int j, double v)

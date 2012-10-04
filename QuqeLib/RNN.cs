@@ -163,6 +163,15 @@ namespace Quqe
       double pi = 0.05;
 
       //var errInfo = EvaluateWeights(net, w, trainingData, outputData);
+
+      var specs = net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray();
+      while (true)
+      {
+        IntPtr context = QMCreateWeightContext(specs, net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
+          trainingData.RowCount, trainingData.ColumnCount);
+        QMDestroyWeightContext(context);
+      }
+
       ErrorInfo errInfo = new ErrorInfo();
       int zz = 0;
       while (true)
@@ -326,6 +335,13 @@ namespace Quqe
       QMLayerSpec[] layerSpecs, int numLayers, double[] weights, int nWeights, double[] trainingData, double[] outputData,
       int nInputs, int nSamples,
       out double error, double[] gradient);
+
+    [DllImport("QuqeMath.dll", EntryPoint = "CreateWeightContext", CallingConvention = CallingConvention.Cdecl)]
+    extern static IntPtr QMCreateWeightContext(QMLayerSpec[] layerSpecs, int numLayers, double[] trainingData, double[] outputData,
+      int nInputs, int nSamples);
+
+    [DllImport("QuqeMath.dll", EntryPoint = "DestroyWeightContext", CallingConvention = CallingConvention.Cdecl)]
+    extern static IntPtr QMDestroyWeightContext(IntPtr context);
 
     public RNN(int numInputs, List<LayerSpec> layerSpecs)
     {
