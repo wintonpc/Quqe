@@ -4,10 +4,10 @@
 #include "QuqeMath.h"
 #include "LinReg.h"
 
-WeightContext::WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame* frames, int nLayers)
+WeightContext::WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers)
 {
-  TrainingInput = Matrix(trainingInput);
-  TrainingOutput = Vector(trainingOutput);
+  TrainingInput = new Matrix(trainingInput);
+  TrainingOutput = new Vector(trainingOutput);
   Frames = frames;
   NumLayers = nLayers;
 }
@@ -16,15 +16,18 @@ WeightContext::~WeightContext()
 {
   for (int l = 0; l < NumLayers; l++)
   {
-    delete Frames[0].Layers[l].W;
-    delete Frames[0].Layers[l].Bias;
-    if (Frames[0].Layers[l].Wr != NULL)
-      delete Frames[0].Layers[l].Wr;
+    delete Frames[0]->Layers[l]->W;
+    delete Frames[0]->Layers[l]->Bias;
+    if (Frames[0]->Layers[l]->Wr != NULL)
+      delete Frames[0]->Layers[l]->Wr;
   }
+  int t_max = TrainingInput->ColumnCount;
+  for (int t = 0; t < t_max; t++)
+    delete Frames[t];
   delete [] Frames;
+  delete TrainingInput;
+  delete TrainingOutput;
 }
-
-Layer::Layer() { }
 
 Layer::Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, ActivationFunc activation, ActivationFunc activationPrime)
 {
@@ -33,16 +36,37 @@ Layer::Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, ActivationFu
   Bias = bias;
   NodeCount = W->RowCount;
   InputCount = W->ColumnCount;
-  x = Vector(InputCount);
-  a = Vector(NodeCount);
-  z = Vector(NodeCount);
-  d = Vector(NodeCount);
+  x = new Vector(InputCount);
+  a = new Vector(NodeCount);
+  z = new Vector(NodeCount);
+  d = new Vector(NodeCount);
+  IsRecurrent = isRecurrent;
+  ActivationFunction = activation;
+  ActivationFunctionPrime = activationPrime;
+}
+
+Layer::~Layer()
+{
+  delete x;
+  delete a;
+  delete z;
+  delete d;
+}
+
+Frame::Frame(Layer** layers, int numLayers)
+{
+  Layers = layers;
+  NumLayers = numLayers;
 }
 
 Frame::~Frame()
 {
   if (Layers != NULL)
+  {
+    for (int l = 0; l < NumLayers; l++)
+      delete Layers[l];
     delete [] Layers;
+  }
 }
 
 QUQEMATH_API void* CreateWeightContext(
@@ -50,50 +74,58 @@ QUQEMATH_API void* CreateWeightContext(
   double* trainingData, double* outputData,
   int nInputs, int nSamples)
 {
-  Layer* protoLayers = SpecsToLayers(nInputs, layerSpecs, nLayers);
-  Frame* frames = new Frame[nSamples];
+  Layer** protoLayers = SpecsToLayers(nInputs, layerSpecs, nLayers);
+  Frame** frames = new Frame*[nSamples];
   for (int t = 0; t < nSamples; t++)
   {
-    frames[t].Layers = new Layer[nLayers];
+    Layer** layers = new Layer*[nLayers];
     for (int l = 0; l < nLayers; l++)
     {
-      Layer* pl = &protoLayers[l];
-      frames[t].Layers[l] = Layer(pl->W, pl->Wr, pl->Bias, pl->IsRecurrent, pl->ActivationFunction, pl->ActivationFunctionPrime);
+      Layer* pl = protoLayers[l];
+      layers[l] = new Layer(pl->W, pl->Wr, pl->Bias, pl->IsRecurrent, pl->ActivationFunction, pl->ActivationFunctionPrime);
     }
+    frames[t] = new Frame(layers, nLayers);
   }
+
+  for (int l = 0; l < nLayers; l++)
+    delete protoLayers[l];
   delete [] protoLayers;
+
   return new WeightContext(Matrix(nInputs, nSamples, trainingData), Vector(nSamples, outputData), frames, nLayers);
 }
 
-Layer* SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
+Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
 {
-  Layer* layers = new Layer[numLayers];
+  Layer** layers = new Layer*[numLayers];
   for (int l = 0; l < numLayers; l++)
   {
     LayerSpec* s = &specs[l];
-    Layer* layer = &layers[l];
-    layer->W = new Matrix(s->NodeCount, l > 0 ? specs[l-1].NodeCount : numInputs);
-    layer->Bias = new Vector(s->NodeCount);
-    layer->IsRecurrent = s->IsRecurrent;
-    layer->Wr = s->IsRecurrent ? new Matrix(s->NodeCount, s->NodeCount) : NULL;
 
+    ActivationFunc activation;
+    ActivationFunc activationPrime;
     if (s->ActivationType == ACTIVATION_LOGSIG)
     {
-      layer->ActivationFunction = LogisticSigmoid;
-      layer->ActivationFunctionPrime = LogisticSigmoidPrime;
+      activation = LogisticSigmoid;
+      activationPrime = LogisticSigmoidPrime;
     }
     else if (s->ActivationType == ACTIVATION_PURELIN)
     {
-      layer->ActivationFunction = Linear;
-      layer->ActivationFunctionPrime = LinearPrime;
+      activation = Linear;
+      activationPrime = LinearPrime;
     }
+
+    layers[l] = new Layer(
+      new Matrix(s->NodeCount, l > 0 ? specs[l-1].NodeCount : numInputs),
+      s->IsRecurrent ? new Matrix(s->NodeCount, s->NodeCount) : NULL,
+      new Vector(s->NodeCount),
+      s->IsRecurrent, activation, activationPrime);
   }
   return layers;
 }
 
 QUQEMATH_API void DestroyWeightContext(void* context)
 {
-  delete context;
+  delete ((WeightContext*)context);
 }
 
 QUQEMATH_API void EvaluateWeights(

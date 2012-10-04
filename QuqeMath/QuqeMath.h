@@ -31,38 +31,40 @@ public:
 	Matrix* W;
   Matrix* Wr;
   Vector* Bias;
-  Vector x;
-  Vector a;
-  Vector z;
-  Vector d;
+  Vector* x;
+  Vector* a;
+  Vector* z;
+  Vector* d;
   bool IsRecurrent;
   ActivationFunc ActivationFunction;
   ActivationFunc ActivationFunctionPrime;
   int NodeCount;
   int InputCount;
 
-  Layer();
   Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, ActivationFunc activation,
     ActivationFunc activationPrime);
+  ~Layer();
 };
 
 class Frame
 {
 public:
-  Layer* Layers;
+  Layer** Layers;
+  int NumLayers;
 
+  Frame(Layer** layers, int numLayers);
   ~Frame();
 };
 
 class WeightContext
 {
 public:
-  Matrix TrainingInput;
-  Vector TrainingOutput;
-  Frame* Frames;
+  Matrix* TrainingInput;
+  Vector* TrainingOutput;
+  Frame** Frames;
   int NumLayers;
 
-  WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame* frames, int nLayers);
+  WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers);
   ~WeightContext();
 };
 
@@ -86,7 +88,7 @@ extern "C" QUQEMATH_API void EvaluateWeights(
 void Propagate(Vector* input, int numLayers, Layer* currLayers, Layer* prevLayers);
 void PropagateLayer(Vector* input, Layer* layer, Vector* recurrentInput);
 Vector* ApplyActivationFunction(Vector* a, ActivationFunc f);
-Layer* SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers);
+Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers);
 Vector* MakeTimeZeroRecurrentInput(int size);
 
 void SetWeightVector(Layer* layers, int numLayers, const Vector &weights);
