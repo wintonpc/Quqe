@@ -10,6 +10,8 @@
 #define QUQEMATH_API __declspec(dllimport)
 #endif
 
+#include "LinReg.h"
+
 const int ACTIVATION_LOGSIG = 0;
 const int ACTIVATION_PURELIN = 1;
 const double TimeZeroRecurrentInputValue = 0.5;
@@ -21,62 +23,87 @@ struct LayerSpec
   int ActivationType;
 };
 
-struct Matrix
-{
-  int RowCount;
-  int ColumnCount;
-  double* Data;
-};
-
-struct Vector
-{
-  int Count;
-  double* Data;
-};
-
 typedef double(*ActivationFunc)(double);
 
-struct Layer
+class Layer
 {
-	Matrix W;
-  Matrix Wr;
-  Vector Bias;
-  Vector x;
-  Vector a;
-  Vector z;
-  Vector d;
+public:
+	Matrix* W;
+  Matrix* Wr;
+  Vector* Bias;
+  Vector* x;
+  Vector* a;
+  Vector* z;
+  Vector* d;
   bool IsRecurrent;
   ActivationFunc ActivationFunction;
   ActivationFunc ActivationFunctionPrime;
+
+  Layer()
+  {
+    W = NULL;
+    Wr = NULL;
+    Bias = NULL;
+    x = NULL;
+    a = NULL;
+    z = NULL;
+    d = NULL;
+  }
+
+  int NodeCount()
+  {
+    return W->RowCount;
+  }
+
+  int InputCount()
+  {
+    return W->ColumnCount;
+  }
+
+  ~Layer()
+  {
+    if (W != NULL) delete W;
+    if (Wr != NULL) delete Wr;
+    if (Bias != NULL) delete Bias;
+    if (x != NULL) delete x;
+    if (a != NULL) delete a;
+    if (z != NULL) delete z;
+    if (d != NULL) delete d;
+  }
 };
 
-struct Frame
+class Frame
 {
+public:
   Layer* Layers;
+  int NumLayers;
+
+  ~Frame()
+  {
+    if (Layers != NULL)
+      delete [] Layers;
+  }
 };
-
-int NodeCount(Layer* layer)
-{
-  return layer->W.RowCount;
-}
-
-int InputCount(Layer* layer)
-{
-  return layer->W.ColumnCount;
-}
 
 extern "C" QUQEMATH_API void EvaluateWeights(
-  LayerSpec* layerSpecs, int numLayers, Vector weights, Matrix trainingData, Vector outputData, // in
-  double* error, double* gradient // out
+  // in
+  LayerSpec* layerSpecs, int nLayers,
+  double* weights, int nWeights,
+  double* trainingData, double* outputData,
+  int nInputs, int nSamples,
+  // out
+  double* error, double* gradient
   );
 
+void Propagate(Vector* input, int numLayers, Layer* currLayers, Layer* prevLayers);
+void PropagateLayer(Vector* input, Layer* layer, Vector* recurrentInput);
+Vector* ApplyActivationFunction(Vector* a, ActivationFunc f);
 Layer* SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers);
-double* MakeTimeZeroRecurrentInput(int size);
+Vector* MakeTimeZeroRecurrentInput(int size);
 
-void SetWeightVector(Layer* layers, int numLayers, Vector weights);
-void SetVectorWeights(const Vector &v, int* wi, double* weights);
-void SetMatrixWeights(const Matrix &m, int* wi, double* weights);
-void SetMatrix(const Matrix &m, int i, int j, double v);
+void SetWeightVector(Layer* layers, int numLayers, const Vector &weights);
+double* SetVectorWeights(Vector* v, double* weights);
+double* SetMatrixWeights(Matrix* m, double* weights);
 
 double Linear(double x);
 double LinearPrime(double x);

@@ -2,29 +2,78 @@
 //
 #include "stdafx.h"
 #include "QuqeMath.h"
-
+#include "LinReg.h"
 
 QUQEMATH_API void EvaluateWeights(
-  LayerSpec* layerSpecs, int numLayers, Vector weights, Matrix trainingData, Vector outputData, // in
-  double* error, double* gradient // out
+  // in
+  LayerSpec* layerSpecs, int nLayers,
+  double* weights, int nWeights,
+  double* trainingData, double* outputData,
+  int nInputs, int nSamples,
+  // out
+  double* error, double* gradient
   )
 {
-  int netNumInputs = trainingData.RowCount;
-  int t_max = outputData.Count;
+  int netNumInputs = nInputs;
+  int t_max = nSamples;
   Frame* time = new Frame[t_max];
   double totalOutputError = 0;
+
+  Vector w = Vector(nWeights, weights);
+  Matrix trainingMatrix = Matrix(nInputs, nSamples, trainingData);
+  Vector outputVector = Vector(nSamples, outputData);
 
   // propagate inputs forward
   for (int t = 0; t < t_max; t++)
   {
-    time[t].Layers = SpecsToLayers(netNumInputs, layerSpecs, numLayers);
-    SetWeightVector(time[t].Layers, numLayers, weights);
+    time[t].Layers = SpecsToLayers(netNumInputs, layerSpecs, nLayers);
+    time[t].NumLayers = nLayers;
+    //SetWeightVector(time[t].Layers, nLayers, w); // TODO: don't need to set every time. weights never change.
+
+    //Propagate(&trainingMatrix.Column(t), nLayers, time[t].Layers, t > 0 ? time[t-1].Layers : NULL);
   }
 
   *error = 42;
   gradient[0] = 1;
   gradient[1] = 2;
   gradient[2] = 3;
+
+  delete [] time;
+}
+
+void Propagate(Vector* input, int numLayers, Layer* currLayers, Layer* prevLayers)
+{
+  for (int l = 0; l < numLayers; l++)
+  {
+    Layer* layer = &currLayers[l];
+    PropagateLayer(input, layer, prevLayers != NULL ? prevLayers[l].z : NULL);
+    input = layer->z;
+  }
+}
+
+void PropagateLayer(Vector* input, Layer* layer, Vector* recurrentInput)
+{
+  layer->x = input->Copy();
+  Vector* a = Matrix::MultAndAdd(layer->W, input, layer->Bias);
+  if (layer->IsRecurrent)
+  {
+    Vector* a2 = Matrix::MultAndAdd(layer->Wr, recurrentInput != NULL ? recurrentInput :  MakeTimeZeroRecurrentInput(layer->NodeCount()), a);
+    delete a;
+    a = a2;
+  }
+  layer->a = a;
+  layer->z = ApplyActivationFunction(layer->a, layer->ActivationFunction);
+}
+
+Vector* ApplyActivationFunction(Vector* a, ActivationFunc f)
+{
+  int len = a->Count;
+  Vector* z = new Vector(len);
+  double* aData = a->Data;
+  double* zData = z->Data;
+  for (int i = 0; i < len; i++)
+    zData[i] = f(aData[i]);
+  return z;
 }
 
 Layer* SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
@@ -34,20 +83,12 @@ Layer* SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
   {
     LayerSpec s = specs[l];
     Layer* layer = &layers[l];
-    layer->W.RowCount = s.NodeCount;
-    layer->W.ColumnCount = l > 0 ? layers[l-1].z.Count : numInputs;
-    layer->W.Data = new double[layer->W.RowCount * layer->W.ColumnCount];
-    layer->Bias.Count = s.NodeCount;
-    layer->Bias.Data = new double[layer->Bias.Count];
+    layer->W = new Matrix(s.NodeCount, l > 0 ? layers[l-1].NodeCount() : numInputs);
+    layer->Bias = new Vector(s.NodeCount);
+    layer->IsRecurrent = s.IsRecurrent;
 
     if (s.IsRecurrent)
-    {
-      layer->Wr.RowCount = s.NodeCount;
-      layer->Wr.ColumnCount = s.NodeCount;
-      layer->Wr.Data = new double[layer->Wr.RowCount * layer->Wr.ColumnCount];
-      layer->z.Count = s.NodeCount;
-      layer->z.Data = MakeTimeZeroRecurrentInput(layer->z.Count);
-    }
+      layer->Wr = new Matrix(s.NodeCount, s.NodeCount);
 
     if (s.ActivationType == ACTIVATION_LOGSIG)
     {
@@ -59,55 +100,44 @@ Layer* SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
       layer->ActivationFunction = Linear;
       layer->ActivationFunctionPrime = LinearPrime;
     }
-
-    layer->d.Count = s.NodeCount;
-    layer->d.Data = new double[layer->d.Count];
   }
-
   return layers;
 }
 
-void SetWeightVector(Layer* layers, int numLayers, Vector weights)
+void SetWeightVector(Layer* layers, int numLayers, const Vector &weights)
 {
-  int wi = 0;
+  double* dp = weights.Data;
   for (int layer = 0; layer < numLayers; layer++)
   {
-    Layer l = layers[layer];
-    SetMatrixWeights(l.W, &wi, weights.Data);
-    if (l.IsRecurrent)
-      SetMatrixWeights(l.Wr, &wi, weights.Data);
-    SetVectorWeights(l.Bias, &wi, weights.Data);
+    Layer* l = &layers[layer];
+    dp = SetMatrixWeights(l->W, dp);
+    if (l->IsRecurrent)
+      dp = SetMatrixWeights(l->Wr, dp);
+    dp = SetVectorWeights(l->Bias, dp);
   }
-  assert(wi == weights.Count);
+  assert(weights.Data + weights.Count == dp);
 }
 
-void SetVectorWeights(const Vector &v, int* wi, double* weights)
+double* SetVectorWeights(Vector* v, double* weights)
 {
-  int len = v.Count;
-  for (int i = 0; i < len; i++)
-    v.Data[i] = weights[(*wi)++];
+  int len = v->Count;
+  memcpy(v->Data, weights, len * sizeof(double));
+  return weights + len;
 }
 
-void SetMatrixWeights(const Matrix &m, int* wi, double* weights)
+double* SetMatrixWeights(Matrix* m, double* weights)
 {
-  int nRows = m.RowCount;
-  int nCols = m.ColumnCount;
-  for (int i = 0; i < nRows; i++)
-    for (int j = 0; j < nCols; j++)
-      SetMatrix(m, i, j, weights[(*wi)++]);
+  int len = m->RowCount * m->ColumnCount;
+  memcpy(m->Data, weights, len * sizeof(double));
+  return weights + len;
 }
 
-void SetMatrix(const Matrix &m, int i, int j, double v)
-{
-  m.Data[i * m.ColumnCount + j] = v;
-}
-
-double* MakeTimeZeroRecurrentInput(int size)
+Vector* MakeTimeZeroRecurrentInput(int size)
 {
   double* a = new double[size];
   for (int i = 0; i < size; i++)
     a[i] = TimeZeroRecurrentInputValue;
-  return a;
+  return new Vector(size, a);
 }
 
 double Linear(double x)

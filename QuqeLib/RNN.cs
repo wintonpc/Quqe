@@ -164,12 +164,22 @@ namespace Quqe
 
       //var errInfo = EvaluateWeights(net, w, trainingData, outputData);
       ErrorInfo errInfo = new ErrorInfo();
-      double error;
-      double[] grad = new double[w.Count];
-      QMEvaluateWeights(net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray(), net.LayerSpecs.Count,
-        new QMVector(w), new QMMatrix(trainingData), new QMVector(outputData), out error, grad);
-      errInfo.Error = error;
-      errInfo.Gradient = new DenseVector(grad);
+      int zz = 0;
+      while (true)
+      {
+        if (zz++ % 100 == 0)
+          Trace.WriteLine(zz);
+        double error;
+        double[] grad = new double[w.Count];
+        Stopwatch sw = new Stopwatch();
+        sw.Start();
+        QMEvaluateWeights(net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray(), net.LayerSpecs.Count,
+          w.ToArray(), w.Count, trainingData.ToRowWiseArray(), outputData.ToArray(), trainingData.RowCount,
+          trainingData.ColumnCount, out error, grad);
+        sw.Stop();
+        errInfo.Error = error;
+        errInfo.Gradient = new DenseVector(grad);
+      }
 
       var errAtW = errInfo.Error;
       List<double> errHistory = new List<double> { errAtW };
@@ -310,34 +320,11 @@ namespace Quqe
       bool IsRecurrent;
       int ActivationType;
     };
-    struct QMMatrix
-    {
-      public QMMatrix(Matrix<double> m)
-      {
-        RowCount = m.RowCount;
-        ColumnCount = m.ColumnCount;
-        Data = m.ToRowWiseArray();
-      }
-
-      int RowCount;
-      int ColumnCount;
-      double[] Data;
-    };
-    struct QMVector
-    {
-      public QMVector(Vector<double> v)
-      {
-        Count = v.Count;
-        Data = v.ToArray();
-      }
-
-      int Count;
-      double[] Data;
-    };
 
     [DllImport("QuqeMath.dll", EntryPoint = "EvaluateWeights", CallingConvention = CallingConvention.Cdecl)]
     extern static void QMEvaluateWeights(
-      QMLayerSpec[] layerSpecs, int numLayers, QMVector weights, QMMatrix trainingData, QMVector outputData,
+      QMLayerSpec[] layerSpecs, int numLayers, double[] weights, int nWeights, double[] trainingData, double[] outputData,
+      int nInputs, int nSamples,
       out double error, double[] gradient);
 
     public RNN(int numInputs, List<LayerSpec> layerSpecs)
