@@ -69,24 +69,6 @@ Matrix::Matrix(const Matrix &m)
   memcpy(Data, m.Data, DataLen * sizeof(double));
 }
 
-inline void Matrix::Set(int i, int j, double v)
-{
-  Data[i * ColumnCount + j] = v;
-}
-
-void Matrix::GetColumn(int j, Vector* dest)
-{
-  int vCount = RowCount;
-  assert(vCount == dest->Count);
-  double* vData = dest->Data;
-  for (int i = 0, x = j; i < vCount; i++, x += ColumnCount)
-    vData[i] = Data[x];
-}
-
-void Matrix::GEMV(double alpha, Matrix* a, Vector* x, double beta, Vector* y)
-{
-}
-
 Matrix::~Matrix()
 {
   if (Data != NULL)

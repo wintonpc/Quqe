@@ -63,8 +63,9 @@ public:
   Vector* TrainingOutput;
   Frame** Frames;
   int NumLayers;
+  LayerSpec* LayerSpecs;
 
-  WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers);
+  WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers, LayerSpec* specs);
   ~WeightContext();
 };
 
@@ -84,9 +85,13 @@ void ApplyActivationFunction(Vector* a, ActivationFunc f);
 Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers);
 Vector* MakeTimeZeroRecurrentInput(int size);
 
-void SetWeightVector(Layer** layers, int numLayers, Vector* weights);
+void SetWeights(Layer** layers, int numLayers, double* weights, int nWeights);
 double* SetVectorWeights(Vector* v, double* weights);
 double* SetMatrixWeights(Matrix* m, double* weights);
+
+void GetWeights(Layer** layers, int numLayers, double* weights, int nWeights);
+double* GetVectorWeights(Vector* v, double* weights);
+double* GetMatrixWeights(Matrix* m, double* weights);
 
 double Linear(double x);
 double LinearPrime(double x);

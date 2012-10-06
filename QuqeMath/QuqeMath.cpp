@@ -4,12 +4,15 @@
 #include "QuqeMath.h"
 #include "LinReg.h"
 
-WeightContext::WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers)
+WeightContext::WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers,
+  LayerSpec* specs)
 {
   TrainingInput = new Matrix(trainingInput);
   TrainingOutput = new Vector(trainingOutput);
   Frames = frames;
   NumLayers = nLayers;
+  LayerSpecs = new LayerSpec[nLayers];
+  memcpy(LayerSpecs, specs, nLayers * sizeof(LayerSpec));
 }
 
 WeightContext::~WeightContext()
@@ -25,6 +28,7 @@ WeightContext::~WeightContext()
   for (int t = 0; t < t_max; t++)
     delete Frames[t];
   delete [] Frames;
+  delete [] LayerSpecs;
   delete TrainingInput;
   delete TrainingOutput;
 }
@@ -91,7 +95,8 @@ QUQEMATH_API void* CreateWeightContext(
     delete protoLayers[l];
   delete [] protoLayers;
 
-  return new WeightContext(Matrix(nInputs, nSamples, trainingData), Vector(nSamples, outputData), frames, nLayers);
+  return new WeightContext(Matrix(nInputs, nSamples, trainingData), Vector(nSamples, outputData), frames, nLayers,
+    layerSpecs);
 }
 
 Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
@@ -131,28 +136,106 @@ QUQEMATH_API void DestroyWeightContext(void* context)
 QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeights, double* output, double* error, double* gradient)
 {
   int netNumInputs = c->Frames[0]->Layers[0]->W->ColumnCount;
-  int t_max = c->TrainingInput->ColumnCount;
+  int t_max = c->TrainingInput->ColumnCount - 1;
   Frame** time = c->Frames;
   double totalOutputError = 0;
 
-  Vector w = Vector(nWeights, weights);
-  
-  // propagate inputs forward
+  Matrix* trainingInput = c->TrainingInput;
+  Vector* trainingOutput = c->TrainingOutput;
   int numLayers = c->NumLayers;
-  SetWeightVector(time[0]->Layers, numLayers, &w); // time[0] is sufficient since all share the same weight matrices/vectors
-  Vector input = Vector(c->TrainingInput->RowCount);
-  for (int t = 0; t < t_max; t++)
+
+  // propagate inputs forward
+  SetWeights(time[0]->Layers, numLayers, weights, nWeights); // time[0] is sufficient since all share the same weight matrices/vectors
+  Vector input = Vector(trainingInput->RowCount);
+  for (int t = 0; t <= t_max; t++)
   {
-    c->TrainingInput->GetColumn(t, &input);
+    trainingInput->GetColumn(t, &input);
     Propagate(&input, numLayers, time[t]->Layers, t > 0 ? time[t-1]->Layers : NULL);
   }
+  Layer* lastLayer = time[t_max]->Layers[numLayers-1];
+  memcpy(output, lastLayer->z, lastLayer->NodeCount * sizeof(double));
 
-  //*error = 42;
-  //gradient[0] = 1;
-  //gradient[1] = 2;
-  //gradient[2] = 3;
+  // propagate error backward
+  for (int t = t_max; t >= 0; t--)
+  {
+    int l_max = numLayers - 1;
+    for (int l = l_max; l >= 0; l--)
+    {
+      Layer* layer = time[t]->Layers[l];
+      for (int i = 0; i < layer->NodeCount; i++)
+      {
+        double err;
 
-  //delete [] time;
+        // calculate error propagated to next layer
+        if (l == l_max)
+        {
+          err = (trainingOutput->Data[t] - layer->z->Data[i]);
+          totalOutputError += 0.5 * pow(err, 2);
+        }
+        else
+        {
+          Layer* subsequentLayer = time[t]->Layers[l + 1];
+          Vector wi = Vector(subsequentLayer->W->RowCount);
+          subsequentLayer->W->GetColumn(i, &wi);
+          err = Dot(&wi, subsequentLayer->d);
+        }
+
+        // calculate error propagated forward in time (recurrently)
+        if (t < t_max && layer->IsRecurrent)
+        {
+          Layer* nextLayerInTime = time[t + 1]->Layers[l];
+          Vector wri = Vector(nextLayerInTime->Wr->RowCount);
+          nextLayerInTime->Wr->GetColumn(i, &wri);
+          err += Dot(&wri, nextLayerInTime->d);
+        }
+
+        layer->d->Data[i] = err * layer->ActivationFunctionPrime(layer->a->Data[i]);
+      }
+    }
+  }
+  *error = totalOutputError;
+
+  // calculate gradient
+  Layer** gradLayers = SpecsToLayers(netNumInputs, c->LayerSpecs, numLayers);
+  for (int t = 0; t <= t_max; t++)
+  {
+    for (int l = 0; l < numLayers; l++)
+    {
+      int nodeCount = gradLayers[l]->NodeCount;
+      int inputCount = gradLayers[l]->InputCount;
+
+      // W
+      for (int i = 0; i < nodeCount; i++)
+      {
+        double* dData = time[t]->Layers[l]->d->Data;
+        for (int j = 0; j < inputCount; j++)
+          gradLayers[l]->W->SetDec(i, j, dData[i] * time[t]->Layers[l]->x->Data[j]);
+      }
+
+      // Wr
+      if (t > 0 && gradLayers[l]->IsRecurrent)
+        for (int i = 0; i < nodeCount; i++)
+        {
+          double* dData = time[t]->Layers[l]->d->Data;
+          for (int j = 0; j < nodeCount; j++)
+            gradLayers[l]->Wr->SetDec(i, j, dData[i] * time[t - 1]->Layers[l]->z->Data[j]);
+        }
+
+      // Bias
+      for (int i = 0; i < nodeCount; i++)
+        gradLayers[l]->Bias->Data[i] -= time[t]->Layers[l]->d->Data[i]; // (bias input is always 1)
+    }
+  }
+  GetWeights(gradLayers, numLayers, gradient, nWeights);
+  for (int l = 0; l < numLayers; l++)
+  {
+    Layer* layer = gradLayers[l];
+    delete layer->W;
+    delete layer->Wr;
+    delete layer->Bias;
+    delete layer;
+  }
+  delete [] gradLayers;
 }
 
 void Propagate(Vector* input, int numLayers, Layer** currLayers, Layer** prevLayers)
@@ -172,11 +255,11 @@ void PropagateLayer(Vector* input, Layer* layer, Vector* recurrentInput)
 
   // compute a
   layer->a->Set(layer->Bias);
-  Matrix::GEMV(1, layer->W, input, 1, layer->a);
+  GEMV(1, layer->W, input, 1, layer->a);
   if (layer->IsRecurrent)
   {
     Vector* ri = recurrentInput != NULL ? recurrentInput : MakeTimeZeroRecurrentInput(layer->NodeCount);
-    Matrix::GEMV(1, layer->Wr, ri, 1, layer->a);
+    GEMV(1, layer->Wr, ri, 1, layer->a);
     if (recurrentInput == NULL)
       delete ri;
   }
@@ -194,9 +277,9 @@ void ApplyActivationFunction(Vector* z, ActivationFunc f)
     zData[i] = f(zData[i]);
 }
 
-void SetWeightVector(Layer** layers, int numLayers, Vector* weights)
+void SetWeights(Layer** layers, int numLayers, double* weights, int nWeights)
 {
-  double* dp = weights->Data;
+  double* dp = weights;
   for (int layer = 0; layer < numLayers; layer++)
   {
     Layer* l = layers[layer];
@@ -205,7 +288,7 @@ void SetWeightVector(Layer** layers, int numLayers, Vector* weights)
       dp = SetMatrixWeights(l->Wr, dp);
     dp = SetVectorWeights(l->Bias, dp);
   }
-  assert(weights->Data + weights->Count == dp);
+  assert(weights + nWeights == dp);
 }
 
 double* SetVectorWeights(Vector* v, double* weights)
@@ -219,6 +302,34 @@ double* SetMatrixWeights(Matrix* m, double* weights)
 {
   int len = m->RowCount * m->ColumnCount;
   memcpy(m->Data, weights, len * sizeof(double));
+  return weights + len;
+}
+
+void GetWeights(Layer** layers, int numLayers, double* weights, int nWeights)
+{
+  double* dp = weights;
+  for (int layer = 0; layer < numLayers; layer++)
+  {
+    Layer* l = layers[layer];
+    dp = GetMatrixWeights(l->W, dp);
+    if (l->IsRecurrent)
+      dp = GetMatrixWeights(l->Wr, dp);
+    dp = GetVectorWeights(l->Bias, dp);
+  }
+  assert(weights + nWeights == dp);
+}
+
+double* GetVectorWeights(Vector* v, double* weights)
+{
+  int len = v->Count;
+  memcpy(weights, v->Data, len * sizeof(double));
+  return weights + len;
+}
+
+double* GetMatrixWeights(Matrix* m, double* weights)
+{
+  int len = m->RowCount * m->ColumnCount;
+  memcpy(weights, m->Data, len * sizeof(double));
   return weights + len;
 }
 
@@ -251,5 +362,3 @@ double LogisticSigmoidPrime(double x)
   double v = LogisticSigmoid(x);
   return v * (1 - v);
 }
-
-
