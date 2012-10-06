@@ -11,6 +11,7 @@ public:
   Vector(const Vector &v);
   Vector(int count);
   Vector(int count, double* data);
+  void Vector::Set(Vector* v);
   ~Vector();
 };
 
@@ -27,10 +28,10 @@ public:
   Matrix(int nRows, int nCols);
   Matrix(int nRows, int nCols, double* data);
   void Set(int i, int j, double v);
-  Vector Column(int j);
+  void Matrix::GetColumn(int j, Vector* dest);
   ~Matrix();
 
-  static Vector* MultAndAdd(Matrix* a, Vector* x, Vector* y);
+  static void Matrix::GEMV(double alpha, Matrix* a, Vector* x, double beta, Vector* y);
 };
 
 #endif

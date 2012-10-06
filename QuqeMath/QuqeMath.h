@@ -75,23 +75,16 @@ extern "C" QUQEMATH_API void* CreateWeightContext(
 
 extern "C" QUQEMATH_API void DestroyWeightContext(void* context);
 
-extern "C" QUQEMATH_API void EvaluateWeights(
-  // in
-  LayerSpec* layerSpecs, int nLayers,
-  double* weights, int nWeights,
-  double* trainingData, double* outputData,
-  int nInputs, int nSamples,
-  // out
-  double* error, double* gradient
-  );
+extern "C" QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeights,
+  double* output, double* error, double* gradient);
 
-void Propagate(Vector* input, int numLayers, Layer* currLayers, Layer* prevLayers);
+void Propagate(Vector* input, int numLayers, Layer** currLayers, Layer** prevLayers);
 void PropagateLayer(Vector* input, Layer* layer, Vector* recurrentInput);
-Vector* ApplyActivationFunction(Vector* a, ActivationFunc f);
+void ApplyActivationFunction(Vector* a, ActivationFunc f);
 Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers);
 Vector* MakeTimeZeroRecurrentInput(int size);
 
-void SetWeightVector(Layer* layers, int numLayers, const Vector &weights);
+void SetWeightVector(Layer** layers, int numLayers, Vector* weights);
 double* SetVectorWeights(Vector* v, double* weights);
 double* SetMatrixWeights(Matrix* m, double* weights);
 

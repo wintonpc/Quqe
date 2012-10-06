@@ -26,6 +26,12 @@ Vector::Vector(const Vector &v)
   memcpy(Data, v.Data, Count * sizeof(double));
 }
 
+void Vector::Set(Vector* v)
+{
+  Count = v->Count;
+  memcpy(Data, v->Data, Count * sizeof(double));
+}
+
 Vector::~Vector()
 {
   if (Data != NULL)
@@ -63,24 +69,22 @@ Matrix::Matrix(const Matrix &m)
   memcpy(Data, m.Data, DataLen * sizeof(double));
 }
 
-void Matrix::Set(int i, int j, double v)
+inline void Matrix::Set(int i, int j, double v)
 {
   Data[i * ColumnCount + j] = v;
 }
 
-Vector Matrix::Column(int j)
+void Matrix::GetColumn(int j, Vector* dest)
 {
   int vCount = RowCount;
-  double* vData = new double[vCount];
+  assert(vCount == dest->Count);
+  double* vData = dest->Data;
   for (int i = 0, x = j; i < vCount; i++, x += ColumnCount)
     vData[i] = Data[x];
-  return Vector(vCount, vData);
 }
 
-
-Vector* Matrix::MultAndAdd(Matrix* a, Vector* x, Vector* y)
+void Matrix::GEMV(double alpha, Matrix* a, Vector* x, double beta, Vector* y)
 {
-  return new Vector(y->Count);
 }
 
 Matrix::~Matrix()

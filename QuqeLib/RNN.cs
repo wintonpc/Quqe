@@ -164,16 +164,19 @@ namespace Quqe
 
       //var errInfo = EvaluateWeights(net, w, trainingData, outputData);
 
-      var specs = net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray();
-      while (true)
-      {
-        IntPtr context = QMCreateWeightContext(specs, net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
-          trainingData.RowCount, trainingData.ColumnCount);
-        QMDestroyWeightContext(context);
-      }
+      //var specs = net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray();
+      //while (true)
+      //{
+      //  IntPtr context = QMCreateWeightContext(specs, net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
+      //    trainingData.RowCount, trainingData.ColumnCount);
+      //  QMDestroyWeightContext(context);
+      //}
 
       ErrorInfo errInfo = new ErrorInfo();
       int zz = 0;
+      var specs = net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray();
+      IntPtr context = QMCreateWeightContext(specs, net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
+  trainingData.RowCount, trainingData.ColumnCount);
       while (true)
       {
         if (zz++ % 100 == 0)
@@ -182,13 +185,13 @@ namespace Quqe
         double[] grad = new double[w.Count];
         Stopwatch sw = new Stopwatch();
         sw.Start();
-        QMEvaluateWeights(net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray(), net.LayerSpecs.Count,
-          w.ToArray(), w.Count, trainingData.ToRowWiseArray(), outputData.ToArray(), trainingData.RowCount,
-          trainingData.ColumnCount, out error, grad);
+        double[] output = new double[1];
+        QMEvaluateWeights(context, w.ToArray(), w.Count, output, out error, grad);
         sw.Stop();
         errInfo.Error = error;
         errInfo.Gradient = new DenseVector(grad);
       }
+      QMDestroyWeightContext(context);
 
       var errAtW = errInfo.Error;
       List<double> errHistory = new List<double> { errAtW };
@@ -331,10 +334,7 @@ namespace Quqe
     };
 
     [DllImport("QuqeMath.dll", EntryPoint = "EvaluateWeights", CallingConvention = CallingConvention.Cdecl)]
-    extern static void QMEvaluateWeights(
-      QMLayerSpec[] layerSpecs, int numLayers, double[] weights, int nWeights, double[] trainingData, double[] outputData,
-      int nInputs, int nSamples,
-      out double error, double[] gradient);
+    extern static void QMEvaluateWeights(IntPtr context, double[] weights, int nWeights, double[] output, out double error, double[] gradient);
 
     [DllImport("QuqeMath.dll", EntryPoint = "CreateWeightContext", CallingConvention = CallingConvention.Cdecl)]
     extern static IntPtr QMCreateWeightContext(QMLayerSpec[] layerSpecs, int numLayers, double[] trainingData, double[] outputData,
