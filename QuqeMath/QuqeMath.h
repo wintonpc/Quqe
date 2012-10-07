@@ -64,10 +64,23 @@ public:
   Frame** Frames;
   int NumLayers;
   LayerSpec* LayerSpecs;
+private:
+  Vector** TempVecs;
+  int TempVecCount;
 
+public:
   WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers, LayerSpec* specs);
+  Vector* GetTempVec(int size);
   ~WeightContext();
 };
+
+inline Vector* WeightContext::GetTempVec(int size)
+{
+  Vector* v = TempVecs[size];
+  if (v != NULL)
+    return v;
+  return TempVecs[size] = new Vector(size);
+}
 
 extern "C" QUQEMATH_API void* CreateWeightContext(
   LayerSpec* layerSpecs, int nLayers,

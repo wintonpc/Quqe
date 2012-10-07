@@ -177,7 +177,13 @@ namespace Quqe
 
       //#region test
 
-      //var wei2 = EvaluateWeightsFast(context, w.ToArray(), 1);
+      //var specs = net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray();
+      //while (true)
+      //{
+      //  IntPtr context2 = QMCreateWeightContext(specs, net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
+      //    trainingData.RowCount, trainingData.ColumnCount);
+      //  QMDestroyWeightContext(context2);
+      //}
 
       Trace.WriteLine("--- .NET ------");
       Trace.WriteLine("Output:   " + wei2.Output.Join(" "));
@@ -316,7 +322,7 @@ namespace Quqe
 
       QMDestroyWeightContext(context);
       sw.Stop();
-      Trace.WriteLine(string.Format("Finished in {0:N2}s", sw.ElapsedMilliseconds / 1000));
+      Trace.WriteLine(string.Format("Finished in {0:N2}s", (double)sw.ElapsedMilliseconds / 1000));
 
       return new TrainResult<Vector> {
         Params = (Vector)w,

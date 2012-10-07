@@ -13,6 +13,9 @@ WeightContext::WeightContext(const Matrix &trainingInput, const Vector &training
   NumLayers = nLayers;
   LayerSpecs = new LayerSpec[nLayers];
   memcpy(LayerSpecs, specs, nLayers * sizeof(LayerSpec));
+  TempVecCount = 524288;
+  TempVecs = new Vector*[TempVecCount];
+  memset(TempVecs, 0, TempVecCount * sizeof(Vector*));
 }
 
 WeightContext::~WeightContext()
@@ -31,6 +34,9 @@ WeightContext::~WeightContext()
   delete [] LayerSpecs;
   delete TrainingInput;
   delete TrainingOutput;
+  for (int i = 0; i < TempVecCount; i++)
+    delete TempVecs[i];
+  delete [] TempVecs;
 }
 
 Layer::Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, ActivationFunc activation, ActivationFunc activationPrime)
@@ -152,11 +158,11 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
 
   // propagate inputs forward
   SetWeights(time[0]->Layers, numLayers, weights, nWeights); // time[0] is sufficient since all share the same weight matrices/vectors
-  Vector input = Vector(trainingInput->RowCount);
+  Vector* input = c->GetTempVec(trainingInput->RowCount);
   for (int t = 0; t <= t_max; t++)
   {
-    trainingInput->GetColumn(t, &input);
-    Propagate(&input, numLayers, time[t]->Layers, t > 0 ? time[t-1]->Layers : NULL);
+    trainingInput->GetColumn(t, input);
+    Propagate(input, numLayers, time[t]->Layers, t > 0 ? time[t-1]->Layers : NULL);
   }
   Layer* lastLayer = time[t_max]->Layers[numLayers-1];
   memcpy(output, lastLayer->z->Data, lastLayer->NodeCount * sizeof(double));
@@ -181,18 +187,20 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
         else
         {
           Layer* subsequentLayer = time[t]->Layers[l + 1];
-          Vector wi = Vector(subsequentLayer->W->RowCount);
-          subsequentLayer->W->GetColumn(i, &wi);
-          err = Dot(&wi, subsequentLayer->d);
+          //Vector wi = Vector(subsequentLayer->W->RowCount);
+          Vector* wi = c->GetTempVec(subsequentLayer->W->RowCount);
+          subsequentLayer->W->GetColumn(i, wi);
+          err = Dot(wi, subsequentLayer->d);
         }
 
         // calculate error propagated forward in time (recurrently)
         if (t < t_max && layer->IsRecurrent)
         {
           Layer* nextLayerInTime = time[t + 1]->Layers[l];
-          Vector wri = Vector(nextLayerInTime->Wr->RowCount);
-          nextLayerInTime->Wr->GetColumn(i, &wri);
-          err += Dot(&wri, nextLayerInTime->d);
+          //Vector wri = Vector(nextLayerInTime->Wr->RowCount);
+          Vector* wri = c->GetTempVec(nextLayerInTime->Wr->RowCount);
+          nextLayerInTime->Wr->GetColumn(i, wri);
+          err += Dot(wri, nextLayerInTime->d);
         }
 
         layer->d->Data[i] = err * layer->ActivationFunctionPrime(layer->a->Data[i]);
