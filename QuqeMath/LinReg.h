@@ -33,6 +33,7 @@ public:
   void Set(int i, int j, double v);
   void Matrix::SetDec(int i, int j, double v);
   void GetColumn(int j, Vector* dest);
+  double* GetRowPtr(int i);
   void Zero();
   ~Matrix();
 };
@@ -59,6 +60,11 @@ inline void Matrix::SetDec(int i, int j, double v)
   Data[i * ColumnCount + j] -= v;
 }
 
+inline double* Matrix::GetRowPtr(int i)
+{
+  return Data + i * ColumnCount;
+}
+
 inline void GEMV(double alpha, Matrix* a, Vector* x, double beta, Vector* y)
 {
   int columnCount = a->ColumnCount;
@@ -69,6 +75,11 @@ inline void GEMV(double alpha, Matrix* a, Vector* x, double beta, Vector* y)
 inline double Dot(Vector* a, Vector* b)
 {
   return cblas_ddot(a->Count, a->Data, 1, b->Data, 1);
+}
+
+inline void AXPY(double alpha, Vector* x, double* y)
+{
+  return cblas_daxpy(x->Count, alpha, x->Data, 1, y, 1);
 }
 
 #endif

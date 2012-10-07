@@ -211,25 +211,34 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
       int inputCount = gradLayers[l]->InputCount;
 
       // W
+      Layer* layertl = time[t]->Layers[l];
       for (int i = 0; i < nodeCount; i++)
       {
-        double* dData = time[t]->Layers[l]->d->Data;
-        for (int j = 0; j < inputCount; j++)
-          gradLayers[l]->W->SetDec(i, j, dData[i] * time[t]->Layers[l]->x->Data[j]);
+        double* dData = layertl->d->Data;
+        //for (int j = 0; j < inputCount; j++)
+        //  gradLayers[l]->W->SetDec(i, j, dData[i] * time[t]->Layers[l]->x->Data[j]);
+        double* wi = gradLayers[l]->W->GetRowPtr(i);
+        AXPY(-1.0 * dData[i], layertl->x, wi);
       }
 
       // Wr
       if (t > 0 && gradLayers[l]->IsRecurrent)
+      {
+        Layer* layert1l = time[t - 1]->Layers[l];
         for (int i = 0; i < nodeCount; i++)
         {
-          double* dData = time[t]->Layers[l]->d->Data;
-          for (int j = 0; j < nodeCount; j++)
-            gradLayers[l]->Wr->SetDec(i, j, dData[i] * time[t - 1]->Layers[l]->z->Data[j]);
+          double* dData = layertl->d->Data;
+          //for (int j = 0; j < nodeCount; j++)
+          //  gradLayers[l]->Wr->SetDec(i, j, dData[i] * time[t - 1]->Layers[l]->z->Data[j]);
+          double* wri = gradLayers[l]->Wr->GetRowPtr(i);
+          AXPY(-1.0 * dData[i], layert1l->z, wri);
         }
+      }
 
       // Bias
-      for (int i = 0; i < nodeCount; i++)
-        gradLayers[l]->Bias->Data[i] -= time[t]->Layers[l]->d->Data[i]; // (bias input is always 1)
+      //for (int i = 0; i < nodeCount; i++)
+      //  gradLayers[l]->Bias->Data[i] -= time[t]->Layers[l]->d->Data[i]; // (bias input is always 1)
+      AXPY(-1.0, layertl->d, gradLayers[l]->Bias->Data);
     }
   }
   GetWeights(gradLayers, numLayers, gradient, nWeights);

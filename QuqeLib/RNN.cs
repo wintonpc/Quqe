@@ -172,26 +172,26 @@ namespace Quqe
       double lambda = 1;
       double pi = 0.05;
 
-      //var wei = EvaluateWeights(net, w, trainingData, outputData);
+      var wei2 = EvaluateWeights(net, w, trainingData, outputData);
       var wei = EvaluateWeightsFast(context, w.ToArray(), 1);
 
       //#region test
 
       //var wei2 = EvaluateWeightsFast(context, w.ToArray(), 1);
 
-      //Trace.WriteLine("-- .Net ------");
-      //Trace.WriteLine("Output:   " + wei.Output.Join(" "));
-      //Trace.WriteLine("Error:    " + wei.Error);
-      //Trace.WriteLine("Gradient: " + wei.Gradient.Join(" "));
-      //Trace.WriteLine("--- C++ ------");
-      //Trace.WriteLine("Output:   " + wei2.Output.Join(" "));
-      //Trace.WriteLine("Error:    " + wei2.Error);
-      //Trace.WriteLine("Gradient: " + wei2.Gradient.Join(" "));
-      //Trace.WriteLine("--- Diff ------");
-      //Trace.WriteLine("Output:   " + (wei.Output - wei2.Output).Norm(2));
-      //Trace.WriteLine("Error:    " + Math.Abs(wei.Error - wei2.Error));
-      //Trace.WriteLine("Gradient: " + (wei.Gradient - wei2.Gradient).Norm(2));
-      //Trace.WriteLine("--------------");
+      Trace.WriteLine("--- .NET ------");
+      Trace.WriteLine("Output:   " + wei2.Output.Join(" "));
+      Trace.WriteLine("Error:    " + wei2.Error);
+      Trace.WriteLine("Gradient: " + wei2.Gradient.Join(" "));
+      Trace.WriteLine("-- .C++ ------");
+      Trace.WriteLine("Output:   " + wei.Output.Join(" "));
+      Trace.WriteLine("Error:    " + wei.Error);
+      Trace.WriteLine("Gradient: " + wei.Gradient.Join(" "));
+      Trace.WriteLine("--- Diff ------");
+      Trace.WriteLine("Output:   " + (wei.Output - wei2.Output).Norm(2));
+      Trace.WriteLine("Error:    " + Math.Abs(wei.Error - wei2.Error));
+      Trace.WriteLine("Gradient: " + (wei.Gradient - wei2.Gradient).Norm(2));
+      Trace.WriteLine("--------------");
 
       //#endregion
 
@@ -276,7 +276,7 @@ namespace Quqe
         Vector<double> s1;
         if (S == S_max || (S >= 2 && g.DotProduct(g1) >= 0.2 * g1.DotProduct(g1))) // Powell-Beale restarts
         {
-          Trace.WriteLine("*** RESTARTED ***");
+          //Trace.WriteLine("*** RESTARTED ***");
           s1 = -g1;
           success = true;
           S = 0;
@@ -305,8 +305,8 @@ namespace Quqe
         w = w1;
 
         n++;
-        //if (n == 1 || n % 100 == 0)
-        Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
+        if (n == 1 || n % 50 == 0)
+          Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
 
         if (n == epoch_max || n > S_max && g.Norm(2) < tau)
           break;
