@@ -7,6 +7,7 @@ using MathNet.Numerics.LinearAlgebra.Double;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using PCW;
 
 namespace Quqe
 {
@@ -48,6 +49,7 @@ namespace Quqe
 
     class ErrorInfo
     {
+      public Vector<double> Output;
       public double Error;
       public Vector<double> Gradient;
     }
@@ -136,6 +138,7 @@ namespace Quqe
       net.SetWeightVector(oldWeights);
 
       return new ErrorInfo {
+        Output = time.Last().Layers.Last().z,
         Error = totalOutputError,
         Gradient = GetWeightVector(gradientLayers)
       };
@@ -156,42 +159,48 @@ namespace Quqe
       double S_max = net.GetWeightVector().Count;
       double tau = 0.001; // a value this low effectively disables early termination
 
+      Stopwatch sw = new Stopwatch();
+      sw.Start();
+
       // 0. initialize variables
       var w = net.GetWeightVector();
       double epsilon = Math.Pow(10, -3);
       double lambda = 1;
       double pi = 0.05;
 
-      //var errInfo = EvaluateWeights(net, w, trainingData, outputData);
+      var errInfo = EvaluateWeights(net, w, trainingData, outputData);
 
-      //var specs = net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray();
-      //while (true)
-      //{
-      //  IntPtr context = QMCreateWeightContext(specs, net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
-      //    trainingData.RowCount, trainingData.ColumnCount);
-      //  QMDestroyWeightContext(context);
-      //}
+      #region test
 
-      ErrorInfo errInfo = new ErrorInfo();
       var specs = net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray();
-      Stopwatch sw = new Stopwatch();
-      sw.Start();
       IntPtr context = QMCreateWeightContext(specs, net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
-  trainingData.RowCount, trainingData.ColumnCount);
-      for (int zz = 0; zz < 1000; zz++)
-      {
-        if (zz % 100 == 0)
-          Trace.WriteLine(zz);
-        double error;
-        double[] grad = new double[w.Count];
-        double[] output = new double[1];
-        QMEvaluateWeights(context, w.ToArray(), w.Count, output, out error, grad);
-        errInfo.Error = error;
-        errInfo.Gradient = new DenseVector(grad);
-      }
+        trainingData.RowCount, trainingData.ColumnCount);
+      double error;
+      double[] grad = new double[w.Count];
+      double[] output = new double[1];
+      QMEvaluateWeights(context, w.ToArray(), w.Count, output, out error, grad);
+      ErrorInfo errorInfo2 = new ErrorInfo {
+        Output = new DenseVector(output),
+        Error = error,
+        Gradient = new DenseVector(grad)
+      };
       QMDestroyWeightContext(context);
-      sw.Stop();
-      Trace.WriteLine(string.Format("Finished in {0:N2}s", sw.ElapsedMilliseconds / 1000));
+
+      Trace.WriteLine("-- .Net ------");
+      Trace.WriteLine("Output:   " + errInfo.Output.Join(" "));
+      Trace.WriteLine("Error:    " + errInfo.Error);
+      Trace.WriteLine("Gradient: " + errInfo.Gradient.Join(" "));
+      Trace.WriteLine("--- C++ ------");
+      Trace.WriteLine("Output:   " + errorInfo2.Output.Join(" "));
+      Trace.WriteLine("Error:    " + errorInfo2.Error);
+      Trace.WriteLine("Gradient: " + errorInfo2.Gradient.Join(" "));
+      Trace.WriteLine("--- Diff ------");
+      Trace.WriteLine("Output:   " + (errInfo.Output - errorInfo2.Output).Norm(2));
+      Trace.WriteLine("Error:    " + Math.Abs(errInfo.Error - errorInfo2.Error));
+      Trace.WriteLine("Gradient: " + (errInfo.Gradient - errorInfo2.Gradient).Norm(2));
+      Trace.WriteLine("--------------");
+
+      #endregion
 
       var errAtW = errInfo.Error;
       List<double> errHistory = new List<double> { errAtW };
@@ -301,6 +310,7 @@ namespace Quqe
         w = w1;
 
         n++;
+        //if (n == 1 || n % 100 == 0)
         Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
 
         if (n == epoch_max || n > S_max && g.Norm(2) < tau)
@@ -308,6 +318,9 @@ namespace Quqe
       }
 
       net.SetWeightVector(w);
+
+      sw.Stop();
+      Trace.WriteLine(string.Format("Finished in {0:N2}s", sw.ElapsedMilliseconds / 1000));
 
       return new TrainResult<Vector> {
         Params = (Vector)w,

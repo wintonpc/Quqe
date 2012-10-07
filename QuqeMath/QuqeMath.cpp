@@ -119,11 +119,17 @@ Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
       activationPrime = LinearPrime;
     }
 
-    layers[l] = new Layer(
-      new Matrix(s->NodeCount, l > 0 ? specs[l-1].NodeCount : numInputs),
-      s->IsRecurrent ? new Matrix(s->NodeCount, s->NodeCount) : NULL,
-      new Vector(s->NodeCount),
-      s->IsRecurrent, activation, activationPrime);
+    Matrix* w = new Matrix(s->NodeCount, l > 0 ? specs[l-1].NodeCount : numInputs);
+    w->Zero();
+    Matrix* wr = NULL;
+    if (s->IsRecurrent)
+    {
+      wr = new Matrix(s->NodeCount, s->NodeCount);
+      wr->Zero();
+    }
+    Vector* bias = new Vector(s->NodeCount);
+    bias->Zero();
+    layers[l] = new Layer(w, wr, bias, s->IsRecurrent, activation, activationPrime);
   }
   return layers;
 }
@@ -153,7 +159,7 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
     Propagate(&input, numLayers, time[t]->Layers, t > 0 ? time[t-1]->Layers : NULL);
   }
   Layer* lastLayer = time[t_max]->Layers[numLayers-1];
-  memcpy(output, lastLayer->z, lastLayer->NodeCount * sizeof(double));
+  memcpy(output, lastLayer->z->Data, lastLayer->NodeCount * sizeof(double));
 
   // propagate error backward
   for (int t = t_max; t >= 0; t--)

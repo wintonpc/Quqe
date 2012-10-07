@@ -14,6 +14,7 @@ public:
   Vector(int count);
   Vector(int count, double* data);
   void Vector::Set(Vector* v);
+  void Zero();
   ~Vector();
 };
 
@@ -32,6 +33,7 @@ public:
   void Set(int i, int j, double v);
   void Matrix::SetDec(int i, int j, double v);
   void GetColumn(int j, Vector* dest);
+  void Zero();
   ~Matrix();
 };
 

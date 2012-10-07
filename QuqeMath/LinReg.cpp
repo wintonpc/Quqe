@@ -32,6 +32,11 @@ void Vector::Set(Vector* v)
   memcpy(Data, v->Data, Count * sizeof(double));
 }
 
+void Vector::Zero()
+{
+  memset(Data, 0, Count * sizeof(double));
+}
+
 Vector::~Vector()
 {
   if (Data != NULL)
@@ -67,6 +72,11 @@ Matrix::Matrix(const Matrix &m)
   DataLen = RowCount * ColumnCount;
   Data = (double*)mkl_malloc(DataLen * sizeof(double), 64);
   memcpy(Data, m.Data, DataLen * sizeof(double));
+}
+
+void Matrix::Zero()
+{
+  memset(Data, 0, DataLen * sizeof(double));
 }
 
 Matrix::~Matrix()
