@@ -47,7 +47,7 @@ namespace Quqe
       public List<Layer> Layers;
     }
 
-    class ErrorInfo
+    class WeightEvalInfo
     {
       public Vector<double> Output;
       public double Error;
@@ -59,7 +59,7 @@ namespace Quqe
     List<Layer> Layers;
     const double TimeZeroRecurrentInputValue = 0.5;
 
-    static ErrorInfo EvaluateWeights(RNN net, Vector<double> weights, Matrix trainingData, Vector outputData)
+    static WeightEvalInfo EvaluateWeights(RNN net, Vector<double> weights, Matrix trainingData, Vector outputData)
     {
       var time = new List<Frame>();
       var oldWeights = net.GetWeightVector();
@@ -137,7 +137,7 @@ namespace Quqe
 
       net.SetWeightVector(oldWeights);
 
-      return new ErrorInfo {
+      return new WeightEvalInfo {
         Output = time.Last().Layers.Last().z,
         Error = totalOutputError,
         Gradient = GetWeightVector(gradientLayers)
@@ -147,10 +147,17 @@ namespace Quqe
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
     public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix trainingData, Vector outputData)
     {
+      Stopwatch sw = new Stopwatch();
+      sw.Start();
+      IntPtr context = QMCreateWeightContext(net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray(),
+        net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
+        trainingData.RowCount, trainingData.ColumnCount);
+
       Func<Vector<double>, Vector<double>, Vector<double>, double, Vector<double>> approximateCurvature =
         (w1, gradientAtW1, searchDirection, sig) => {
           var w2 = w1 + sig * searchDirection;
-          var gradientAtW2 = EvaluateWeights(net, w2, trainingData, outputData).Gradient;
+          //var gradientAtW2 = EvaluateWeights(net, w2, trainingData, outputData).Gradient;
+          var gradientAtW2 = EvaluateWeightsFast(context, w2.ToArray(), 1).Gradient;
           return (gradientAtW2 - gradientAtW1) / sig;
         };
 
@@ -159,52 +166,38 @@ namespace Quqe
       double S_max = net.GetWeightVector().Count;
       double tau = 0.001; // a value this low effectively disables early termination
 
-      Stopwatch sw = new Stopwatch();
-      sw.Start();
-
       // 0. initialize variables
       var w = net.GetWeightVector();
       double epsilon = Math.Pow(10, -3);
       double lambda = 1;
       double pi = 0.05;
 
-      var errInfo = EvaluateWeights(net, w, trainingData, outputData);
+      //var wei = EvaluateWeights(net, w, trainingData, outputData);
+      var wei = EvaluateWeightsFast(context, w.ToArray(), 1);
 
-      #region test
+      //#region test
 
-      var specs = net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray();
-      IntPtr context = QMCreateWeightContext(specs, net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
-        trainingData.RowCount, trainingData.ColumnCount);
-      double error;
-      double[] grad = new double[w.Count];
-      double[] output = new double[1];
-      QMEvaluateWeights(context, w.ToArray(), w.Count, output, out error, grad);
-      ErrorInfo errorInfo2 = new ErrorInfo {
-        Output = new DenseVector(output),
-        Error = error,
-        Gradient = new DenseVector(grad)
-      };
-      QMDestroyWeightContext(context);
+      //var wei2 = EvaluateWeightsFast(context, w.ToArray(), 1);
 
-      Trace.WriteLine("-- .Net ------");
-      Trace.WriteLine("Output:   " + errInfo.Output.Join(" "));
-      Trace.WriteLine("Error:    " + errInfo.Error);
-      Trace.WriteLine("Gradient: " + errInfo.Gradient.Join(" "));
-      Trace.WriteLine("--- C++ ------");
-      Trace.WriteLine("Output:   " + errorInfo2.Output.Join(" "));
-      Trace.WriteLine("Error:    " + errorInfo2.Error);
-      Trace.WriteLine("Gradient: " + errorInfo2.Gradient.Join(" "));
-      Trace.WriteLine("--- Diff ------");
-      Trace.WriteLine("Output:   " + (errInfo.Output - errorInfo2.Output).Norm(2));
-      Trace.WriteLine("Error:    " + Math.Abs(errInfo.Error - errorInfo2.Error));
-      Trace.WriteLine("Gradient: " + (errInfo.Gradient - errorInfo2.Gradient).Norm(2));
-      Trace.WriteLine("--------------");
+      //Trace.WriteLine("-- .Net ------");
+      //Trace.WriteLine("Output:   " + wei.Output.Join(" "));
+      //Trace.WriteLine("Error:    " + wei.Error);
+      //Trace.WriteLine("Gradient: " + wei.Gradient.Join(" "));
+      //Trace.WriteLine("--- C++ ------");
+      //Trace.WriteLine("Output:   " + wei2.Output.Join(" "));
+      //Trace.WriteLine("Error:    " + wei2.Error);
+      //Trace.WriteLine("Gradient: " + wei2.Gradient.Join(" "));
+      //Trace.WriteLine("--- Diff ------");
+      //Trace.WriteLine("Output:   " + (wei.Output - wei2.Output).Norm(2));
+      //Trace.WriteLine("Error:    " + Math.Abs(wei.Error - wei2.Error));
+      //Trace.WriteLine("Gradient: " + (wei.Gradient - wei2.Gradient).Norm(2));
+      //Trace.WriteLine("--------------");
 
-      #endregion
+      //#endregion
 
-      var errAtW = errInfo.Error;
+      var errAtW = wei.Error;
       List<double> errHistory = new List<double> { errAtW };
-      Vector<double> g = errInfo.Gradient;
+      Vector<double> g = wei.Gradient;
       Vector<double> s = -g;
       bool success = true;
       int S = 0;
@@ -246,7 +239,8 @@ namespace Quqe
         double epsilon1 = epsilon * Math.Pow(alpha / sigma, pi);
 
         // 5. calculate the comparison ratio
-        double rho = 2 * (EvaluateWeights(net, w + alpha * s, trainingData, outputData).Error - errAtW) / (alpha * mu);
+        //double rho = 2 * (EvaluateWeights(net, w + alpha * s, trainingData, outputData).Error - errAtW) / (alpha * mu);
+        double rho = 2 * (EvaluateWeightsFast(context, (w + alpha * s).ToArray(), 1).Error - errAtW) / (alpha * mu);
         success = rho >= 0;
 
         // 6. revise lambda
@@ -265,7 +259,8 @@ namespace Quqe
         if (success)
         {
           w1 = w + alpha * s;
-          var ei1 = EvaluateWeights(net, w1, trainingData, outputData);
+          //var ei1 = EvaluateWeights(net, w1, trainingData, outputData);
+          var ei1 = EvaluateWeightsFast(context, w1.ToArray(), 1);
           errAtW1 = ei1.Error;
           g1 = ei1.Gradient;
           S++;
@@ -319,6 +314,7 @@ namespace Quqe
 
       net.SetWeightVector(w);
 
+      QMDestroyWeightContext(context);
       sw.Stop();
       Trace.WriteLine(string.Format("Finished in {0:N2}s", sw.ElapsedMilliseconds / 1000));
 
@@ -345,6 +341,19 @@ namespace Quqe
       bool IsRecurrent;
       int ActivationType;
     };
+
+    static WeightEvalInfo EvaluateWeightsFast(IntPtr context, double[] weights, int numOutputs)
+    {
+      double error;
+      double[] grad = new double[weights.Length];
+      double[] output = new double[numOutputs];
+      QMEvaluateWeights(context, weights, weights.Length, output, out error, grad);
+      return new WeightEvalInfo {
+        Output = new DenseVector(output),
+        Error = error,
+        Gradient = new DenseVector(grad)
+      };
+    }
 
     [DllImport("QuqeMath.dll", EntryPoint = "EvaluateWeights", CallingConvention = CallingConvention.Cdecl)]
     extern static void QMEvaluateWeights(IntPtr context, double[] weights, int nWeights, double[] output, out double error, double[] gradient);
