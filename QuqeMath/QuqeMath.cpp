@@ -187,20 +187,14 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
         else
         {
           Layer* subsequentLayer = time[t]->Layers[l + 1];
-          //Vector wi = Vector(subsequentLayer->W->RowCount);
-          Vector* wi = c->GetTempVec(subsequentLayer->W->RowCount);
-          subsequentLayer->W->GetColumn(i, wi);
-          err = Dot(wi, subsequentLayer->d);
+          err = DotColumn(subsequentLayer->W, i, subsequentLayer->d);
         }
 
         // calculate error propagated forward in time (recurrently)
         if (t < t_max && layer->IsRecurrent)
         {
           Layer* nextLayerInTime = time[t + 1]->Layers[l];
-          //Vector wri = Vector(nextLayerInTime->Wr->RowCount);
-          Vector* wri = c->GetTempVec(nextLayerInTime->Wr->RowCount);
-          nextLayerInTime->Wr->GetColumn(i, wri);
-          err += Dot(wri, nextLayerInTime->d);
+          err += DotColumn(nextLayerInTime->Wr, i, nextLayerInTime->d);
         }
 
         layer->d->Data[i] = err * layer->ActivationFunctionPrime(layer->a->Data[i]);
@@ -223,8 +217,6 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
       for (int i = 0; i < nodeCount; i++)
       {
         double* dData = layertl->d->Data;
-        //for (int j = 0; j < inputCount; j++)
-        //  gradLayers[l]->W->SetDec(i, j, dData[i] * time[t]->Layers[l]->x->Data[j]);
         double* wi = gradLayers[l]->W->GetRowPtr(i);
         AXPY(-1.0 * dData[i], layertl->x, wi);
       }
@@ -236,16 +228,12 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
         for (int i = 0; i < nodeCount; i++)
         {
           double* dData = layertl->d->Data;
-          //for (int j = 0; j < nodeCount; j++)
-          //  gradLayers[l]->Wr->SetDec(i, j, dData[i] * time[t - 1]->Layers[l]->z->Data[j]);
           double* wri = gradLayers[l]->Wr->GetRowPtr(i);
           AXPY(-1.0 * dData[i], layert1l->z, wri);
         }
       }
 
       // Bias
-      //for (int i = 0; i < nodeCount; i++)
-      //  gradLayers[l]->Bias->Data[i] -= time[t]->Layers[l]->d->Data[i]; // (bias input is always 1)
       AXPY(-1.0, layertl->d, gradLayers[l]->Bias->Data);
     }
   }
