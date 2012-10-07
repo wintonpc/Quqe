@@ -173,25 +173,25 @@ namespace Quqe
       //}
 
       ErrorInfo errInfo = new ErrorInfo();
-      int zz = 0;
       var specs = net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray();
+      Stopwatch sw = new Stopwatch();
+      sw.Start();
       IntPtr context = QMCreateWeightContext(specs, net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
   trainingData.RowCount, trainingData.ColumnCount);
-      while (true)
+      for (int zz = 0; zz < 1000; zz++)
       {
-        if (zz++ % 100 == 0)
+        if (zz % 100 == 0)
           Trace.WriteLine(zz);
         double error;
         double[] grad = new double[w.Count];
-        Stopwatch sw = new Stopwatch();
-        sw.Start();
         double[] output = new double[1];
         QMEvaluateWeights(context, w.ToArray(), w.Count, output, out error, grad);
-        sw.Stop();
         errInfo.Error = error;
         errInfo.Gradient = new DenseVector(grad);
       }
       QMDestroyWeightContext(context);
+      sw.Stop();
+      Trace.WriteLine(string.Format("Finished in {0:N2}s", sw.ElapsedMilliseconds / 1000));
 
       var errAtW = errInfo.Error;
       List<double> errHistory = new List<double> { errAtW };

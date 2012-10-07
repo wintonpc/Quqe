@@ -1,6 +1,8 @@
 #ifndef LINREG_H
 #define LINREG_H
 
+#include "mkl.h"
+
 class Vector
 {
 public:
@@ -57,13 +59,14 @@ inline void Matrix::SetDec(int i, int j, double v)
 
 inline void GEMV(double alpha, Matrix* a, Vector* x, double beta, Vector* y)
 {
-  // TODO: implement
+  int columnCount = a->ColumnCount;
+  cblas_dgemv(CblasRowMajor, CblasNoTrans, a->RowCount, columnCount,
+    alpha, a->Data, columnCount, x->Data, 1, beta, y->Data, 1);
 }
 
 inline double Dot(Vector* a, Vector* b)
 {
-  // TODO: implement
-  return 0;
+  return cblas_ddot(a->Count, a->Data, 1, b->Data, 1);
 }
 
 #endif
