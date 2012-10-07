@@ -39,7 +39,8 @@ WeightContext::~WeightContext()
   delete [] TempVecs;
 }
 
-Layer::Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, ActivationFunc activation, ActivationFunc activationPrime)
+Layer::Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, int activationType,
+  ActivationFunc activation, ActivationFunc activationPrime)
 {
   W = w;
   Wr = wr;
@@ -51,6 +52,7 @@ Layer::Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, ActivationFu
   z = new Vector(NodeCount);
   d = new Vector(NodeCount);
   IsRecurrent = isRecurrent;
+  ActivationType = activationType;
   ActivationFunction = activation;
   ActivationFunctionPrime = activationPrime;
 }
@@ -92,7 +94,8 @@ QUQEMATH_API void* CreateWeightContext(
     for (int l = 0; l < nLayers; l++)
     {
       Layer* pl = protoLayers[l];
-      layers[l] = new Layer(pl->W, pl->Wr, pl->Bias, pl->IsRecurrent, pl->ActivationFunction, pl->ActivationFunctionPrime);
+      layers[l] = new Layer(pl->W, pl->Wr, pl->Bias, pl->IsRecurrent, pl->ActivationType,
+        pl->ActivationFunction, pl->ActivationFunctionPrime);
     }
     frames[t] = new Frame(layers, nLayers);
   }
@@ -116,7 +119,7 @@ Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
     ActivationFunc activationPrime;
     if (s->ActivationType == ACTIVATION_LOGSIG)
     {
-      activation = LogisticSigmoid;
+      activation = NULL; //LogisticSigmoid;
       activationPrime = LogisticSigmoidPrime;
     }
     else if (s->ActivationType == ACTIVATION_PURELIN)
@@ -135,7 +138,7 @@ Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
     }
     Vector* bias = new Vector(s->NodeCount);
     bias->Zero();
-    layers[l] = new Layer(w, wr, bias, s->IsRecurrent, activation, activationPrime);
+    layers[l] = new Layer(w, wr, bias, s->IsRecurrent, s->ActivationType, activation, activationPrime);
   }
   return layers;
 }
@@ -187,17 +190,24 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
         else
         {
           Layer* subsequentLayer = time[t]->Layers[l + 1];
-          err = DotColumn(subsequentLayer->W, i, subsequentLayer->d);
+          Matrix* w = subsequentLayer->W;
+          Vector* d = subsequentLayer->d;
+          err = DotColumn(w, i, d);
         }
 
         // calculate error propagated forward in time (recurrently)
         if (t < t_max && layer->IsRecurrent)
         {
           Layer* nextLayerInTime = time[t + 1]->Layers[l];
-          err += DotColumn(nextLayerInTime->Wr, i, nextLayerInTime->d);
+          Matrix* wr = nextLayerInTime->Wr;
+          Vector* d = nextLayerInTime->d;
+          err += DotColumn(wr, i, d);
         }
-
-        layer->d->Data[i] = err * layer->ActivationFunctionPrime(layer->a->Data[i]);
+        
+        if (layer->ActivationType == ACTIVATION_LOGSIG)
+          layer->d->Data[i] = err * LogisticSigmoidPrime(layer->a->Data[i]);
+        else // ACTIVATION_PURELIN
+          layer->d->Data[i] = err;
       }
     }
   }
@@ -217,8 +227,10 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
       for (int i = 0; i < nodeCount; i++)
       {
         double* dData = layertl->d->Data;
-        double* wi = gradLayers[l]->W->GetRowPtr(i);
-        AXPY(-1.0 * dData[i], layertl->x, wi);
+        Matrix* w = gradLayers[l]->W;
+        double* wi = GetRowPtr(w, i);
+        Vector* layertlx = layertl->x;
+        AXPY(-1.0 * dData[i], layertlx, layertlx->Count, wi);
       }
 
       // Wr
@@ -228,13 +240,16 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
         for (int i = 0; i < nodeCount; i++)
         {
           double* dData = layertl->d->Data;
-          double* wri = gradLayers[l]->Wr->GetRowPtr(i);
-          AXPY(-1.0 * dData[i], layert1l->z, wri);
+          Matrix* wr = gradLayers[l]->Wr;
+          double* wri = GetRowPtr(wr, i);
+          Vector* layert1lz = layert1l->z;
+          AXPY(-1.0 * dData[i], layert1lz, layert1lz->Count, wri);
         }
       }
 
       // Bias
-      AXPY(-1.0, layertl->d, gradLayers[l]->Bias->Data);
+      Vector* layertld = layertl->d;
+      AXPY(-1.0, layertld, layertld->Count, gradLayers[l]->Bias->Data);
     }
   }
   GetWeights(gradLayers, numLayers, gradient, nWeights);
@@ -277,15 +292,14 @@ void PropagateLayer(Vector* input, Layer* layer, Vector* recurrentInput)
 
   // compute z
   layer->z->Set(layer->a);
-  ApplyActivationFunction(layer->z, layer->ActivationFunction);
-}
-
-void ApplyActivationFunction(Vector* z, ActivationFunc f)
-{
-  int len = z->Count;
-  double* zData = z->Data;
-  for (int i = 0; i < len; i++)
-    zData[i] = f(zData[i]);
+  if (layer->ActivationType == ACTIVATION_LOGSIG)
+  {
+    int len = layer->z->Count;
+    double* zData = layer->z->Data;
+    for (int i = 0; i < len; i++)
+      zData[i] = LogisticSigmoid(zData[i]);
+  }
+  // else ACTIVATION_PURELIN, in which case zData is already what it should be
 }
 
 void SetWeights(Layer** layers, int numLayers, double* weights, int nWeights)
@@ -351,25 +365,4 @@ Vector* MakeTimeZeroRecurrentInput(int size)
   for (int i = 0; i < size; i++)
     vData[i] = TimeZeroRecurrentInputValue;
   return v;
-}
-
-double Linear(double x)
-{
-  return x;
-}
-
-double LinearPrime(double x)
-{
-  return 1;
-}
-
-double LogisticSigmoid(double x)
-{
-  return 1 / (1 + exp(-x));
-}
-
-double LogisticSigmoidPrime(double x)
-{
-  double v = LogisticSigmoid(x);
-  return v * (1 - v);
 }

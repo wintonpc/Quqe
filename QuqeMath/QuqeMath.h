@@ -36,13 +36,14 @@ public:
   Vector* z;
   Vector* d;
   bool IsRecurrent;
+  int ActivationType;
   ActivationFunc ActivationFunction;
   ActivationFunc ActivationFunctionPrime;
   int NodeCount;
   int InputCount;
 
-  Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, ActivationFunc activation,
-    ActivationFunc activationPrime);
+  Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, int activationType,
+    ActivationFunc activation, ActivationFunc activationPrime);
   ~Layer();
 };
 
@@ -108,5 +109,28 @@ double* GetMatrixWeights(Matrix* m, double* weights);
 
 double Linear(double x);
 double LinearPrime(double x);
-double LogisticSigmoid(double x);
+//double LogisticSigmoid(double x);
 double LogisticSigmoidPrime(double x);
+
+inline double Linear(double x)
+{
+  return x;
+}
+
+inline double LinearPrime(double x)
+{
+  return 1;
+}
+
+//inline double LogisticSigmoid(double x)
+//{
+//  return 1 / (1 + exp(-x));
+//}
+
+#define LogisticSigmoid(x)    (1 / (1 + exp(-(x))))
+
+inline double LogisticSigmoidPrime(double x)
+{
+  double v = LogisticSigmoid(x);
+  return v * (1 - v);
+}

@@ -33,7 +33,7 @@ public:
   void Set(int i, int j, double v);
   void Matrix::SetDec(int i, int j, double v);
   void GetColumn(int j, Vector* dest);
-  double* GetRowPtr(int i);
+  //double* GetRowPtr(int i);
   void Zero();
   ~Matrix();
 };
@@ -60,10 +60,12 @@ inline void Matrix::SetDec(int i, int j, double v)
   Data[i * ColumnCount + j] -= v;
 }
 
-inline double* Matrix::GetRowPtr(int i)
-{
-  return Data + i * ColumnCount;
-}
+//inline double* Matrix::GetRowPtr(int i)
+//{
+//  return Data + i * ColumnCount;
+//}
+
+#define GetRowPtr(m,i)    ((m)->Data + (i) * (m)->ColumnCount)
 
 inline void GEMV(double alpha, Matrix* a, Vector* x, double beta, Vector* y)
 {
@@ -77,14 +79,18 @@ inline double Dot(Vector* a, Vector* b)
   return cblas_ddot(a->Count, a->Data, 1, b->Data, 1);
 }
 
-inline double DotColumn(Matrix* a, int column, Vector* b)
-{
-  return cblas_ddot(b->Count, a->Data + column, a->ColumnCount, b->Data, 1);
-}
+//inline double DotColumn(Matrix* a, int column, Vector* b)
+//{
+//  return cblas_ddot(b->Count, a->Data + column, a->ColumnCount, b->Data, 1);
+//}
 
-inline void AXPY(double alpha, Vector* x, double* y)
-{
-  return cblas_daxpy(x->Count, alpha, x->Data, 1, y, 1);
-}
+#define DotColumn(a,column,b)   (cblas_ddot((b)->Count, (a)->Data + (column), (a)->ColumnCount, (b)->Data, 1))
+
+//inline void AXPY(double alpha, Vector* x, double* y)
+//{
+//  return cblas_daxpy(x->Count, alpha, x->Data, 1, y, 1);
+//}
+
+#define AXPY(alpha,x,n,y)    (cblas_daxpy((n), (alpha), (x)->Data, 1, (y), 1))
 
 #endif
