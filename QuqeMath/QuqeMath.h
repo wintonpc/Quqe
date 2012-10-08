@@ -93,8 +93,8 @@ extern "C" QUQEMATH_API void DestroyWeightContext(void* context);
 extern "C" QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeights,
   double* output, double* error, double* gradient);
 
-void Propagate(Vector* input, int numLayers, Layer** currLayers, Layer** prevLayers);
-void PropagateLayer(Vector* input, Layer* layer, Vector* recurrentInput);
+void Propagate(double* input, int inputStride, int numLayers, Layer** currLayers, Layer** prevLayers);
+void PropagateLayer(double* input, int inputStride, Layer* layer, Vector* recurrentInput);
 void ApplyActivationFunction(Vector* a, ActivationFunc f);
 Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers);
 Vector* MakeTimeZeroRecurrentInput(int size);

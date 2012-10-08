@@ -161,11 +161,12 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
 
   // propagate inputs forward
   SetWeights(time[0]->Layers, numLayers, weights, nWeights); // time[0] is sufficient since all share the same weight matrices/vectors
-  Vector* input = c->GetTempVec(trainingInput->RowCount);
+  //Vector* input = c->GetTempVec(trainingInput->RowCount);
   for (int t = 0; t <= t_max; t++)
   {
-    trainingInput->GetColumn(t, input);
-    Propagate(input, numLayers, time[t]->Layers, t > 0 ? time[t-1]->Layers : NULL);
+    //trainingInput->GetColumn(t, input);
+    Propagate(GetColumnPtr(trainingInput, t), trainingInput->ColumnCount, numLayers,
+      time[t]->Layers, t > 0 ? time[t-1]->Layers : NULL);
   }
   Layer* lastLayer = time[t_max]->Layers[numLayers-1];
   memcpy(output, lastLayer->z->Data, lastLayer->NodeCount * sizeof(double));
@@ -264,24 +265,29 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
   delete [] gradLayers;
 }
 
-void Propagate(Vector* input, int numLayers, Layer** currLayers, Layer** prevLayers)
+void Propagate(double* input, int inputStride, int numLayers, Layer** currLayers, Layer** prevLayers)
 {
-  for (int l = 0; l < numLayers; l++)
+  Layer* layer0 = currLayers[0];
+  PropagateLayer(input, inputStride, layer0, prevLayers != NULL ? prevLayers[0]->z : NULL);
+  input = layer0->z->Data;
+  for (int l = 1; l < numLayers; l++)
   {
     Layer* layer = currLayers[l];
-    PropagateLayer(input, layer, prevLayers != NULL ? prevLayers[l]->z : NULL);
-    input = layer->z;
+    PropagateLayer(input, 1, layer, prevLayers != NULL ? prevLayers[l]->z : NULL);
+    input = layer->z->Data;
   }
 }
 
-void PropagateLayer(Vector* input, Layer* layer, Vector* recurrentInput)
+void PropagateLayer(double* input, int inputStride, Layer* layer, Vector* recurrentInput)
 {
+  int inputCount = layer->InputCount;
+
   // set x
-  layer->x->Set(input);
+  layer->x->Set(input, inputStride, inputCount);
 
   // compute a
   layer->a->Set(layer->Bias);
-  GEMV(1, layer->W, input, 1, layer->a);
+  GEMV(1, layer->W, input, inputStride, 1, layer->a);
   if (layer->IsRecurrent)
   {
     Vector* ri = recurrentInput != NULL ? recurrentInput : MakeTimeZeroRecurrentInput(layer->NodeCount);

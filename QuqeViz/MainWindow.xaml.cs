@@ -743,12 +743,12 @@ namespace QuqeViz
       // RNN
       var net = new RNN(trainingInput.RowCount, new List<LayerSpec> {
         new LayerSpec {
-          NodeCount = 8,
+          NodeCount = 20,
           IsRecurrent = true,
           ActivationType = ActivationType.LogisticSigmoid
         },
         new LayerSpec {
-          NodeCount = 4,
+          NodeCount = 10,
           IsRecurrent = true,
           ActivationType = ActivationType.LogisticSigmoid
         },
@@ -761,7 +761,7 @@ namespace QuqeViz
       });
       //var result = RNN.TrainSA(net, trainingInput, trainingOutput);
       //net.SetWeightVector(Optimizer.RandomVector(net.GetWeightVector().Count, -5, 5));
-      Trace.WriteLine(DateTime.Now + "  TrainSA...");
+      //Trace.WriteLine(DateTime.Now + "  TrainSA...");
       //var saResult = RNN.TrainSA(net, trainingInput, trainingOutput);
       //net.SetWeightVector(saResult.Params);
       //var result = RNN.TrainBPTT(net, 0.0005, trainingInput, trainingOutput);
@@ -769,7 +769,7 @@ namespace QuqeViz
       Trace.WriteLine(DateTime.Now + "  TrainSCG...");
       var result = RNN.TrainSCG(net, 1000, trainingInput, trainingOutput);
       Trace.WriteLine(DateTime.Now + "  TrainSCG Done.");
-      net.ToDot("net.dot");
+      //net.ToDot("net.dot");
       //logCostHistory = result.CostHistory.Select(x => Math.Log10(x)).ToList();
       logCostHistory = result.CostHistory;
       net.ResetState();
@@ -779,15 +779,15 @@ namespace QuqeViz
       //var net = RBFNet.Train(trainingInput, trainingOutput, 0.5, 0.03);
       //var output = Versace.TrainingInput.Columns().Skip(inputSetSize).Select(x => (double)Math.Sign(net.Propagate(x))).ToList();
 
-      if (logCostHistory != null)
-      {
-        var ch = new EqPlotWindow();
-        ch.EqPlot.Bounds = new Rect(0, logCostHistory.Min(), logCostHistory.Count, logCostHistory.Max() - logCostHistory.Min());
-        ch.EqPlot.DrawLine(List.Repeat(logCostHistory.Count, i => new Point(i, logCostHistory[i])), Colors.Blue);
-        if (result.AcceptRatioHistory != null)
-          ch.EqPlot.DrawLine(List.Repeat(result.AcceptRatioHistory.Count, i => new Point(i, 0.4 * (result.AcceptRatioHistory[i] - 1))), Colors.Green);
-        ch.Show();
-      }
+      //if (logCostHistory != null)
+      //{
+      //  var ch = new EqPlotWindow();
+      //  ch.EqPlot.Bounds = new Rect(0, logCostHistory.Min(), logCostHistory.Count, logCostHistory.Max() - logCostHistory.Min());
+      //  ch.EqPlot.DrawLine(List.Repeat(logCostHistory.Count, i => new Point(i, logCostHistory[i])), Colors.Blue);
+      //  if (result.AcceptRatioHistory != null)
+      //    ch.EqPlot.DrawLine(List.Repeat(result.AcceptRatioHistory.Count, i => new Point(i, 0.4 * (result.AcceptRatioHistory[i] - 1))), Colors.Green);
+      //  ch.Show();
+      //}
 
       var inputSeries = new DataSeries<Bar>(Versace.DIA.Symbol, Versace.DIA.Take(inputSetSize));
       var idealSignal = new DataSeries<Value>("", trainingOutput.ToDataSeries(inputSeries));
@@ -795,35 +795,35 @@ namespace QuqeViz
       var diff = idealSignal.ZipElements<Value, Value>(actualSignal, (i, a, _) => i[0].Val == a[0].Val ? 1 : -1);
       Trace.WriteLine(string.Format("Accuracy: {0:N1}%", (double)diff.Count(x => x.Val == 1) / diff.Length * 100));
 
-      var w = new ChartWindow();
-      var g1 = w.Chart.AddGraph();
-      g1.Plots.Add(new Plot {
-        Title = "DIA",
-        DataSeries = inputSeries,
-        Type = PlotType.Candlestick
-      });
-      var g2 = w.Chart.AddGraph();
-      g2.Plots.Add(new Plot {
-        Title = "IdealSignal",
-        DataSeries = idealSignal,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-      var g3 = w.Chart.AddGraph();
-      g3.Plots.Add(new Plot {
-        Title = "ActualSignal",
-        DataSeries = actualSignal,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-      var g4 = w.Chart.AddGraph();
-      g4.Plots.Add(new Plot {
-        Title = "Diff",
-        DataSeries = diff,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-      w.Show();
+      //var w = new ChartWindow();
+      //var g1 = w.Chart.AddGraph();
+      //g1.Plots.Add(new Plot {
+      //  Title = "DIA",
+      //  DataSeries = inputSeries,
+      //  Type = PlotType.Candlestick
+      //});
+      //var g2 = w.Chart.AddGraph();
+      //g2.Plots.Add(new Plot {
+      //  Title = "IdealSignal",
+      //  DataSeries = idealSignal,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Blue
+      //});
+      //var g3 = w.Chart.AddGraph();
+      //g3.Plots.Add(new Plot {
+      //  Title = "ActualSignal",
+      //  DataSeries = actualSignal,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Blue
+      //});
+      //var g4 = w.Chart.AddGraph();
+      //g4.Plots.Add(new Plot {
+      //  Title = "Diff",
+      //  DataSeries = diff,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Blue
+      //});
+      //w.Show();
     }
 
     private void GetVersaceDataButton_Click(object sender, RoutedEventArgs e)

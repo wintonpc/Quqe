@@ -14,6 +14,7 @@ public:
   Vector(int count);
   Vector(int count, double* data);
   void Vector::Set(Vector* v);
+  void Vector::Set(double* data, int stride, int count);
   void Zero();
   ~Vector();
 };
@@ -67,11 +68,20 @@ inline void Matrix::SetDec(int i, int j, double v)
 
 #define GetRowPtr(m,i)    ((m)->Data + (i) * (m)->ColumnCount)
 
+#define GetColumnPtr(m,j)    ((m)->Data + (j))
+
 inline void GEMV(double alpha, Matrix* a, Vector* x, double beta, Vector* y)
 {
   int columnCount = a->ColumnCount;
   cblas_dgemv(CblasRowMajor, CblasNoTrans, a->RowCount, columnCount,
     alpha, a->Data, columnCount, x->Data, 1, beta, y->Data, 1);
+}
+
+inline void GEMV(double alpha, Matrix* a, double* x, int xStride, double beta, Vector* y)
+{
+  int columnCount = a->ColumnCount;
+  cblas_dgemv(CblasRowMajor, CblasNoTrans, a->RowCount, columnCount,
+    alpha, a->Data, columnCount, x, xStride, beta, y->Data, 1);
 }
 
 inline double Dot(Vector* a, Vector* b)

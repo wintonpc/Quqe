@@ -188,11 +188,11 @@ namespace Quqe
       Trace.WriteLine("--- .NET ------");
       Trace.WriteLine("Output:   " + wei2.Output.Join(" "));
       Trace.WriteLine("Error:    " + wei2.Error);
-      Trace.WriteLine("Gradient: " + wei2.Gradient.Join(" "));
+      Trace.WriteLine("Gradient: " + wei2.Gradient.Take(10).Join(" ") + " ...");
       Trace.WriteLine("-- .C++ ------");
       Trace.WriteLine("Output:   " + wei.Output.Join(" "));
       Trace.WriteLine("Error:    " + wei.Error);
-      Trace.WriteLine("Gradient: " + wei.Gradient.Join(" "));
+      Trace.WriteLine("Gradient: " + wei.Gradient.Take(10).Join(" ") + " ...");
       Trace.WriteLine("--- Diff ------");
       Trace.WriteLine("Output:   " + (wei.Output - wei2.Output).Norm(2));
       Trace.WriteLine("Error:    " + Math.Abs(wei.Error - wei2.Error));

@@ -28,8 +28,12 @@ Vector::Vector(const Vector &v)
 
 void Vector::Set(Vector* v)
 {
-  Count = v->Count;
-  memcpy(Data, v->Data, Count * sizeof(double));
+  cblas_dcopy(v->Count, v->Data, 1, Data, 1);
+}
+
+void Vector::Set(double* data, int stride, int count)
+{
+  cblas_dcopy(count, data, stride, Data, 1);
 }
 
 void Vector::Zero()
