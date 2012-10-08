@@ -1,11 +1,6 @@
 #include "stdafx.h"
 #include "LinReg.h"
 
-Vector::Vector()
-{
-  Data = NULL;
-}
-
 Vector::Vector(int count)
 {
   Count = count;
@@ -45,11 +40,6 @@ Vector::~Vector()
 {
   if (Data != NULL)
     mkl_free(Data);
-}
-
-Matrix::Matrix()
-{
-  Data = NULL;
 }
 
 Matrix::Matrix(int nRows, int nCols)
