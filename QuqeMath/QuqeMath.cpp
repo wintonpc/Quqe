@@ -225,27 +225,13 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
 
       // W
       Layer* layertl = time[t]->Layers[l];
-      for (int i = 0; i < nodeCount; i++)
-      {
-        double* dData = layertl->d->Data;
-        Matrix* w = gradLayers[l]->W;
-        double* wi = GetRowPtr(w, i);
-        Vector* layertlx = layertl->x;
-        AXPY(-1.0 * dData[i], layertlx, layertlx->Count, wi);
-      }
+      GER(-1.0, layertl->d->Data, layertl->x->Data, gradLayers[l]->W);
 
       // Wr
       if (t > 0 && gradLayers[l]->IsRecurrent)
       {
         Layer* layert1l = time[t - 1]->Layers[l];
-        for (int i = 0; i < nodeCount; i++)
-        {
-          double* dData = layertl->d->Data;
-          Matrix* wr = gradLayers[l]->Wr;
-          double* wri = GetRowPtr(wr, i);
-          Vector* layert1lz = layert1l->z;
-          AXPY(-1.0 * dData[i], layert1lz, layert1lz->Count, wri);
-        }
+        GER(-1.0, layertl->d->Data, layert1l->z->Data, gradLayers[l]->Wr);
       }
 
       // Bias

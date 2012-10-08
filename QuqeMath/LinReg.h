@@ -51,6 +51,12 @@ inline void GEMV(double alpha, Matrix* a, double* x, int xStride, double beta, V
     alpha, a->Data, columnCount, x, xStride, beta, y->Data, 1);
 }
 
+inline void GER(double alpha, double* x, double* y, Matrix* a)
+{
+  int columnCount = a->ColumnCount;
+  cblas_dger(CblasRowMajor, a->RowCount, columnCount, alpha, x, 1, y, 1, a->Data, columnCount);
+}
+
 inline double Dot(Vector* a, Vector* b)
 {
   return cblas_ddot(a->Count, a->Data, 1, b->Data, 1);
