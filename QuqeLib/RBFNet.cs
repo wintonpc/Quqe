@@ -29,7 +29,7 @@ namespace Quqe
     }
   }
 
-  public class RBFNet
+  public class RBFNet : IPredictor
   {
     List<RadialBasis> Bases;
     double OutputBias;
@@ -140,6 +140,21 @@ namespace Quqe
     public static double Gaussian(double stdDev, double x)
     {
       return Math.Exp(-Math.Pow(x / stdDev, 2));
+    }
+
+    public double Predict(double[] input)
+    {
+      throw new NotImplementedException();
+    }
+
+    public void Reset()
+    {
+      throw new NotImplementedException();
+    }
+
+    public System.Xml.Linq.XElement ToXml()
+    {
+      throw new NotImplementedException();
     }
   }
 }

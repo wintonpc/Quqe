@@ -62,8 +62,6 @@
     <Compile Include="BCO.cs" />
     <Compile Include="DataSeries.cs" />
     <Compile Include="DecisionTree.cs" />
-    <Compile Include="ElmanNet.cs" />
-    <Compile Include="FastArray.cs" />
     <Compile Include="Indicators.cs" />
     <Compile Include="NeuralNet.cs" />
     <Compile Include="Optimize.cs" />

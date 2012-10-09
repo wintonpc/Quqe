@@ -429,13 +429,6 @@ namespace QuqeTest
     }
 
     [TestMethod]
-    public void Elman1()
-    {
-      var net = new ElmanNet(4, List.Create(3, 2), 1);
-      var output = net.Propagate(new double[] { 0.1, 0.2, 0.3, 0.4 });
-    }
-
-    [TestMethod]
     public void SvdTest()
     {
       var points = List.Create<Vector>(

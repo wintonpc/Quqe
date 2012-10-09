@@ -7,12 +7,14 @@ using System.IO;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Web;
+using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
 using System.Diagnostics;
 using YamlDotNet.RepresentationModel.Serialization;
 using System.Xml.Serialization;
 using System.Xml.Linq;
 using System.Xml;
+using System.Threading.Tasks;
 
 namespace Quqe
 {
@@ -169,7 +171,7 @@ namespace Quqe
     {
       var m = columns.First().Count;
       var n = columns.Count;
-      
+
       Matrix X = new DenseMatrix(m, n);
 
       for (int i = 0; i < m; i++)
@@ -218,28 +220,37 @@ namespace Quqe
       return V;
     }
 
-    public static Vector NthPrincipleComponent(Matrix pcs, int n, Vector x)
+    public static Vector NthPrincipleComponent(Matrix principleComponents, int n, Vector x)
     {
-      var pc = pcs.Column(n);
+      var pc = principleComponents.Column(n);
       return (Vector)(x.DotProduct(pc) * pc);
     }
 
     static Random Random = new Random();
     public static VMixture Evolve()
     {
-      var pop = List.Repeat(POPULATION_SIZE, n => new VMixture());
+      var population = List.Repeat(POPULATION_SIZE, n => new VMixture());
       for (int epoch = 0; epoch < EPOCH_COUNT; epoch++)
       {
-        var selected = pop.OrderByDescending(m => m.Fitness()).Take(SELECTION_SIZE).ToList();
-        pop = new List<VMixture>();
-        for (int i = 0; i < POPULATION_SIZE / 2; i++)
-        {
-          var p1 = pop[Random.Next(SELECTION_SIZE)];
-          var p2 = pop.Except(List.Create(p1)).ElementAt(Random.Next(SELECTION_SIZE - 1));
-          pop.AddRange(p1.CrossoverAndMutate(p2));
-        }
+        var experts = population.SelectMany(mixture => mixture.Chromosomes).Select(c => c.RefreshExpert());
+        foreach (var expert in experts)
+          expert.Train();
+        //Parallel.Invoke(population.SelectMany(mixture => mixture.Chromosomes)
+        //  .Select(c => c.RefreshExpert()).Select(expert => new Action(expert.Train)).ToArray());
+        foreach (var mixture in population)
+          mixture.ComputeFitness();
+        var selected = population.OrderByDescending(m => m.Fitness).Take(SELECTION_SIZE).ToList();
+        population = new List<VMixture>();
+
+        List.Repeat(POPULATION_SIZE / 2, i => {
+          var parent1 = selected[Random.Next(SELECTION_SIZE)];
+          var parent2 = selected.Except(List.Create(parent1)).ElementAt(Random.Next(SELECTION_SIZE - 1));
+          population.AddRange(parent1.CrossoverAndMutate(parent2));
+        });
+
+        Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}", epoch, selected.First().Fitness));
       }
-      return pop.OrderByDescending(m => m.Fitness()).First();
+      return population.OrderByDescending(m => m.ComputeFitness()).First();
     }
 
     public static void GetData()
@@ -333,7 +344,7 @@ namespace Quqe
     public TValue Value { get; private set; }
 
     public VGene(string name, double min, double max, double granularity, TValue? initialValue = null)
-      :base(name)
+      : base(name)
     {
       Min = min;
       Max = max;
@@ -368,6 +379,7 @@ namespace Quqe
   public class VChrom
   {
     public List<VGene> Genes;
+    public Expert Expert { get; private set; }
 
     public VChrom()
     {
@@ -393,12 +405,18 @@ namespace Quqe
       Genes = genes;
     }
 
+    public Expert RefreshExpert()
+    {
+      Expert = new Expert(this);
+      return Expert;
+    }
+
     Random Random = new Random();
     public List<VChrom> CrossoverAndMutate(VChrom other)
     {
       var a = Genes.ToList();
       var b = other.Genes.ToList();
-      for (int i=0; i<a.Count; i++)
+      for (int i = 0; i < a.Count; i++)
         if (Random.Next(2) == 0)
         {
           var t = a[i];
@@ -411,7 +429,7 @@ namespace Quqe
       return List.Create(new VChrom(mutate(a)), new VChrom(mutate(b)));
     }
 
-    TValue GetGeneValue<TValue>(string name) where TValue: struct
+    TValue GetGeneValue<TValue>(string name) where TValue : struct
     {
       return ((VGene<TValue>)Genes.First(g => g.Name == name)).Value;
     }
@@ -449,7 +467,7 @@ namespace Quqe
 
   public class VMixture
   {
-    List<VChrom> Chromosomes;
+    public List<VChrom> Chromosomes { get; private set; }
 
     public VMixture()
     {
@@ -469,7 +487,8 @@ namespace Quqe
         new VMixture(q.Select(x => x[1]).ToList()));
     }
 
-    internal double Fitness()
+    public double Fitness { get; private set; }
+    internal double ComputeFitness()
     {
       var experts = Chromosomes.Select(x => new Expert(x)).ToList();
       foreach (var x in experts)
@@ -484,7 +503,8 @@ namespace Quqe
         if (Versace.ValidationOutput[j] == vote)
           correctCount++;
       }
-      return (double)correctCount / Versace.ValidationOutput.Count;
+      Fitness = (double)correctCount / Versace.ValidationOutput.Count;
+      return Fitness;
     }
 
     public XElement ToXml()
@@ -502,6 +522,7 @@ namespace Quqe
   {
     double Predict(double[] input);
     void Reset();
+    XElement ToXml();
   }
 
   public class Expert : IPredictor
@@ -510,50 +531,70 @@ namespace Quqe
     IPredictor Network;
     Matrix PrincipalComponents;
 
-    public Expert(VChrom chrom, Vector parameters, Matrix principalComponents)
-    {
-      Chromosome = chrom;
-      int inputDimension = chrom.DatabaseType == DatabaseType.A ? Versace.DatabaseADimension : Versace.TrainingInput.RowCount;
-      PrincipalComponents = principalComponents;
-
-      if (chrom.NetworkType == NetworkType.Elman)
-        Network = new ElmanNet(inputDimension, List.Create(chrom.ElmanHidden1NodeCount, chrom.ElmanHidden2NodeCount), 1);
-      else
-      {
-        throw new NotImplementedException();
-      }
-    }
-
     public Expert(VChrom chrom)
     {
       Chromosome = chrom;
-      int inputDimension = chrom.DatabaseType == DatabaseType.A ? Versace.DatabaseADimension : Versace.TrainingInput.RowCount;
-      if (chrom.UseComplementCoding)
-        inputDimension *= 2;
-      if (chrom.NetworkType == NetworkType.Elman)
-        Network = new ElmanNet(inputDimension, List.Create(chrom.ElmanHidden1NodeCount, chrom.ElmanHidden2NodeCount), 1);
-      else
+    }
+
+    List<Vector> Preprocess(List<Vector> inputs, bool recalculatePrincipalComponents = false)
+    {
+      // database selection
+      if (Chromosome.DatabaseType == DatabaseType.A)
+        inputs = inputs.Select(x => (Vector)x.SubVector(0, Versace.DatabaseADimension)).ToList();
+
+      // complement coding
+      if (Chromosome.UseComplementCoding)
+        inputs = inputs.Select(x => Versace.ComplementCode(x)).ToList();
+
+      // PCA
+      if (Chromosome.UsePrincipalComponentAnalysis)
       {
-        throw new NotImplementedException();
+        if (recalculatePrincipalComponents)
+          PrincipalComponents = Versace.PrincipleComponents(Versace.MatrixFromColumns(inputs));
+        var pcNumber = Math.Min(Chromosome.PrincipalComponent, PrincipalComponents.ColumnCount - 1);
+        inputs = inputs.Select(x => Versace.NthPrincipleComponent(PrincipalComponents, pcNumber, x)).ToList();
       }
+
+      return inputs;
     }
 
     public void Train()
     {
-      var inputs = Versace.TrainingInput.Columns();
-      if (Chromosome.UseComplementCoding)
-        inputs = inputs.Select(x => Versace.ComplementCode(x)).ToList();
-      if (Chromosome.UsePrincipalComponentAnalysis)
-      {
-        var pcs = Versace.PrincipleComponents(Versace.MatrixFromColumns(inputs));
-        inputs = inputs.Select(x => Versace.NthPrincipleComponent(pcs, Chromosome.PrincipalComponent, x)).ToList();
-      }
+      int offset = (int)(Chromosome.TrainingOffsetPct * Versace.TrainingInput.ColumnCount);
+      int size = (int)(Chromosome.TrainingSizePct * Versace.TrainingInput.ColumnCount);
+      var outputs = Versace.TrainingOutput.SubVector(offset, size);
+      var inputs = Versace.TrainingInput.Columns().Skip(offset).Take(size).ToList();
+      inputs = Preprocess(inputs, true);
 
       if (Chromosome.NetworkType == NetworkType.Elman)
-        ElmanNet.Train((ElmanNet)Network, Versace.MatrixFromColumns(inputs), Versace.TrainingOutput);
+      {
+        int inputDimension = Chromosome.DatabaseType == DatabaseType.A ? Versace.DatabaseADimension : Versace.TrainingInput.RowCount;
+        if (Chromosome.UseComplementCoding)
+          inputDimension *= 2;
+        var rnn = new RNN(inputDimension, new List<LayerSpec> {
+          new LayerSpec {
+            NodeCount = Chromosome.ElmanHidden1NodeCount,
+            ActivationType = ActivationType.LogisticSigmoid,
+            IsRecurrent = true
+          },
+          new LayerSpec {
+            NodeCount = Chromosome.ElmanHidden2NodeCount,
+            ActivationType = ActivationType.LogisticSigmoid,
+            IsRecurrent = true
+          },
+          new LayerSpec {
+            NodeCount = 1,
+            ActivationType = ActivationType.Linear,
+            IsRecurrent = false
+          }
+        });
+        RNN.TrainSCG((RNN)rnn, Chromosome.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs);
+        Network = rnn;
+      }
       else
       {
-        throw new NotImplementedException();
+        Network = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs,
+          Chromosome.RbfGaussianSpread, Chromosome.RbfNetMinAccuracy);
       }
     }
 
@@ -565,6 +606,11 @@ namespace Quqe
     public void Reset()
     {
       Network.Reset();
+    }
+
+    public XElement ToXml()
+    {
+      return null;
     }
   }
 }

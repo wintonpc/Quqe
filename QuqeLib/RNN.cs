@@ -22,7 +22,7 @@ namespace Quqe
     public ActivationType ActivationType;
   }
 
-  public class RNN
+  public class RNN : IPredictor
   {
     static RNN() { MathNet.Numerics.Control.DisableParallelization = true; }
 
@@ -59,7 +59,7 @@ namespace Quqe
     List<Layer> Layers;
     const double TimeZeroRecurrentInputValue = 0.5;
 
-    static WeightEvalInfo EvaluateWeights(RNN net, Vector<double> weights, Matrix trainingData, Vector outputData)
+    static WeightEvalInfo EvaluateWeights(RNN net, Vector<double> weights, Matrix<double> trainingData, Vector<double> outputData)
     {
       var time = new List<Frame>();
       var oldWeights = net.GetWeightVector();
@@ -145,7 +145,7 @@ namespace Quqe
     }
 
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
-    public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix trainingData, Vector outputData)
+    public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData)
     {
       Stopwatch sw = new Stopwatch();
       sw.Start();
@@ -614,6 +614,21 @@ rank=same;");
 
         op.WriteLine("}");
       }
+    }
+
+    public double Predict(double[] input)
+    {
+      throw new NotImplementedException();
+    }
+
+    public void Reset()
+    {
+      throw new NotImplementedException();
+    }
+
+    public System.Xml.Linq.XElement ToXml()
+    {
+      throw new NotImplementedException();
     }
   }
 }
