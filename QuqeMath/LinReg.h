@@ -1,7 +1,9 @@
 #ifndef LINREG_H
 #define LINREG_H
 
-#include "mkl.h"
+typedef int blasint; // hack for cblas.h
+#define _Complex // hack for cblas.h
+#include "cblas.h"
 
 class Vector
 {
