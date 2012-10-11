@@ -18,6 +18,12 @@ using System.Threading.Tasks;
 
 namespace Quqe
 {
+  public class VersaceResult
+  {
+    public VMixture BestMixture;
+    public List<double> FitnessHistory;
+  }
+
   public static class Versace
   {
     public const int EXPERTS_PER_MIXTURE = 10;
@@ -227,18 +233,51 @@ namespace Quqe
     }
 
     static Random Random = new Random();
-    public static VMixture Evolve()
+    public static VersaceResult Evolve()
     {
+      var fitnessHistory = new List<double>();
       var population = List.Repeat(POPULATION_SIZE, n => new VMixture());
       for (int epoch = 0; epoch < EPOCH_COUNT; epoch++)
       {
-        var experts = population.SelectMany(mixture => mixture.Chromosomes).Select(c => c.RefreshExpert());
-        foreach (var expert in experts)
-          expert.Train();
-        //Parallel.Invoke(population.SelectMany(mixture => mixture.Chromosomes)
-        //  .Select(c => c.RefreshExpert()).Select(expert => new Action(expert.Train)).ToArray());
+        Trace.WriteLine(string.Format("Epoch {0} started {1}", epoch, DateTime.Now));
+        var experts = population.SelectMany(mixture => mixture.Chromosomes).Select(c => c.RefreshExpert()).ToList();
+
+        int numTrained = 0;
+        object trainLock = new object();
+        Action trainedOne = () => {
+          lock (trainLock)
+          {
+            numTrained++;
+            Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, experts.Count));
+          }
+        };
+
+        bool parallelize = true;
+
+        if (!parallelize)
+        {
+          RBFNet.ShouldTrace = true;
+          RNN.ShouldTrace = true;
+          foreach (var expert in experts)
+          {
+            expert.Train();
+            trainedOne();
+          }
+        }
+        else
+        {
+          RBFNet.ShouldTrace = false;
+          RNN.ShouldTrace = false;
+          Parallel.Invoke(population.SelectMany(mixture => mixture.Chromosomes)
+            .Select(c => c.RefreshExpert()).Select(expert => new Action(() => {
+              expert.Train();
+              trainedOne();
+            })).ToArray());
+        }
+
         foreach (var mixture in population)
           mixture.ComputeFitness();
+        var oldPopulation = population.ToList();
         var selected = population.OrderByDescending(m => m.Fitness).Take(SELECTION_SIZE).ToList();
         population = new List<VMixture>();
 
@@ -248,9 +287,19 @@ namespace Quqe
           population.AddRange(parent1.CrossoverAndMutate(parent2));
         });
 
-        Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}", epoch, selected.First().Fitness));
+        fitnessHistory.Add(selected.First().Fitness);
+        Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}%", epoch, selected.First().Fitness * 100.0));
+        var oldChromosomes = oldPopulation.SelectMany(m => m.Chromosomes).ToList();
+        Trace.WriteLine(string.Format("Epoch {0} composition:   Elman {1:N1}%   RBF {2:N1}%", epoch,
+          (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.Elman) / oldChromosomes.Count * 100,
+          (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.RBF) / oldChromosomes.Count * 100));
+        Trace.WriteLine(string.Format("Epoch {0} ended {1}", epoch, DateTime.Now));
+        Trace.WriteLine("===========================================================================");
       }
-      return population.OrderByDescending(m => m.ComputeFitness()).First();
+      return new VersaceResult {
+        BestMixture = population.OrderByDescending(m => m.ComputeFitness()).First(),
+        FitnessHistory = fitnessHistory
+      };
     }
 
     public static void GetData()
@@ -385,7 +434,8 @@ namespace Quqe
     {
       Genes = new List<VGene> {
         new VGene<int>("NetworkType", 0, 1, 1),
-        new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
+        new VGene<int>("ElmanTrainingEpochs", 20, 300, 1),
+        //new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
         new VGene<double>("ElmanLearningRate", 0.1, 0.3, 0.001),
         new VGene<int>("DatabaseType", 0, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
@@ -393,10 +443,12 @@ namespace Quqe
         new VGene<int>("UseComplementCoding", 0, 1, 1),
         new VGene<int>("UsePrincipalComponentAnalysis", 0, 1, 1),
         new VGene<int>("PrincipalComponent", 0, 100, 1),
-        new VGene<double>("RbfNetMinAccuracy", 0, 10, 0.1),
+        new VGene<double>("RbfNetTolerance", 0, 1, 0.001),
         new VGene<double>("RbfGaussianSpread", 0.1, 10, 0.01),
-        new VGene<int>("ElmanHidden1NodeCount", 3, 200, 1),
-        new VGene<int>("ElmanHidden2NodeCount", 3, 200, 1)
+        new VGene<int>("ElmanHidden1NodeCount", 3, 50, 1),
+        new VGene<int>("ElmanHidden2NodeCount", 3, 50, 1)
+        //new VGene<int>("ElmanHidden1NodeCount", 3, 200, 1),
+        //new VGene<int>("ElmanHidden2NodeCount", 3, 200, 1)
       };
     }
 
@@ -443,7 +495,7 @@ namespace Quqe
     public bool UseComplementCoding { get { return GetGeneValue<int>("UseComplementCoding") == 1; } }
     public bool UsePrincipalComponentAnalysis { get { return GetGeneValue<int>("UsePrincipalComponentAnalysis") == 1; } }
     public int PrincipalComponent { get { return GetGeneValue<int>("PrincipalComponent"); } }
-    public double RbfNetMinAccuracy { get { return GetGeneValue<double>("RbfNetMinAccuracy"); } }
+    public double RbfNetTolerance { get { return GetGeneValue<double>("RbfNetTolerance"); } }
     public double RbfGaussianSpread { get { return GetGeneValue<double>("RbfGaussianSpread"); } }
     public int ElmanHidden1NodeCount { get { return GetGeneValue<int>("ElmanHidden1NodeCount"); } }
     public int ElmanHidden2NodeCount { get { return GetGeneValue<int>("ElmanHidden2NodeCount"); } }
@@ -490,14 +542,15 @@ namespace Quqe
     public double Fitness { get; private set; }
     internal double ComputeFitness()
     {
-      var experts = Chromosomes.Select(x => new Expert(x)).ToList();
-      foreach (var x in experts)
-        x.Train();
       int correctCount = 0;
+      var experts = Chromosomes.Select(x => x.Expert).ToList();
+      foreach (var expert in experts)
+        expert.Reset();
       for (int j = 0; j < Versace.ValidationOutput.Count; j++)
       {
         var vote = Math.Sign(experts.Average(x => {
-          return x.Predict(Versace.ValidationInput.Column(j).ToArray());
+          double prediction = x.Predict(Versace.ValidationInput.Column(j));
+          return prediction;
         }));
         Debug.Assert(vote != 0);
         if (Versace.ValidationOutput[j] == vote)
@@ -520,7 +573,7 @@ namespace Quqe
 
   public interface IPredictor
   {
-    double Predict(double[] input);
+    double Predict(Vector<double> input);
     void Reset();
     XElement ToXml();
   }
@@ -560,18 +613,15 @@ namespace Quqe
 
     public void Train()
     {
-      int offset = (int)(Chromosome.TrainingOffsetPct * Versace.TrainingInput.ColumnCount);
-      int size = (int)(Chromosome.TrainingSizePct * Versace.TrainingInput.ColumnCount);
+      int offset = Math.Min((int)(Chromosome.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
+      int size = Math.Max(1, Math.Min((int)(Chromosome.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
       var outputs = Versace.TrainingOutput.SubVector(offset, size);
       var inputs = Versace.TrainingInput.Columns().Skip(offset).Take(size).ToList();
       inputs = Preprocess(inputs, true);
 
       if (Chromosome.NetworkType == NetworkType.Elman)
       {
-        int inputDimension = Chromosome.DatabaseType == DatabaseType.A ? Versace.DatabaseADimension : Versace.TrainingInput.RowCount;
-        if (Chromosome.UseComplementCoding)
-          inputDimension *= 2;
-        var rnn = new RNN(inputDimension, new List<LayerSpec> {
+        var rnn = new RNN(inputs.First().Count, new List<LayerSpec> {
           new LayerSpec {
             NodeCount = Chromosome.ElmanHidden1NodeCount,
             ActivationType = ActivationType.LogisticSigmoid,
@@ -594,13 +644,15 @@ namespace Quqe
       else
       {
         Network = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs,
-          Chromosome.RbfGaussianSpread, Chromosome.RbfNetMinAccuracy);
+          Chromosome.RbfGaussianSpread, Chromosome.RbfNetTolerance);
       }
     }
 
-    public double Predict(double[] input)
+    public double Predict(Vector<double> input)
     {
-      return Network.Predict(input);
+      if (Network is RBFNet && ((RBFNet)Network).IsDegenerate)
+        return 0;
+      return Network.Predict(Preprocess(List.Create((Vector)input)).First());
     }
 
     public void Reset()

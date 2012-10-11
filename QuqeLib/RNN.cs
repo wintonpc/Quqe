@@ -25,6 +25,7 @@ namespace Quqe
   public class RNN : IPredictor
   {
     static RNN() { MathNet.Numerics.Control.DisableParallelization = true; }
+    public static bool ShouldTrace = true;
 
     class Layer
     {
@@ -164,7 +165,7 @@ namespace Quqe
       double lambda_min = double.Epsilon;
       double lambda_max = double.MaxValue;
       double S_max = net.GetWeightVector().Count;
-      double tau = 0.001; // a value this low effectively disables early termination
+      double tau = 0.00001;
 
       // 0. initialize variables
       var w = net.GetWeightVector();
@@ -172,7 +173,7 @@ namespace Quqe
       double lambda = 1;
       double pi = 0.05;
 
-      var wei2 = EvaluateWeights(net, w, trainingData, outputData);
+      //var wei2 = EvaluateWeights(net, w, trainingData, outputData);
       var wei = EvaluateWeightsFast(context, w.ToArray(), 1);
 
       //#region test
@@ -185,19 +186,19 @@ namespace Quqe
       //  QMDestroyWeightContext(context2);
       //}
 
-      Trace.WriteLine("--- .NET ------");
-      Trace.WriteLine("Output:   " + wei2.Output.Join(" "));
-      Trace.WriteLine("Error:    " + wei2.Error);
-      Trace.WriteLine("Gradient: " + wei2.Gradient.Take(10).Join(" ") + " ...");
-      Trace.WriteLine("-- .C++ ------");
-      Trace.WriteLine("Output:   " + wei.Output.Join(" "));
-      Trace.WriteLine("Error:    " + wei.Error);
-      Trace.WriteLine("Gradient: " + wei.Gradient.Take(10).Join(" ") + " ...");
-      Trace.WriteLine("--- Diff ------");
-      Trace.WriteLine("Output:   " + (wei.Output - wei2.Output).Norm(2));
-      Trace.WriteLine("Error:    " + Math.Abs(wei.Error - wei2.Error));
-      Trace.WriteLine("Gradient: " + (wei.Gradient - wei2.Gradient).Norm(2));
-      Trace.WriteLine("--------------");
+      //Trace.WriteLine("--- .NET ------");
+      //Trace.WriteLine("Output:   " + wei2.Output.Join(" "));
+      //Trace.WriteLine("Error:    " + wei2.Error);
+      //Trace.WriteLine("Gradient: " + wei2.Gradient.Take(10).Join(" ") + " ...");
+      //Trace.WriteLine("-- .C++ ------");
+      //Trace.WriteLine("Output:   " + wei.Output.Join(" "));
+      //Trace.WriteLine("Error:    " + wei.Error);
+      //Trace.WriteLine("Gradient: " + wei.Gradient.Take(10).Join(" ") + " ...");
+      //Trace.WriteLine("--- Diff ------");
+      //Trace.WriteLine("Output:   " + (wei.Output - wei2.Output).Norm(2));
+      //Trace.WriteLine("Error:    " + Math.Abs(wei.Error - wei2.Error));
+      //Trace.WriteLine("Gradient: " + (wei.Gradient - wei2.Gradient).Norm(2));
+      //Trace.WriteLine("--------------");
 
       //#endregion
 
@@ -311,18 +312,19 @@ namespace Quqe
         w = w1;
 
         n++;
-        if (n == 1 || n % 50 == 0)
+        bool done = n == epoch_max || n > 10 && g.Norm(2) < tau;
+        if (ShouldTrace && (n == 1 || n % 50 == 0 || done))
           Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
 
-        if (n == epoch_max || n > S_max && g.Norm(2) < tau)
-          break;
+        if (done) break;
       }
 
       net.SetWeightVector(w);
 
       QMDestroyWeightContext(context);
       sw.Stop();
-      Trace.WriteLine(string.Format("Finished in {0:N2}s", (double)sw.ElapsedMilliseconds / 1000));
+      if (ShouldTrace)
+        Trace.WriteLine(string.Format("Finished in {0:N2}s", (double)sw.ElapsedMilliseconds / 1000));
 
       return new TrainResult<Vector> {
         Params = (Vector)w,
@@ -376,6 +378,7 @@ namespace Quqe
       NumInputs = numInputs;
       LayerSpecs = layerSpecs;
       Layers = SpecsToLayers(NumInputs, LayerSpecs);
+      SetWeightVector(Optimizer.RandomVector(GetWeightVector().Count, -1, 1));
     }
 
     public void ResetState()
@@ -616,14 +619,14 @@ rank=same;");
       }
     }
 
-    public double Predict(double[] input)
+    public double Predict(Vector<double> input)
     {
-      throw new NotImplementedException();
+      return Propagate(input)[0];
     }
 
     public void Reset()
     {
-      throw new NotImplementedException();
+      ResetState();
     }
 
     public System.Xml.Linq.XElement ToXml()

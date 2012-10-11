@@ -927,5 +927,10 @@ namespace QuqeViz
       Trace.WriteLine("OLS MSE = " + mseOLS);
       win.EqPlot.DrawLine(estimatePointsOLS, Colors.Red);
     }
+
+    private void VersaceEvolveButton_Click(object sender, RoutedEventArgs e)
+    {
+      Versace.Evolve();
+    }
   }
 }
