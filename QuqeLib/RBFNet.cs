@@ -24,10 +24,12 @@ namespace Quqe
   public class RBFNetSolution
   {
     public bool IsDegenerate;
+    public double RecommendedSpread;
     public readonly List<RadialBasis> Bases;
-    public RBFNetSolution(List<RadialBasis> bases, bool isDegenerate)
+    public RBFNetSolution(List<RadialBasis> bases, double recommendedSpread, bool isDegenerate)
     {
       Bases = bases;
+      RecommendedSpread = recommendedSpread;
       IsDegenerate = isDegenerate;
     }
   }
@@ -48,9 +50,10 @@ namespace Quqe
       IsDegenerate = isDegenerate;
     }
 
-    public static RBFNet Train(Matrix trainingData, Vector outputData, double spread, double tolerance)
+    public static RBFNet Train(Matrix trainingData, Vector outputData, double tolerance, double spread, out double recommendedSpread)
     {
-      var solution = SolveOLS(trainingData.Columns(), outputData.ToList(), (x, c) => Phi(x, c, spread), tolerance, spread_ForTraceOnly: spread);
+      var solution = SolveOLS(trainingData.Columns(), outputData.ToList(), tolerance, spread);
+      recommendedSpread = solution.RecommendedSpread;
       return new RBFNet(solution.Bases.Where(b => b.Center != null).ToList(), solution.Bases.Single(b => b.Center == null).Weight, spread, solution.IsDegenerate);
     }
 
@@ -78,10 +81,11 @@ namespace Quqe
       return (Vector)(proj * yHat);
     }
 
-    public static RBFNetSolution SolveOLS(List<Vector> xs, List<double> ys, Func<Vector, Vector, double> phi, double tolerance, double spread_ForTraceOnly = 0)
+    public static RBFNetSolution SolveOLS(List<Vector> xs, List<double> ys, double tolerance, double spread)
     {
       int retryCount = 0;
     Solve:
+      Func<Vector, Vector, double> phi = (x, c) => Phi(x, c, spread);
       //var maxCenters = Math.Max(Math.Min(xs.Count, 3), (int)(xs.Count / 3));
       var maxCenters = (int)Math.Min(xs.Count, Math.Max(1, 4 * Math.Sqrt(xs.Count)));
       var centerChoices = new List<Vector>(xs);
@@ -122,7 +126,7 @@ namespace Quqe
       }
 
       if (ShouldTrace)
-        Trace.WriteLine(string.Format("Centers: {0}, Spread: {1}, Tolerance: {2}", selectedBases.Count, spread_ForTraceOnly, tolerance));
+        Trace.WriteLine(string.Format("Centers: {0}, Spread: {1}, Tolerance: {2}", selectedBases.Count, spread, tolerance));
 
       var weights = SolveLS(
         Versace.MatrixFromColumns(new Vector[] { new DenseVector(n, 1) }.Concat(selectedBases.Select(sb => sb.Basis)).ToList()),
@@ -130,9 +134,10 @@ namespace Quqe
       bool isDegenerate = false;
       if (weights.Any(w => double.IsNaN(w)))
       {
-        if (retryCount < 3)
+        if (retryCount < 10)
         {
           retryCount++;
+          spread *= 0.90;
           goto Solve;
         }
         else
@@ -144,7 +149,7 @@ namespace Quqe
       var allBases = selectedBases.ToList();
       allBases.Insert(0, null);
       var resultBases = allBases.Zip(weights, (b, w) => new RadialBasis(b != null ? b.Center : null, w)).ToList();
-      return new RBFNetSolution(resultBases, isDegenerate);
+      return new RBFNetSolution(resultBases, spread, isDegenerate);
     }
 
     public static Vector Orthogonalize(Vector pi, List<Vector> withRespectTo)

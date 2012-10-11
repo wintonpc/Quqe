@@ -918,7 +918,7 @@ namespace QuqeViz
 
       // OLS
       //var solution = RBFNet.SolveRBFNet(P, centers, d, 0.000001);
-      var solution = RBFNet.SolveOLS(samples, ys, phi, 0.03);
+      var solution = RBFNet.SolveOLS(samples, ys, 0.03, spread);
       var estimatePointsOLS = samples.Select(inputVec => {
         return new Point(inputVec[0], solution.Bases.Sum(b => b.Weight * (b.Center == null ? 1 : phi(inputVec, b.Center))));
       }).ToList();

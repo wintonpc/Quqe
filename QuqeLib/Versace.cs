@@ -390,7 +390,7 @@ namespace Quqe
     public readonly double Min;
     public readonly double Max;
     public readonly double Granularity;
-    public TValue Value { get; private set; }
+    public TValue Value { get; set; }
 
     public VGene(string name, double min, double max, double granularity, TValue? initialValue = null)
       : base(name)
@@ -434,8 +434,8 @@ namespace Quqe
     {
       Genes = new List<VGene> {
         new VGene<int>("NetworkType", 0, 1, 1),
-        new VGene<int>("ElmanTrainingEpochs", 20, 300, 1),
-        //new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
+        //new VGene<int>("ElmanTrainingEpochs", 20, 300, 1),
+        new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
         new VGene<double>("ElmanLearningRate", 0.1, 0.3, 0.001),
         new VGene<int>("DatabaseType", 0, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
@@ -445,8 +445,8 @@ namespace Quqe
         new VGene<int>("PrincipalComponent", 0, 100, 1),
         new VGene<double>("RbfNetTolerance", 0, 1, 0.001),
         new VGene<double>("RbfGaussianSpread", 0.1, 10, 0.01),
-        new VGene<int>("ElmanHidden1NodeCount", 3, 50, 1),
-        new VGene<int>("ElmanHidden2NodeCount", 3, 50, 1)
+        new VGene<int>("ElmanHidden1NodeCount", 3, 100, 1),
+        new VGene<int>("ElmanHidden2NodeCount", 3, 100, 1)
         //new VGene<int>("ElmanHidden1NodeCount", 3, 200, 1),
         //new VGene<int>("ElmanHidden2NodeCount", 3, 200, 1)
       };
@@ -486,6 +486,11 @@ namespace Quqe
       return ((VGene<TValue>)Genes.First(g => g.Name == name)).Value;
     }
 
+    void SetGeneValue<TValue>(string name, TValue value) where TValue : struct
+    {
+      ((VGene<TValue>)Genes.First(g => g.Name == name)).Value = value;
+    }
+
     public NetworkType NetworkType { get { return GetGeneValue<int>("NetworkType") == 0 ? NetworkType.Elman : NetworkType.RBF; } }
     public int ElmanTrainingEpochs { get { return GetGeneValue<int>("ElmanTrainingEpochs"); } }
     public double ElmanLearningRate { get { return GetGeneValue<double>("ElmanLearningRate"); } }
@@ -496,7 +501,11 @@ namespace Quqe
     public bool UsePrincipalComponentAnalysis { get { return GetGeneValue<int>("UsePrincipalComponentAnalysis") == 1; } }
     public int PrincipalComponent { get { return GetGeneValue<int>("PrincipalComponent"); } }
     public double RbfNetTolerance { get { return GetGeneValue<double>("RbfNetTolerance"); } }
-    public double RbfGaussianSpread { get { return GetGeneValue<double>("RbfGaussianSpread"); } }
+    public double RbfGaussianSpread
+    {
+      get { return GetGeneValue<double>("RbfGaussianSpread"); }
+      set { SetGeneValue<double>("RbfGaussianSpread", value); }
+    }
     public int ElmanHidden1NodeCount { get { return GetGeneValue<int>("ElmanHidden1NodeCount"); } }
     public int ElmanHidden2NodeCount { get { return GetGeneValue<int>("ElmanHidden2NodeCount"); } }
 
@@ -643,8 +652,9 @@ namespace Quqe
       }
       else
       {
-        Network = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs,
-          Chromosome.RbfGaussianSpread, Chromosome.RbfNetTolerance);
+        double recommendedSpread;
+        Network = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs, Chromosome.RbfNetTolerance, Chromosome.RbfGaussianSpread, out recommendedSpread);
+        Chromosome.RbfGaussianSpread = recommendedSpread;
       }
     }
 
