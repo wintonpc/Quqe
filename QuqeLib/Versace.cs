@@ -22,6 +22,39 @@ namespace Quqe
   {
     public VMixture BestMixture;
     public List<double> FitnessHistory;
+
+    public static string DoublesToBase64(IEnumerable<double> h)
+    {
+      using (var ms = new MemoryStream())
+      using (var bw = new BinaryWriter(ms))
+      {
+        foreach (var d in h)
+          bw.Write(d);
+        return Convert.ToBase64String(ms.ToArray());
+      }
+    }
+
+    public static List<double> DoublesFromBase64(string b)
+    {
+      var result = new List<double>();
+      using (var ms = new MemoryStream(Convert.FromBase64String(b)))
+      using (var br = new BinaryReader(ms))
+      {
+        while (ms.Position < ms.Length)
+          result.Add(br.ReadDouble());
+      }
+      return result;
+    }
+
+    public void Save()
+    {
+      if (!Directory.Exists("VersaceResults"))
+        Directory.CreateDirectory("VersaceResults");
+      new XElement("VersaceResult",
+        new XElement("FitnessHistory", DoublesToBase64(FitnessHistory)),
+        BestMixture.ToXml())
+        .Save(string.Format("VersaceResults\\VersaceResult-{0:yyyyMMdd}-{0:HHmmss}.xml", DateTime.Now));
+    }
   }
 
   public static class Versace
@@ -29,7 +62,8 @@ namespace Quqe
     public const int EXPERTS_PER_MIXTURE = 10;
     public const int POPULATION_SIZE = 10;
     public const int SELECTION_SIZE = 4;
-    public const int EPOCH_COUNT = 100;
+    //public const int EPOCH_COUNT = 100;
+    public const int EPOCH_COUNT = 1;
     public const double MUTATION_RATE = 0.05;
 
     public static List<string> Tickers = List.Create(
@@ -237,6 +271,7 @@ namespace Quqe
     {
       var fitnessHistory = new List<double>();
       var population = List.Repeat(POPULATION_SIZE, n => new VMixture());
+      VMixture bestMixture = null;
       for (int epoch = 0; epoch < EPOCH_COUNT; epoch++)
       {
         Trace.WriteLine(string.Format("Epoch {0} started {1}", epoch, DateTime.Now));
@@ -287,8 +322,11 @@ namespace Quqe
           population.AddRange(parent1.CrossoverAndMutate(parent2));
         });
 
-        fitnessHistory.Add(selected.First().Fitness);
-        Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}%", epoch, selected.First().Fitness * 100.0));
+        var bestThisEpoch = selected.First();
+        if (bestMixture == null || bestThisEpoch.Fitness > bestMixture.Fitness)
+          bestMixture = bestThisEpoch;
+        fitnessHistory.Add(bestThisEpoch.Fitness);
+        Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}%   (Best: {2:N1}%)", epoch, bestThisEpoch.Fitness * 100.0, bestMixture.Fitness * 100.0));
         var oldChromosomes = oldPopulation.SelectMany(m => m.Chromosomes).ToList();
         Trace.WriteLine(string.Format("Epoch {0} composition:   Elman {1:N1}%   RBF {2:N1}%", epoch,
           (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.Elman) / oldChromosomes.Count * 100,
@@ -296,10 +334,12 @@ namespace Quqe
         Trace.WriteLine(string.Format("Epoch {0} ended {1}", epoch, DateTime.Now));
         Trace.WriteLine("===========================================================================");
       }
-      return new VersaceResult {
-        BestMixture = population.OrderByDescending(m => m.ComputeFitness()).First(),
+      var result = new VersaceResult {
+        BestMixture = bestMixture,
         FitnessHistory = fitnessHistory
       };
+      result.Save();
+      return result;
     }
 
     public static void GetData()
@@ -434,9 +474,8 @@ namespace Quqe
     {
       Genes = new List<VGene> {
         new VGene<int>("NetworkType", 0, 1, 1),
-        //new VGene<int>("ElmanTrainingEpochs", 20, 300, 1),
-        new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
-        new VGene<double>("ElmanLearningRate", 0.1, 0.3, 0.001),
+        new VGene<int>("ElmanTrainingEpochs", 20, 300, 1),
+        //new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
         new VGene<int>("DatabaseType", 0, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
         new VGene<double>("TrainingSizePct", 0, 1, 0.00001),
@@ -493,7 +532,6 @@ namespace Quqe
 
     public NetworkType NetworkType { get { return GetGeneValue<int>("NetworkType") == 0 ? NetworkType.Elman : NetworkType.RBF; } }
     public int ElmanTrainingEpochs { get { return GetGeneValue<int>("ElmanTrainingEpochs"); } }
-    public double ElmanLearningRate { get { return GetGeneValue<double>("ElmanLearningRate"); } }
     public DatabaseType DatabaseType { get { return GetGeneValue<int>("DatabaseType") == 0 ? DatabaseType.A : DatabaseType.B; } }
     public double TrainingOffsetPct { get { return GetGeneValue<double>("TrainingOffsetPct"); } }
     public double TrainingSizePct { get { return GetGeneValue<double>("TrainingSizePct"); } }
@@ -511,7 +549,9 @@ namespace Quqe
 
     public XElement ToXml()
     {
-      return new XElement("Chromosome", Genes.Select(x => x.ToXml()).ToArray());
+      return new XElement("Chromosome",
+        new XElement("Genes", Genes.Select(x => x.ToXml()).ToArray()),
+        Expert.ToXml());
     }
 
     public static VChrom FromXml(XElement e)
@@ -672,7 +712,7 @@ namespace Quqe
 
     public XElement ToXml()
     {
-      return null;
+      return Network.ToXml();
     }
   }
 }

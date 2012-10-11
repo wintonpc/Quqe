@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using PCW;
+using System.Xml.Linq;
 
 namespace Quqe
 {
@@ -20,6 +21,14 @@ namespace Quqe
     public int NodeCount;
     public bool IsRecurrent;
     public ActivationType ActivationType;
+
+    public XElement ToXml()
+    {
+      return new XElement("LayerSpec",
+        new XAttribute("NodeCount", NodeCount),
+        new XAttribute("IsRecurrent", IsRecurrent),
+        new XAttribute("ActivationType", ActivationType));
+    }
   }
 
   public class RNN : IPredictor
@@ -629,9 +638,12 @@ rank=same;");
       ResetState();
     }
 
-    public System.Xml.Linq.XElement ToXml()
+    public XElement ToXml()
     {
-      throw new NotImplementedException();
+      return new XElement("Expert", new XAttribute("Type", NetworkType.Elman),
+        new XElement("InputCount", NumInputs),
+        new XElement("LayerSpecs", LayerSpecs.Select(x => x.ToXml()).ToArray()),
+        new XElement("Weights", VersaceResult.DoublesToBase64(GetWeightVector())));
     }
   }
 }

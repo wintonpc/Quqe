@@ -6,6 +6,7 @@ using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
 using PCW;
 using System.Diagnostics;
+using System.Xml.Linq;
 
 namespace Quqe
 {
@@ -18,6 +19,13 @@ namespace Quqe
     {
       Center = center;
       Weight = weight;
+    }
+
+    public XElement ToXml()
+    {
+      return new XElement("RadialBasis",
+        new XElement("Weight", Weight),
+        new XElement("Center", VersaceResult.DoublesToBase64(Center)));
     }
   }
 
@@ -83,7 +91,9 @@ namespace Quqe
 
     public static RBFNetSolution SolveOLS(List<Vector> xs, List<double> ys, double tolerance, double spread)
     {
+      double originalSpread = spread;
       int retryCount = 0;
+      var spreadRetryFactors = new double[] { 0.9, 0.8, 0.7, 0.5, 0.3, 0.1, 1.2, 1.5, 2.0, 3.0 };
     Solve:
       Func<Vector, Vector, double> phi = (x, c) => Phi(x, c, spread);
       //var maxCenters = Math.Max(Math.Min(xs.Count, 3), (int)(xs.Count / 3));
@@ -134,16 +144,19 @@ namespace Quqe
       bool isDegenerate = false;
       if (weights.Any(w => double.IsNaN(w)))
       {
-        if (retryCount < 10)
+        if (retryCount < 20)
         {
+          //spread = originalSpread * spreadRetryFactors[retryCount];
+          //spread = originalSpread * (1.0 - (retryCount + 1) / 11.0);
+          spread *= 0.9;
           retryCount++;
-          spread *= 0.90;
           goto Solve;
         }
         else
         {
           Trace.WriteLine("! Degenerate RBF network !");
           isDegenerate = true;
+          spread = originalSpread;
         }
       }
       var allBases = selectedBases.ToList();
@@ -174,7 +187,11 @@ namespace Quqe
 
     public System.Xml.Linq.XElement ToXml()
     {
-      throw new NotImplementedException();
+      return new XElement("Expert", new XAttribute("Type", NetworkType.RBF),
+        new XElement("OutputBias", OutputBias),
+        new XElement("Spread", Spread),
+        new XElement("IsDegenerate", IsDegenerate),
+        new XElement("Bases", Bases.Select(x => x.ToXml()).ToArray()));
     }
   }
 }
