@@ -14,6 +14,8 @@ using DotNumerics.ODE;
 using MathNet.Numerics.LinearAlgebra.Double;
 using Vector = MathNet.Numerics.LinearAlgebra.Double.Vector;
 using Matrix = MathNet.Numerics.LinearAlgebra.Double.Matrix;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace QuqeViz
 {
@@ -930,7 +932,15 @@ namespace QuqeViz
 
     private void VersaceEvolveButton_Click(object sender, RoutedEventArgs e)
     {
-      Versace.Evolve();
+      Thread t = new Thread(() => Versace.Evolve());
+      t.Start();
+    }
+
+    private void BacktestVersaceButton_Click(object sender, RoutedEventArgs e)
+    {
+      var fn = Directory.EnumerateFiles("VersaceResults").OrderByDescending(x => new FileInfo(x).LastWriteTime).First();
+      var vr = VersaceResult.Load(fn);
+      vr.Save();
     }
   }
 }

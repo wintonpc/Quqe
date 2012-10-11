@@ -29,6 +29,15 @@ namespace Quqe
         new XAttribute("IsRecurrent", IsRecurrent),
         new XAttribute("ActivationType", ActivationType));
     }
+
+    public static LayerSpec Load(XElement eSpec)
+    {
+      return new LayerSpec {
+        NodeCount = int.Parse(eSpec.Attribute("NodeCount").Value),
+        IsRecurrent = bool.Parse(eSpec.Attribute("IsRecurrent").Value),
+        ActivationType = (ActivationType)Enum.Parse(typeof(ActivationType), eSpec.Attribute("ActivationType").Value)
+      };
+    }
   }
 
   public class RNN : IPredictor
@@ -640,10 +649,19 @@ rank=same;");
 
     public XElement ToXml()
     {
-      return new XElement("Expert", new XAttribute("Type", NetworkType.Elman),
+      return new XElement("Network", new XAttribute("Type", NetworkType.Elman),
         new XElement("InputCount", NumInputs),
         new XElement("LayerSpecs", LayerSpecs.Select(x => x.ToXml()).ToArray()),
         new XElement("Weights", VersaceResult.DoublesToBase64(GetWeightVector())));
+    }
+
+    public static RNN Load(XElement eExpert)
+    {
+      var numInputs = int.Parse(eExpert.Element("InputCount").Value);
+      var layerSpecs = eExpert.Element("LayerSpecs").Elements("LayerSpec").Select(x => LayerSpec.Load(x)).ToList();
+      var rnn = new RNN(numInputs, layerSpecs);
+      rnn.SetWeightVector(new DenseVector(VersaceResult.DoublesFromBase64(eExpert.Element("Weights").Value).ToArray()));
+      return rnn;
     }
   }
 }

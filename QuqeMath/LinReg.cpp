@@ -1,16 +1,21 @@
 #include "stdafx.h"
 #include "LinReg.h"
+#include <exception>
 
 Vector::Vector(int count)
 {
   Count = count;
   Data = (double*)_aligned_malloc(count * sizeof(double), 64);
+  if (Data == NULL)
+    throw std::bad_alloc();
 }
 
 Vector::Vector(int count, double* data)
 {
   Count = count;
   Data = (double*)_aligned_malloc(count * sizeof(double), 64);
+  if (Data == NULL)
+    throw std::bad_alloc();
   memcpy(Data, data, count * sizeof(double));
 }
 
@@ -18,6 +23,8 @@ Vector::Vector(const Vector &v)
 {
   Count = v.Count;
   Data = (double*)_aligned_malloc(Count * sizeof(double), 64);
+  if (Data == NULL)
+    throw std::bad_alloc();
   memcpy(Data, v.Data, Count * sizeof(double));
 }
 
@@ -48,6 +55,8 @@ Matrix::Matrix(int nRows, int nCols)
   ColumnCount = nCols;
   DataLen = nRows * nCols;
   Data = (double*)_aligned_malloc(DataLen * sizeof(double), 64);
+  if (Data == NULL)
+    throw std::bad_alloc();
 }
 
 Matrix::Matrix(int nRows, int nCols, double* data)
@@ -56,6 +65,8 @@ Matrix::Matrix(int nRows, int nCols, double* data)
   ColumnCount = nCols;
   DataLen = nRows * nCols;
   Data = (double*)_aligned_malloc(DataLen * sizeof(double), 64);
+  if (Data == NULL)
+    throw std::bad_alloc();
   memcpy(Data, data, DataLen * sizeof(double));
 }
 
@@ -65,6 +76,8 @@ Matrix::Matrix(const Matrix &m)
   ColumnCount = m.ColumnCount;
   DataLen = RowCount * ColumnCount;
   Data = (double*)_aligned_malloc(DataLen * sizeof(double), 64);
+  if (Data == NULL)
+    throw std::bad_alloc();
   memcpy(Data, m.Data, DataLen * sizeof(double));
 }
 

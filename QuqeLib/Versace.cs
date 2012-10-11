@@ -55,6 +55,15 @@ namespace Quqe
         BestMixture.ToXml())
         .Save(string.Format("VersaceResults\\VersaceResult-{0:yyyyMMdd}-{0:HHmmss}.xml", DateTime.Now));
     }
+
+    public static VersaceResult Load(string fn)
+    {
+      var vr = XElement.Load(fn);
+      return new VersaceResult {
+        FitnessHistory = DoublesFromBase64(vr.Element("FitnessHistory").Value),
+        BestMixture = VMixture.Load(vr.Element("Mixture"))
+      };
+    }
   }
 
   public static class Versace
@@ -275,7 +284,7 @@ namespace Quqe
       for (int epoch = 0; epoch < EPOCH_COUNT; epoch++)
       {
         Trace.WriteLine(string.Format("Epoch {0} started {1}", epoch, DateTime.Now));
-        var experts = population.SelectMany(mixture => mixture.Chromosomes).Select(c => c.RefreshExpert()).ToList();
+        var experts = population.SelectMany(mixture => mixture.Members).Select(c => c.RefreshExpert()).ToList();
 
         int numTrained = 0;
         object trainLock = new object();
@@ -303,7 +312,7 @@ namespace Quqe
         {
           RBFNet.ShouldTrace = false;
           RNN.ShouldTrace = false;
-          Parallel.Invoke(population.SelectMany(mixture => mixture.Chromosomes)
+          Parallel.Invoke(population.SelectMany(mixture => mixture.Members)
             .Select(c => c.RefreshExpert()).Select(expert => new Action(() => {
               expert.Train();
               trainedOne();
@@ -327,7 +336,7 @@ namespace Quqe
           bestMixture = bestThisEpoch;
         fitnessHistory.Add(bestThisEpoch.Fitness);
         Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}%   (Best: {2:N1}%)", epoch, bestThisEpoch.Fitness * 100.0, bestMixture.Fitness * 100.0));
-        var oldChromosomes = oldPopulation.SelectMany(m => m.Chromosomes).ToList();
+        var oldChromosomes = oldPopulation.SelectMany(m => m.Members).ToList();
         Trace.WriteLine(string.Format("Epoch {0} composition:   Elman {1:N1}%   RBF {2:N1}%", epoch,
           (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.Elman) / oldChromosomes.Count * 100,
           (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.RBF) / oldChromosomes.Count * 100));
@@ -465,16 +474,16 @@ namespace Quqe
     }
   }
 
-  public class VChrom
+  public class VMember
   {
-    public List<VGene> Genes;
+    public List<VGene> Chromosome;
     public Expert Expert { get; private set; }
 
-    public VChrom()
+    public VMember()
     {
-      Genes = new List<VGene> {
+      Chromosome = new List<VGene> {
         new VGene<int>("NetworkType", 0, 1, 1),
-        new VGene<int>("ElmanTrainingEpochs", 20, 300, 1),
+        new VGene<int>("ElmanTrainingEpochs", 20, 10, 1),
         //new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
         new VGene<int>("DatabaseType", 0, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
@@ -491,9 +500,9 @@ namespace Quqe
       };
     }
 
-    VChrom(List<VGene> genes)
+    VMember(List<VGene> genes)
     {
-      Genes = genes;
+      Chromosome = genes;
     }
 
     public Expert RefreshExpert()
@@ -503,10 +512,10 @@ namespace Quqe
     }
 
     Random Random = new Random();
-    public List<VChrom> CrossoverAndMutate(VChrom other)
+    public List<VMember> CrossoverAndMutate(VMember other)
     {
-      var a = Genes.ToList();
-      var b = other.Genes.ToList();
+      var a = Chromosome.ToList();
+      var b = other.Chromosome.ToList();
       for (int i = 0; i < a.Count; i++)
         if (Random.Next(2) == 0)
         {
@@ -517,17 +526,17 @@ namespace Quqe
 
       Func<List<VGene>, List<VGene>> mutate = genes => genes.Select(g => Random.NextDouble() < Versace.MUTATION_RATE ? g.Mutate() : g).ToList();
 
-      return List.Create(new VChrom(mutate(a)), new VChrom(mutate(b)));
+      return List.Create(new VMember(mutate(a)), new VMember(mutate(b)));
     }
 
     TValue GetGeneValue<TValue>(string name) where TValue : struct
     {
-      return ((VGene<TValue>)Genes.First(g => g.Name == name)).Value;
+      return ((VGene<TValue>)Chromosome.First(g => g.Name == name)).Value;
     }
 
     void SetGeneValue<TValue>(string name, TValue value) where TValue : struct
     {
-      ((VGene<TValue>)Genes.First(g => g.Name == name)).Value = value;
+      ((VGene<TValue>)Chromosome.First(g => g.Name == name)).Value = value;
     }
 
     public NetworkType NetworkType { get { return GetGeneValue<int>("NetworkType") == 0 ? NetworkType.Elman : NetworkType.RBF; } }
@@ -549,17 +558,19 @@ namespace Quqe
 
     public XElement ToXml()
     {
-      return new XElement("Chromosome",
-        new XElement("Genes", Genes.Select(x => x.ToXml()).ToArray()),
+      return new XElement("Member",
+        new XElement("Chromosome", Chromosome.Select(x => x.ToXml()).ToArray()),
         Expert.ToXml());
     }
 
-    public static VChrom FromXml(XElement e)
+    public static VMember Load(XElement eMember)
     {
-      var c = new VChrom();
-      foreach (var ge in e.Elements("Gene"))
-        c.Genes.First(x => x.Name == ge.Attribute("Name").Value).SetXmlValue(ge.Attribute("Value").Value);
-      return c;
+      var member = new VMember();
+      var eChrom = eMember.Element("Chromosome");
+      foreach (var ge in eChrom.Elements("Gene"))
+        member.Chromosome.First(x => x.Name == ge.Attribute("Name").Value).SetXmlValue(ge.Attribute("Value").Value);
+      member.Expert = Expert.Load(eMember.Element("Expert"), member);
+      return member;
     }
   }
 
@@ -568,21 +579,21 @@ namespace Quqe
 
   public class VMixture
   {
-    public List<VChrom> Chromosomes { get; private set; }
+    public List<VMember> Members { get; private set; }
 
     public VMixture()
     {
-      Chromosomes = List.Repeat(Versace.EXPERTS_PER_MIXTURE, n => new VChrom());
+      Members = List.Repeat(Versace.EXPERTS_PER_MIXTURE, n => new VMember());
     }
 
-    VMixture(List<VChrom> chromosomes)
+    VMixture(List<VMember> members)
     {
-      Chromosomes = chromosomes;
+      Members = members;
     }
 
     public List<VMixture> CrossoverAndMutate(VMixture other)
     {
-      var q = Chromosomes.Zip(other.Chromosomes, (a, b) => a.CrossoverAndMutate(b));
+      var q = Members.Zip(other.Members, (a, b) => a.CrossoverAndMutate(b));
       return List.Create(
         new VMixture(q.Select(x => x[0]).ToList()),
         new VMixture(q.Select(x => x[1]).ToList()));
@@ -592,7 +603,7 @@ namespace Quqe
     internal double ComputeFitness()
     {
       int correctCount = 0;
-      var experts = Chromosomes.Select(x => x.Expert).ToList();
+      var experts = Members.Select(x => x.Expert).ToList();
       foreach (var expert in experts)
         expert.Reset();
       for (int j = 0; j < Versace.ValidationOutput.Count; j++)
@@ -611,12 +622,16 @@ namespace Quqe
 
     public XElement ToXml()
     {
-      return new XElement("Chromosomes", Chromosomes.Select(x => x.ToXml()).ToArray());
+      return new XElement("Mixture",
+        new XAttribute("Fitness", Fitness),
+        Members.Select(x => x.ToXml()).ToArray());
     }
 
-    public static VMixture FromXml(string fn)
+    public static VMixture Load(XElement eMixture)
     {
-      return new VMixture(XDocument.Load(fn).Element("Chromosomes").Elements("Chromosome").Select(x => VChrom.FromXml(x)).ToList());
+      var mixture = new VMixture(eMixture.Elements("Member").Select(x => VMember.Load(x)).ToList());
+      mixture.Fitness = double.Parse(eMixture.Attribute("Fitness").Value);
+      return mixture;
     }
   }
 
@@ -629,31 +644,31 @@ namespace Quqe
 
   public class Expert : IPredictor
   {
-    VChrom Chromosome;
+    VMember Member;
     IPredictor Network;
     Matrix PrincipalComponents;
 
-    public Expert(VChrom chrom)
+    public Expert(VMember member)
     {
-      Chromosome = chrom;
+      Member = member;
     }
 
     List<Vector> Preprocess(List<Vector> inputs, bool recalculatePrincipalComponents = false)
     {
       // database selection
-      if (Chromosome.DatabaseType == DatabaseType.A)
+      if (Member.DatabaseType == DatabaseType.A)
         inputs = inputs.Select(x => (Vector)x.SubVector(0, Versace.DatabaseADimension)).ToList();
 
       // complement coding
-      if (Chromosome.UseComplementCoding)
+      if (Member.UseComplementCoding)
         inputs = inputs.Select(x => Versace.ComplementCode(x)).ToList();
 
       // PCA
-      if (Chromosome.UsePrincipalComponentAnalysis)
+      if (Member.UsePrincipalComponentAnalysis)
       {
         if (recalculatePrincipalComponents)
           PrincipalComponents = Versace.PrincipleComponents(Versace.MatrixFromColumns(inputs));
-        var pcNumber = Math.Min(Chromosome.PrincipalComponent, PrincipalComponents.ColumnCount - 1);
+        var pcNumber = Math.Min(Member.PrincipalComponent, PrincipalComponents.ColumnCount - 1);
         inputs = inputs.Select(x => Versace.NthPrincipleComponent(PrincipalComponents, pcNumber, x)).ToList();
       }
 
@@ -662,22 +677,22 @@ namespace Quqe
 
     public void Train()
     {
-      int offset = Math.Min((int)(Chromosome.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
-      int size = Math.Max(1, Math.Min((int)(Chromosome.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
+      int offset = Math.Min((int)(Member.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
+      int size = Math.Max(1, Math.Min((int)(Member.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
       var outputs = Versace.TrainingOutput.SubVector(offset, size);
       var inputs = Versace.TrainingInput.Columns().Skip(offset).Take(size).ToList();
       inputs = Preprocess(inputs, true);
 
-      if (Chromosome.NetworkType == NetworkType.Elman)
+      if (Member.NetworkType == NetworkType.Elman)
       {
         var rnn = new RNN(inputs.First().Count, new List<LayerSpec> {
           new LayerSpec {
-            NodeCount = Chromosome.ElmanHidden1NodeCount,
+            NodeCount = Member.ElmanHidden1NodeCount,
             ActivationType = ActivationType.LogisticSigmoid,
             IsRecurrent = true
           },
           new LayerSpec {
-            NodeCount = Chromosome.ElmanHidden2NodeCount,
+            NodeCount = Member.ElmanHidden2NodeCount,
             ActivationType = ActivationType.LogisticSigmoid,
             IsRecurrent = true
           },
@@ -687,14 +702,14 @@ namespace Quqe
             IsRecurrent = false
           }
         });
-        RNN.TrainSCG((RNN)rnn, Chromosome.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs);
+        RNN.TrainSCG((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs);
         Network = rnn;
       }
       else
       {
         double recommendedSpread;
-        Network = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs, Chromosome.RbfNetTolerance, Chromosome.RbfGaussianSpread, out recommendedSpread);
-        Chromosome.RbfGaussianSpread = recommendedSpread;
+        Network = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs, Member.RbfNetTolerance, Member.RbfGaussianSpread, out recommendedSpread);
+        Member.RbfGaussianSpread = recommendedSpread;
       }
     }
 
@@ -712,7 +727,29 @@ namespace Quqe
 
     public XElement ToXml()
     {
-      return Network.ToXml();
+      var eExpert = new XElement("Expert", Network.ToXml());
+      if (PrincipalComponents != null)
+        eExpert.Add(new XElement("PrincipalComponents",
+          new XAttribute("RowCount", PrincipalComponents.RowCount),
+          new XAttribute("ColumnCount", PrincipalComponents.ColumnCount),
+          VersaceResult.DoublesToBase64(PrincipalComponents.ToColumnWiseArray())));
+      return eExpert;
+    }
+
+    public static Expert Load(XElement eExpert, VMember member)
+    {
+      var ePc = eExpert.Element("PrincipalComponents");
+      var eNetwork = eExpert.Element("Network");
+      var expert = new Expert(member) {
+        Network = eNetwork.Attribute("Type").Value == NetworkType.Elman.ToString()
+          ? (IPredictor)RNN.Load(eNetwork) : (IPredictor)RBFNet.Load(eNetwork)
+      };
+      if (ePc != null)
+        expert.PrincipalComponents = new DenseMatrix(
+          int.Parse(ePc.Attribute("RowCount").Value),
+          int.Parse(ePc.Attribute("ColumnCount").Value),
+          VersaceResult.DoublesFromBase64(ePc.Value).ToArray());
+      return expert;
     }
   }
 }

@@ -8,14 +8,15 @@
       <Button x:Name="DIAButton" Click="DIAButton_Click">DIA</Button>
       <Button x:Name="ShowOtpdTradesButton" Click="ShowOtpdTradesButton_Click">Show OTPD Trades</Button>
       <Button x:Name="ContributionsButton" Click="ContributionsButton_Click">Contributions</Button>
-      <Button x:Name="OptimizeDTCandlesButton" Click="OptimizeDTCandlesButton_Click">Optimize DTCandles</Button>
+      <!--<Button x:Name="OptimizeDTCandlesButton" Click="OptimizeDTCandlesButton_Click">Optimize DTCandles</Button>
       <Button x:Name="OptimizeDTBarSumButton" Click="OptimizeDTBarSumButton_Click">Optimize DTBarSum</Button>
-      <Button x:Name="OptimizeTrending1Button" Click="OptimizeTrending1Button_Click">Optimize Trending1</Button>
+      <Button x:Name="OptimizeTrending1Button" Click="OptimizeTrending1Button_Click">Optimize Trending1</Button>-->
       <Button x:Name="FooButton" Click="FooButton_Click">Test BCO</Button>
       <Button x:Name="BazButton" Click="BazButton_Click">Test RBF</Button>
       <Button x:Name="BarButton" Click="BarButton_Click">Test on stock data</Button>
       <Button x:Name="GetVersaceDataButton" Click="GetVersaceDataButton_Click" IsEnabled="False">Get Versace Data</Button>
       <Button x:Name="VersaceEvolveButton" Click="VersaceEvolveButton_Click">Versace Evolve</Button>
+      <Button x:Name="BacktestVersaceButton" Click="BacktestVersaceButton_Click">Backtest Versace</Button>
       <StackPanel Orientation="Horizontal">
         <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
         <TextBox x:Name="SymbolBox">QQQ</TextBox>
