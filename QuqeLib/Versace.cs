@@ -71,8 +71,8 @@ namespace Quqe
     public const int EXPERTS_PER_MIXTURE = 10;
     public const int POPULATION_SIZE = 10;
     public const int SELECTION_SIZE = 4;
-    //public const int EPOCH_COUNT = 100;
-    public const int EPOCH_COUNT = 1;
+    public const int EPOCH_COUNT = 100;
+    //public const int EPOCH_COUNT = 1;
     public const double MUTATION_RATE = 0.05;
 
     public static List<string> Tickers = List.Create(
@@ -293,6 +293,8 @@ namespace Quqe
           {
             numTrained++;
             Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, experts.Count));
+            if (numTrained % 10 == 0)
+              GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
           }
         };
 
@@ -312,7 +314,20 @@ namespace Quqe
         {
           RBFNet.ShouldTrace = false;
           RNN.ShouldTrace = false;
-          Parallel.Invoke(population.SelectMany(mixture => mixture.Members)
+          // optimize training order to keep the most load on the CPUs
+          var allExperts = population.SelectMany(mixture => mixture.Members).ToList();
+          var rnnExperts = allExperts.Where(x => x.NetworkType == NetworkType.Elman).OrderByDescending(x => {
+            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseADimension : TrainingInput.RowCount);
+            return x.ElmanHidden1NodeCount * x.ElmanHidden2NodeCount * x.ElmanTrainingEpochs * inputFactor;
+          }).ToList();
+          var rbfExperts = allExperts.Where(x => x.NetworkType == NetworkType.RBF).OrderByDescending(x => {
+            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseADimension : TrainingInput.RowCount);
+            return x.TrainingSizePct * inputFactor;
+          }).ToList();
+          //var reordered = rnnExperts.Interleave(rbfExperts).ToList();
+          var reordered = rnnExperts.Concat(rbfExperts).ToList();
+          Parallel.Invoke(new ParallelOptions { MaxDegreeOfParallelism = 8 },
+            reordered
             .Select(c => c.RefreshExpert()).Select(expert => new Action(() => {
               expert.Train();
               trainedOne();
@@ -341,6 +356,7 @@ namespace Quqe
           (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.Elman) / oldChromosomes.Count * 100,
           (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.RBF) / oldChromosomes.Count * 100));
         Trace.WriteLine(string.Format("Epoch {0} ended {1}", epoch, DateTime.Now));
+        GC.Collect();
         Trace.WriteLine("===========================================================================");
       }
       var result = new VersaceResult {
@@ -457,7 +473,7 @@ namespace Quqe
           typeof(TValue));
     }
 
-    Random Random = new Random();
+    static Random Random = new Random();
     public override VGene Mutate()
     {
       return new VGene<TValue>(Name, Min, Max, Granularity, RandomValue());
@@ -483,7 +499,8 @@ namespace Quqe
     {
       Chromosome = new List<VGene> {
         new VGene<int>("NetworkType", 0, 1, 1),
-        new VGene<int>("ElmanTrainingEpochs", 20, 10, 1),
+        //new VGene<int>("NetworkType", 1, 1, 1),
+        new VGene<int>("ElmanTrainingEpochs", 20, 200, 1),
         //new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
         new VGene<int>("DatabaseType", 0, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
@@ -493,7 +510,7 @@ namespace Quqe
         new VGene<int>("PrincipalComponent", 0, 100, 1),
         new VGene<double>("RbfNetTolerance", 0, 1, 0.001),
         new VGene<double>("RbfGaussianSpread", 0.1, 10, 0.01),
-        new VGene<int>("ElmanHidden1NodeCount", 3, 100, 1),
+        new VGene<int>("ElmanHidden1NodeCount", 3, 150, 1),
         new VGene<int>("ElmanHidden2NodeCount", 3, 100, 1)
         //new VGene<int>("ElmanHidden1NodeCount", 3, 200, 1),
         //new VGene<int>("ElmanHidden2NodeCount", 3, 200, 1)
@@ -511,7 +528,7 @@ namespace Quqe
       return Expert;
     }
 
-    Random Random = new Random();
+    static Random Random = new Random();
     public List<VMember> CrossoverAndMutate(VMember other)
     {
       var a = Chromosome.ToList();
@@ -680,7 +697,7 @@ namespace Quqe
       int offset = Math.Min((int)(Member.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
       int size = Math.Max(1, Math.Min((int)(Member.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
       var outputs = Versace.TrainingOutput.SubVector(offset, size);
-      var inputs = Versace.TrainingInput.Columns().Skip(offset).Take(size).ToList();
+      var inputs = Versace.TrainingInput.Columns().Skip(offset).Take(size).ToList(); // TODO: don't call Columns
       inputs = Preprocess(inputs, true);
 
       if (Member.NetworkType == NetworkType.Elman)

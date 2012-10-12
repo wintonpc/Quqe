@@ -66,7 +66,7 @@ namespace Quqe
 
     public static RBFNet Train(Matrix trainingData, Vector outputData, double tolerance, double spread, out double recommendedSpread)
     {
-      var solution = SolveOLS(trainingData.Columns(), outputData.ToList(), tolerance, spread);
+      var solution = SolveOLS(trainingData.Columns(), outputData.ToList(), tolerance, spread); // TODO: don't call Columns
       recommendedSpread = solution.RecommendedSpread;
       return new RBFNet(solution.Bases.Where(b => b.Center != null).ToList(), solution.Bases.Single(b => b.Center == null).Weight, spread, solution.IsDegenerate);
     }

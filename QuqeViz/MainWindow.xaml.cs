@@ -16,6 +16,7 @@ using Vector = MathNet.Numerics.LinearAlgebra.Double.Vector;
 using Matrix = MathNet.Numerics.LinearAlgebra.Double.Matrix;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Runtime;
 
 namespace QuqeViz
 {
@@ -932,6 +933,8 @@ namespace QuqeViz
 
     private void VersaceEvolveButton_Click(object sender, RoutedEventArgs e)
     {
+      Trace.WriteLine("MaxWorkingSet: " + Process.GetCurrentProcess().MaxWorkingSet.ToString("N0"));
+      GCSettings.LatencyMode = GCLatencyMode.Batch;
       Thread t = new Thread(() => Versace.Evolve());
       t.Start();
     }
