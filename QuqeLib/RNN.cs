@@ -649,7 +649,7 @@ rank=same;");
 
     public XElement ToXml()
     {
-      return new XElement("Network", new XAttribute("Type", NetworkType.Elman),
+      return new XElement("Network", new XAttribute("Type", NetworkType.RNN),
         new XElement("InputCount", NumInputs),
         new XElement("LayerSpecs", LayerSpecs.Select(x => x.ToXml()).ToArray()),
         new XElement("Weights", VersaceResult.DoublesToBase64(GetWeightVector())));

@@ -933,8 +933,6 @@ namespace QuqeViz
 
     private void VersaceEvolveButton_Click(object sender, RoutedEventArgs e)
     {
-      Trace.WriteLine("MaxWorkingSet: " + Process.GetCurrentProcess().MaxWorkingSet.ToString("N0"));
-      GCSettings.LatencyMode = GCLatencyMode.Batch;
       Thread t = new Thread(() => Versace.Evolve());
       t.Start();
     }

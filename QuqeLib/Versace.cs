@@ -15,6 +15,7 @@ using System.Xml.Serialization;
 using System.Xml.Linq;
 using System.Xml;
 using System.Threading.Tasks;
+using System.Runtime;
 
 namespace Quqe
 {
@@ -278,13 +279,13 @@ namespace Quqe
     static Random Random = new Random();
     public static VersaceResult Evolve()
     {
+      GCSettings.LatencyMode = GCLatencyMode.Batch;
       var fitnessHistory = new List<double>();
       var population = List.Repeat(POPULATION_SIZE, n => new VMixture());
       VMixture bestMixture = null;
       for (int epoch = 0; epoch < EPOCH_COUNT; epoch++)
       {
         Trace.WriteLine(string.Format("Epoch {0} started {1}", epoch, DateTime.Now));
-        var experts = population.SelectMany(mixture => mixture.Members).Select(c => c.RefreshExpert()).ToList();
 
         int numTrained = 0;
         object trainLock = new object();
@@ -292,7 +293,7 @@ namespace Quqe
           lock (trainLock)
           {
             numTrained++;
-            Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, experts.Count));
+            Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, EXPERTS_PER_MIXTURE * POPULATION_SIZE));
             if (numTrained % 10 == 0)
               GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
           }
@@ -304,7 +305,8 @@ namespace Quqe
         {
           RBFNet.ShouldTrace = true;
           RNN.ShouldTrace = true;
-          foreach (var expert in experts)
+          foreach (var expert in population.Where(mixture => mixture.Fitness == 0)
+            .SelectMany(mixture => mixture.Members).Select(c => c.RefreshExpert()))
           {
             expert.Train();
             trainedOne();
@@ -315,16 +317,15 @@ namespace Quqe
           RBFNet.ShouldTrace = false;
           RNN.ShouldTrace = false;
           // optimize training order to keep the most load on the CPUs
-          var allExperts = population.SelectMany(mixture => mixture.Members).ToList();
-          var rnnExperts = allExperts.Where(x => x.NetworkType == NetworkType.Elman).OrderByDescending(x => {
+          var allUntrainedExperts = population.Where(mixture => mixture.Fitness == 0).SelectMany(mixture => mixture.Members).ToList();
+          var rnnExperts = allUntrainedExperts.Where(x => x.NetworkType == NetworkType.RNN).OrderByDescending(x => {
             var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseADimension : TrainingInput.RowCount);
             return x.ElmanHidden1NodeCount * x.ElmanHidden2NodeCount * x.ElmanTrainingEpochs * inputFactor;
           }).ToList();
-          var rbfExperts = allExperts.Where(x => x.NetworkType == NetworkType.RBF).OrderByDescending(x => {
+          var rbfExperts = allUntrainedExperts.Where(x => x.NetworkType == NetworkType.RBF).OrderByDescending(x => {
             var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseADimension : TrainingInput.RowCount);
             return x.TrainingSizePct * inputFactor;
           }).ToList();
-          //var reordered = rnnExperts.Interleave(rbfExperts).ToList();
           var reordered = rnnExperts.Concat(rbfExperts).ToList();
           Parallel.Invoke(new ParallelOptions { MaxDegreeOfParallelism = 8 },
             reordered
@@ -334,26 +335,27 @@ namespace Quqe
             })).ToArray());
         }
 
-        foreach (var mixture in population)
+        foreach (var mixture in population.Where(mixture => mixture.Fitness == 0))
           mixture.ComputeFitness();
         var oldPopulation = population.ToList();
-        var selected = population.OrderByDescending(m => m.Fitness).Take(SELECTION_SIZE).ToList();
-        population = new List<VMixture>();
+        var rankedPopulation = population.OrderByDescending(m => m.Fitness).ToList();
+        var selected = rankedPopulation.Take(SELECTION_SIZE).Shuffle().ToList();
+        population = rankedPopulation.Take(POPULATION_SIZE - SELECTION_SIZE).ToList();
 
-        List.Repeat(POPULATION_SIZE / 2, i => {
-          var parent1 = selected[Random.Next(SELECTION_SIZE)];
-          var parent2 = selected.Except(List.Create(parent1)).ElementAt(Random.Next(SELECTION_SIZE - 1));
-          population.AddRange(parent1.CrossoverAndMutate(parent2));
-        });
+        Debug.Assert(selected.Count % 2 == 0);
+        for (int i = 0; i < selected.Count; i += 2)
+          population.AddRange(selected[i].Crossover(selected[i + 1]));
 
-        var bestThisEpoch = selected.First();
+        population = population.Select(x => x.Mutate()).ToList();
+
+        var bestThisEpoch = rankedPopulation.First();
         if (bestMixture == null || bestThisEpoch.Fitness > bestMixture.Fitness)
           bestMixture = bestThisEpoch;
         fitnessHistory.Add(bestThisEpoch.Fitness);
         Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}%   (Best: {2:N1}%)", epoch, bestThisEpoch.Fitness * 100.0, bestMixture.Fitness * 100.0));
         var oldChromosomes = oldPopulation.SelectMany(m => m.Members).ToList();
         Trace.WriteLine(string.Format("Epoch {0} composition:   Elman {1:N1}%   RBF {2:N1}%", epoch,
-          (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.Elman) / oldChromosomes.Count * 100,
+          (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.RNN) / oldChromosomes.Count * 100,
           (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.RBF) / oldChromosomes.Count * 100));
         Trace.WriteLine(string.Format("Epoch {0} ended {1}", epoch, DateTime.Now));
         GC.Collect();
@@ -500,8 +502,8 @@ namespace Quqe
       Chromosome = new List<VGene> {
         new VGene<int>("NetworkType", 0, 1, 1),
         //new VGene<int>("NetworkType", 1, 1, 1),
-        new VGene<int>("ElmanTrainingEpochs", 20, 200, 1),
-        //new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
+        //new VGene<int>("ElmanTrainingEpochs", 20, 200, 1),
+        new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
         new VGene<int>("DatabaseType", 0, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
         new VGene<double>("TrainingSizePct", 0, 1, 0.00001),
@@ -533,6 +535,20 @@ namespace Quqe
     {
       var a = Chromosome.ToList();
       var b = other.Chromosome.ToList();
+      Crossover(a, b);
+
+      return List.Create(new VMember(Mutate(a)), new VMember(Mutate(b)));
+    }
+
+    public List<VMember> Crossover(VMember other)
+    {
+      return Crossover(Chromosome, other.Chromosome).Select(c => new VMember(c)).ToList();
+    }
+
+    static List<List<VGene>> Crossover(IEnumerable<VGene> x, IEnumerable<VGene> y)
+    {
+      var a = x.ToList();
+      var b = y.ToList();
       for (int i = 0; i < a.Count; i++)
         if (Random.Next(2) == 0)
         {
@@ -540,10 +556,17 @@ namespace Quqe
           a[i] = b[i];
           b[i] = t;
         }
+      return List.Create(a, b);
+    }
 
-      Func<List<VGene>, List<VGene>> mutate = genes => genes.Select(g => Random.NextDouble() < Versace.MUTATION_RATE ? g.Mutate() : g).ToList();
+    public VMember Mutate()
+    {
+      return new VMember(Mutate(Chromosome));
+    }
 
-      return List.Create(new VMember(mutate(a)), new VMember(mutate(b)));
+    static List<VGene> Mutate(IEnumerable<VGene> genes)
+    {
+      return genes.Select(g => Random.NextDouble() < Versace.MUTATION_RATE ? g.Mutate() : g).ToList();
     }
 
     TValue GetGeneValue<TValue>(string name) where TValue : struct
@@ -556,7 +579,7 @@ namespace Quqe
       ((VGene<TValue>)Chromosome.First(g => g.Name == name)).Value = value;
     }
 
-    public NetworkType NetworkType { get { return GetGeneValue<int>("NetworkType") == 0 ? NetworkType.Elman : NetworkType.RBF; } }
+    public NetworkType NetworkType { get { return GetGeneValue<int>("NetworkType") == 0 ? NetworkType.RNN : NetworkType.RBF; } }
     public int ElmanTrainingEpochs { get { return GetGeneValue<int>("ElmanTrainingEpochs"); } }
     public DatabaseType DatabaseType { get { return GetGeneValue<int>("DatabaseType") == 0 ? DatabaseType.A : DatabaseType.B; } }
     public double TrainingOffsetPct { get { return GetGeneValue<double>("TrainingOffsetPct"); } }
@@ -591,7 +614,7 @@ namespace Quqe
     }
   }
 
-  public enum NetworkType { Elman, RBF }
+  public enum NetworkType { RNN, RBF }
   public enum DatabaseType { A, B }
 
   public class VMixture : IPredictor
@@ -614,6 +637,19 @@ namespace Quqe
       return List.Create(
         new VMixture(q.Select(x => x[0]).ToList()),
         new VMixture(q.Select(x => x[1]).ToList()));
+    }
+
+    public List<VMixture> Crossover(VMixture other)
+    {
+      var q = Members.Zip(other.Members, (a, b) => a.Crossover(b));
+      return List.Create(
+        new VMixture(q.Select(x => x[0]).ToList()),
+        new VMixture(q.Select(x => x[1]).ToList()));
+    }
+
+    public VMixture Mutate()
+    {
+      return new VMixture(Members.Select(x => x.Mutate()).ToList());
     }
 
     public double Fitness { get; private set; }
@@ -671,7 +707,7 @@ namespace Quqe
         var mi = members[i];
         var ss = new List<string>();
         ss.Add(mi.NetworkType.ToString());
-        if (mi.NetworkType == NetworkType.Elman)
+        if (mi.NetworkType == NetworkType.RNN)
           ss.Add(string.Format("{0}-{1}-1:{2}", mi.ElmanHidden1NodeCount, mi.ElmanHidden2NodeCount, mi.ElmanTrainingEpochs));
         else
           ss.Add(string.Format("{0} centers, spread = {1}",
@@ -735,7 +771,7 @@ namespace Quqe
       var inputs = Versace.TrainingInput.Columns().Skip(offset).Take(size).ToList(); // TODO: don't call Columns
       inputs = Preprocess(inputs, true);
 
-      if (Member.NetworkType == NetworkType.Elman)
+      if (Member.NetworkType == NetworkType.RNN)
       {
         var rnn = new RNN(inputs.First().Count, new List<LayerSpec> {
           new LayerSpec {
@@ -793,7 +829,7 @@ namespace Quqe
       var ePc = eExpert.Element("PrincipalComponents");
       var eNetwork = eExpert.Element("Network");
       var expert = new Expert(member) {
-        Network = eNetwork.Attribute("Type").Value == NetworkType.Elman.ToString()
+        Network = eNetwork.Attribute("Type").Value == NetworkType.RNN.ToString()
           ? (IPredictor)RNN.Load(eNetwork) : (IPredictor)RBFNet.Load(eNetwork)
       };
       if (ePc != null)
