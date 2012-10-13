@@ -594,7 +594,7 @@ namespace Quqe
   public enum NetworkType { Elman, RBF }
   public enum DatabaseType { A, B }
 
-  public class VMixture
+  public class VMixture : IPredictor
   {
     public List<VMember> Members { get; private set; }
 
@@ -625,16 +625,27 @@ namespace Quqe
         expert.Reset();
       for (int j = 0; j < Versace.ValidationOutput.Count; j++)
       {
-        var vote = Math.Sign(experts.Average(x => {
-          double prediction = x.Predict(Versace.ValidationInput.Column(j));
-          return prediction;
-        }));
+        var vote = Predict(Versace.ValidationInput.Column(j));
         Debug.Assert(vote != 0);
         if (Versace.ValidationOutput[j] == vote)
           correctCount++;
       }
       Fitness = (double)correctCount / Versace.ValidationOutput.Count;
       return Fitness;
+    }
+
+    public double Predict(Vector<double> input)
+    {
+      return Math.Sign(Members.Select(x => x.Expert).Average(x => {
+        double prediction = x.Predict(input);
+        return prediction;
+      }));
+    }
+
+    public void Reset()
+    {
+      foreach (var m in Members)
+        m.Expert.Reset();
     }
 
     public XElement ToXml()
@@ -650,6 +661,30 @@ namespace Quqe
       mixture.Fitness = double.Parse(eMixture.Attribute("Fitness").Value);
       return mixture;
     }
+
+    public void Dump()
+    {
+      Trace.WriteLine("Mixture, fitness: " + Fitness);
+      var members = Members.OrderBy(x => x.NetworkType).ToList();
+      for (int i = 0; i < members.Count; i++)
+      {
+        var mi = members[i];
+        var ss = new List<string>();
+        ss.Add(mi.NetworkType.ToString());
+        if (mi.NetworkType == NetworkType.Elman)
+          ss.Add(string.Format("{0}-{1}-1:{2}", mi.ElmanHidden1NodeCount, mi.ElmanHidden2NodeCount, mi.ElmanTrainingEpochs));
+        else
+          ss.Add(string.Format("{0} centers, spread = {1}",
+            ((RBFNet)mi.Expert.Network).NumCenters, ((RBFNet)mi.Expert.Network).Spread));
+        ss.Add("Training set size = " + (int)(mi.TrainingSizePct * Versace.TrainingOutput.Count));
+        if (mi.UseComplementCoding)
+          ss.Add("CC");
+        if (mi.UsePrincipalComponentAnalysis)
+          ss.Add("PC=" + mi.PrincipalComponent);
+        ss.Add("DB=" + mi.DatabaseType);
+        Trace.WriteLine("Expert " + i + ": " + ss.Join(", "));
+      }
+    }
   }
 
   public interface IPredictor
@@ -662,7 +697,7 @@ namespace Quqe
   public class Expert : IPredictor
   {
     VMember Member;
-    IPredictor Network;
+    public IPredictor Network;
     Matrix PrincipalComponents;
 
     public Expert(VMember member)

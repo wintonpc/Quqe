@@ -52,9 +52,10 @@ namespace Quqe
   {
     List<RadialBasis> Bases;
     double OutputBias;
-    double Spread;
+    public readonly double Spread;
     public static bool ShouldTrace = true;
     public bool IsDegenerate { get; private set; }
+    public int NumCenters { get { return Bases.Count; } }
 
     RBFNet(List<RadialBasis> bases, double outputBias, double spread, bool isDegenerate)
     {

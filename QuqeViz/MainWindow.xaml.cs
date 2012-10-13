@@ -943,7 +943,51 @@ namespace QuqeViz
     {
       var fn = Directory.EnumerateFiles("VersaceResults").OrderByDescending(x => new FileInfo(x).LastWriteTime).First();
       var vr = VersaceResult.Load(fn);
-      vr.Save();
+      var m = vr.BestMixture;
+      m.Dump();
+
+      var ch = new EqPlotWindow();
+      ch.EqPlot.Bounds = new Rect(0, vr.FitnessHistory.Min(), vr.FitnessHistory.Count, vr.FitnessHistory.Max() - vr.FitnessHistory.Min());
+      ch.EqPlot.DrawLine(List.Repeat(vr.FitnessHistory.Count, i => new Point(i, vr.FitnessHistory[i])), Colors.Blue);
+      ch.Show();
+
+      m.Reset();
+      var output = Versace.ValidationInput.Columns().Select(x => (double)Math.Sign(m.Predict(x))).ToList();
+      var inputSeries = new DataSeries<Bar>(Versace.DIA.Symbol, Versace.DIA.Skip(Versace.TrainingOutput.Count));
+      var idealSignal = new DataSeries<Value>("", Versace.ValidationOutput.ToDataSeries(inputSeries));
+      var actualSignal = new DataSeries<Value>("", output.ToDataSeries(inputSeries));
+      var diff = idealSignal.ZipElements<Value, Value>(actualSignal, (i, a, _) => i[0].Val == a[0].Val ? 1 : -1);
+      Trace.WriteLine(string.Format("Accuracy: {0:N1}%", (double)diff.Count(x => x.Val == 1) / diff.Length * 100));
+
+      var w = new ChartWindow();
+      var g1 = w.Chart.AddGraph();
+      g1.Plots.Add(new Plot {
+        Title = "DIA",
+        DataSeries = inputSeries,
+        Type = PlotType.Candlestick
+      });
+      var g2 = w.Chart.AddGraph();
+      g2.Plots.Add(new Plot {
+        Title = "IdealSignal",
+        DataSeries = idealSignal,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+      var g3 = w.Chart.AddGraph();
+      g3.Plots.Add(new Plot {
+        Title = "ActualSignal",
+        DataSeries = actualSignal,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+      var g4 = w.Chart.AddGraph();
+      g4.Plots.Add(new Plot {
+        Title = "Diff",
+        DataSeries = diff,
+        Type = PlotType.Bar,
+        Color = Brushes.Blue
+      });
+      w.Show();
     }
   }
 }
