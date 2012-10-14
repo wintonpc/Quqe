@@ -957,7 +957,7 @@ namespace Quqe
       return Random.NextDouble() * (max - min) + min;
     }
 
-    static bool WithProb(double probability)
+    public static bool WithProb(double probability)
     {
       return Random.NextDouble() < probability;
     }

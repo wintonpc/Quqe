@@ -75,6 +75,7 @@ namespace Quqe
     public const int EPOCH_COUNT = 100;
     //public const int EPOCH_COUNT = 1;
     public const double MUTATION_RATE = 0.05;
+    public const double MUTATION_DAMPING = 4;
 
     public static List<string> Tickers = List.Create(
       "DIA", "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP", "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/
@@ -478,7 +479,23 @@ namespace Quqe
     static Random Random = new Random();
     public override VGene Mutate()
     {
-      return new VGene<TValue>(Name, Min, Max, Granularity, RandomValue());
+      //return new VGene<TValue>(Name, Min, Max, Granularity, RandomValue());
+      var doubleValue = (double)Convert.ChangeType(Value, typeof(double));
+      if (Min == 0 && Max == 1 && Value is int)
+      {
+        if (Optimizer.WithProb(1 / Versace.MUTATION_DAMPING))
+          doubleValue = 1 - doubleValue;
+        return new VGene<TValue>(Name, Min, Max, Granularity, (TValue)Convert.ChangeType(doubleValue, typeof(TValue)));
+      }
+      else
+      {
+        var rand = Optimizer.RandomDouble(Min, Max);
+        var weighted = (Versace.MUTATION_DAMPING * doubleValue + rand) / (Versace.MUTATION_DAMPING + 1);
+        var quantized = (TValue)Convert.ChangeType(
+            Optimizer.Quantize(weighted, Min, Granularity),
+            typeof(TValue));
+        return new VGene<TValue>(Name, Min, Max, Granularity, quantized);
+      }
     }
 
     public override XElement ToXml()
@@ -502,7 +519,7 @@ namespace Quqe
       Chromosome = new List<VGene> {
         new VGene<int>("NetworkType", 0, 1, 1),
         //new VGene<int>("NetworkType", 1, 1, 1),
-        //new VGene<int>("ElmanTrainingEpochs", 20, 200, 1),
+        //new VGene<int>("ElmanTrainingEpochs", 20, 20, 1),
         new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
         new VGene<int>("DatabaseType", 0, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
@@ -710,8 +727,12 @@ namespace Quqe
         if (mi.NetworkType == NetworkType.RNN)
           ss.Add(string.Format("{0}-{1}-1:{2}", mi.ElmanHidden1NodeCount, mi.ElmanHidden2NodeCount, mi.ElmanTrainingEpochs));
         else
+        {
           ss.Add(string.Format("{0} centers, spread = {1}",
             ((RBFNet)mi.Expert.Network).NumCenters, ((RBFNet)mi.Expert.Network).Spread));
+          if (((RBFNet)mi.Expert.Network).IsDegenerate)
+            ss.Add("!! DEGENERATE !!");
+        }
         ss.Add("Training set size = " + (int)(mi.TrainingSizePct * Versace.TrainingOutput.Count));
         if (mi.UseComplementCoding)
           ss.Add("CC");
