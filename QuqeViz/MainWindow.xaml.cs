@@ -933,7 +933,17 @@ namespace QuqeViz
 
     private void VersaceEvolveButton_Click(object sender, RoutedEventArgs e)
     {
-      Thread t = new Thread(() => Versace.Evolve());
+      var ch = new EqPlotWindow();
+      ch.Show();
+      var mainSync = SyncContext.Current;
+      Action<List<double>> updateHistoryWindow = history => {
+        mainSync.Post(() => {
+          ch.EqPlot.Clear(Colors.White);
+          ch.EqPlot.Bounds = new Rect(0, history.Min(), history.Count, history.Max() - history.Min());
+          ch.EqPlot.DrawLine(List.Repeat(history.Count, i => new Point(i, history[i])), Colors.Blue);
+        });
+      };
+      Thread t = new Thread(() => Versace.Evolve(updateHistoryWindow));
       t.Start();
     }
 

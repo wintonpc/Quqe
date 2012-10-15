@@ -72,10 +72,10 @@ namespace Quqe
     public const int EXPERTS_PER_MIXTURE = 10;
     public const int POPULATION_SIZE = 10;
     public const int SELECTION_SIZE = 4;
-    public const int EPOCH_COUNT = 100;
-    //public const int EPOCH_COUNT = 1;
+    //public const int EPOCH_COUNT = 100;
+    public const int EPOCH_COUNT = 200;
     public const double MUTATION_RATE = 0.05;
-    public const double MUTATION_DAMPING = 4;
+    public const double MUTATION_DAMPING = 2;
 
     public static List<string> Tickers = List.Create(
       "DIA", "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP", "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/
@@ -278,7 +278,7 @@ namespace Quqe
     }
 
     static Random Random = new Random();
-    public static VersaceResult Evolve()
+    public static VersaceResult Evolve(Action<List<double>> historyChanged = null)
     {
       GCSettings.LatencyMode = GCLatencyMode.Batch;
       var fitnessHistory = new List<double>();
@@ -353,6 +353,8 @@ namespace Quqe
         if (bestMixture == null || bestThisEpoch.Fitness > bestMixture.Fitness)
           bestMixture = bestThisEpoch;
         fitnessHistory.Add(bestThisEpoch.Fitness);
+        if (historyChanged != null)
+          historyChanged(fitnessHistory);
         Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}%   (Best: {2:N1}%)", epoch, bestThisEpoch.Fitness * 100.0, bestMixture.Fitness * 100.0));
         var oldChromosomes = oldPopulation.SelectMany(m => m.Members).ToList();
         Trace.WriteLine(string.Format("Epoch {0} composition:   Elman {1:N1}%   RBF {2:N1}%", epoch,
@@ -447,7 +449,7 @@ namespace Quqe
   {
     public readonly string Name;
     public VGene(string name) { Name = name; }
-    public abstract VGene Mutate();
+    public abstract VGene Mutate(double dampingFactor);
     public abstract XElement ToXml();
     public abstract void SetXmlValue(string value);
   }
@@ -477,20 +479,20 @@ namespace Quqe
     }
 
     static Random Random = new Random();
-    public override VGene Mutate()
+    public override VGene Mutate(double dampingFactor)
     {
       //return new VGene<TValue>(Name, Min, Max, Granularity, RandomValue());
       var doubleValue = (double)Convert.ChangeType(Value, typeof(double));
       if (Min == 0 && Max == 1 && Value is int)
       {
-        if (Optimizer.WithProb(1 / Versace.MUTATION_DAMPING))
+        if (Optimizer.WithProb(1 / dampingFactor))
           doubleValue = 1 - doubleValue;
         return new VGene<TValue>(Name, Min, Max, Granularity, (TValue)Convert.ChangeType(doubleValue, typeof(TValue)));
       }
       else
       {
         var rand = Optimizer.RandomDouble(Min, Max);
-        var weighted = (Versace.MUTATION_DAMPING * doubleValue + rand) / (Versace.MUTATION_DAMPING + 1);
+        var weighted = (dampingFactor * doubleValue + rand) / (dampingFactor + 1);
         var quantized = (TValue)Convert.ChangeType(
             Optimizer.Quantize(weighted, Min, Granularity),
             typeof(TValue));
@@ -583,7 +585,7 @@ namespace Quqe
 
     static List<VGene> Mutate(IEnumerable<VGene> genes)
     {
-      return genes.Select(g => Random.NextDouble() < Versace.MUTATION_RATE ? g.Mutate() : g).ToList();
+      return genes.Select(g => Random.NextDouble() < Versace.MUTATION_RATE ? g.Mutate(Versace.MUTATION_DAMPING) : g).ToList();
     }
 
     TValue GetGeneValue<TValue>(string name) where TValue : struct
