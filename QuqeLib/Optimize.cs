@@ -429,7 +429,7 @@ namespace Quqe
       return (Vector)new DenseVector(size).Random(size, new ContinuousUniform(min, max));
     }
 
-    static TrainResult<TParams> Anneal<TParams>(TParams initialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc,
+    internal static TrainResult<TParams> Anneal<TParams>(TParams initialParams, Func<TParams, double, TParams> mutate, Func<TParams, double> costFunc,
       int iterations = 40000,
       int? firstIteration = null, int? lastIteration = null, bool partialCool = false)
     {
@@ -455,7 +455,7 @@ namespace Quqe
         var nextParams = mutate(currentParams, temperature * GeneMagnitude);
         var nextCost = costFunc(nextParams);
 
-        var divisor = Math.Max(1, iterations / 1000);
+        var divisor = 1; // Math.Max(1, iterations / 1000);
         if (i % divisor == 0)
         {
           if (ShowTrace)

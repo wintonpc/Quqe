@@ -943,7 +943,8 @@ namespace QuqeViz
           ch.EqPlot.DrawLine(List.Repeat(history.Count, i => new Point(i, history[i])), Colors.Blue);
         });
       };
-      Thread t = new Thread(() => Versace.Evolve(updateHistoryWindow));
+      //Thread t = new Thread(() => Versace.Evolve(updateHistoryWindow));
+      Thread t = new Thread(() => Versace.Anneal(updateHistoryWindow));
       t.Start();
     }
 

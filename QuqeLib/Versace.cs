@@ -372,6 +372,26 @@ namespace Quqe
       return result;
     }
 
+    public static VersaceResult Anneal(Action<List<double>> historyChanged = null)
+    {
+      RBFNet.ShouldTrace = false;
+      RNN.ShouldTrace = false;
+      var fitnessHistory = new List<double>();
+      var tr = Optimizer.Anneal<VMixture>(new VMixture(), (m, temp) => m.Mutate(1, (1 - temp) * 20), m => {
+        Parallel.Invoke(m.Members.Select(x => new Action(() => { x.RefreshExpert(); x.Expert.Train(); })).ToArray());
+        var fitness = m.ComputeFitness();
+        fitnessHistory.Add(fitness);
+        historyChanged(fitnessHistory);
+        return -fitness;
+      }, iterations: 500);
+      var result = new VersaceResult {
+        BestMixture = tr.Params,
+        FitnessHistory = tr.CostHistory.Select(x => -x).ToList()
+      };
+      result.Save();
+      return result;
+    }
+
     public static void GetData()
     {
       var dir = @"c:\users\wintonpc\git\Quqe\Share\VersaceData";
@@ -578,14 +598,14 @@ namespace Quqe
       return List.Create(a, b);
     }
 
-    public VMember Mutate()
+    public VMember Mutate(double mutationRate = Versace.MUTATION_RATE, double dampingFactor = Versace.MUTATION_DAMPING)
     {
-      return new VMember(Mutate(Chromosome));
+      return new VMember(Mutate(Chromosome, mutationRate, dampingFactor));
     }
 
-    static List<VGene> Mutate(IEnumerable<VGene> genes)
+    static List<VGene> Mutate(IEnumerable<VGene> genes, double mutationRate = Versace.MUTATION_RATE, double dampingFactor = Versace.MUTATION_DAMPING)
     {
-      return genes.Select(g => Random.NextDouble() < Versace.MUTATION_RATE ? g.Mutate(Versace.MUTATION_DAMPING) : g).ToList();
+      return genes.Select(g => Random.NextDouble() < mutationRate ? g.Mutate(dampingFactor) : g).ToList();
     }
 
     TValue GetGeneValue<TValue>(string name) where TValue : struct
@@ -666,9 +686,9 @@ namespace Quqe
         new VMixture(q.Select(x => x[1]).ToList()));
     }
 
-    public VMixture Mutate()
+    public VMixture Mutate(double mutationRate = Versace.MUTATION_RATE, double dampingFactor = Versace.MUTATION_DAMPING)
     {
-      return new VMixture(Members.Select(x => x.Mutate()).ToList());
+      return new VMixture(Members.Select(x => x.Mutate(mutationRate, dampingFactor)).ToList());
     }
 
     public double Fitness { get; private set; }
