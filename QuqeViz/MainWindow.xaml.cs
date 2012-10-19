@@ -943,15 +943,17 @@ namespace QuqeViz
           ch.EqPlot.DrawLine(List.Repeat(history.Count, i => new Point(i, history[i])), Colors.Blue);
         });
       };
-      //Thread t = new Thread(() => Versace.Evolve(updateHistoryWindow));
-      Thread t = new Thread(() => Versace.Anneal(updateHistoryWindow));
+      Thread t = new Thread(() => Versace.Evolve(updateHistoryWindow));
+      //var prevResult = VersaceResult.Load("VersaceResults/VersaceResult-20121015-065326.xml");
+      //Thread t = new Thread(() => Versace.Anneal(prevResult.BestMixture, updateHistoryWindow));
       t.Start();
     }
 
     private void BacktestVersaceButton_Click(object sender, RoutedEventArgs e)
     {
       var fn = Directory.EnumerateFiles("VersaceResults").OrderByDescending(x => new FileInfo(x).LastWriteTime).First();
-      var vr = VersaceResult.Load(fn);
+      //var vr = VersaceResult.Load(fn);
+      var vr = VersaceResult.Load("VersaceResults/VersaceResult-20121015-065326.xml");
       var m = vr.BestMixture;
       m.Dump();
 
@@ -997,6 +999,43 @@ namespace QuqeViz
         Color = Brushes.Blue
       });
       w.Show();
+    }
+
+    private void GrillButton_Click(object sender, RoutedEventArgs e)
+    {
+      var ch = new EqPlotWindow();
+      ch.Show();
+      var mainSync = SyncContext.Current;
+      Action<List<double>> updateHistoryWindow = history => {
+        mainSync.Post(() => {
+          ch.EqPlot.Clear(Colors.White);
+          ch.EqPlot.Bounds = new Rect(0, history.Min(), history.Count, history.Max() - history.Min());
+          ch.EqPlot.DrawLine(List.Repeat(history.Count, i => new Point(i, history[i])), Colors.Blue);
+        });
+      };
+
+
+      var vr = VersaceResult.Load("VersaceResults/VersaceResult-20121015-065326.xml");
+      Thread t = new Thread(() => {
+        RNN.ShouldTrace = false;
+        RBFNet.ShouldTrace = false;
+        Trace.WriteLine("Original fitness: " + vr.BestMixture.Fitness);
+        VMixture m = vr.BestMixture;
+        var fitnessHistory = new List<double> { m.Fitness };
+        updateHistoryWindow(fitnessHistory);
+        for (int i = 0; i < 100; i++)
+        {
+          Parallel.ForEach(m.Members, member => {
+            member.RefreshExpert();
+            member.Expert.TrainEx(rnnTrialCount: 4);
+          });
+          m.ComputeFitness();
+          Trace.WriteLine("[" + i + "] Fitness: " + m.Fitness);
+          fitnessHistory.Add(m.Fitness);
+          updateHistoryWindow(fitnessHistory);
+        }
+      });
+      t.Start();
     }
   }
 }

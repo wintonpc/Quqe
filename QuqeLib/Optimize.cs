@@ -443,9 +443,11 @@ namespace Quqe
       double avgAccept = 1;
       double avgReject = 1;
 
+      var costHistory = new List<double>();
       double takeAnywayProbability = 0;
       TParams currentParams = initialParams;
       var currentCost = costFunc(currentParams);
+      costHistory.Add(currentCost);
       var bestParams = currentParams;
       var bestCost = currentCost;
       double averageEscapeCostPremium = 0;
@@ -466,6 +468,7 @@ namespace Quqe
         Action takeNext = () => {
           currentParams = nextParams;
           currentCost = nextCost;
+          costHistory.Add(currentCost);
           if (currentCost < bestCost)
           {
             bestParams = currentParams;
@@ -497,7 +500,8 @@ namespace Quqe
         Trace.WriteLine("Best cost: " + bestCost);
       return new TrainResult<TParams> {
         Params = bestParams,
-        Cost = bestCost
+        Cost = bestCost,
+        CostHistory = costHistory
       };
     }
 

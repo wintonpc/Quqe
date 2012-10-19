@@ -1,6 +1,7 @@
 Share/*.exe
 Share/*.dll
 Share/*.pdb
+Share/VersaceResults/*
 *.vsp
 */bin
 */obj

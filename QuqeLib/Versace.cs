@@ -72,10 +72,10 @@ namespace Quqe
     public const int EXPERTS_PER_MIXTURE = 10;
     public const int POPULATION_SIZE = 10;
     public const int SELECTION_SIZE = 4;
-    //public const int EPOCH_COUNT = 100;
-    public const int EPOCH_COUNT = 200;
+    public const int EPOCH_COUNT = 100;
+    //public const int EPOCH_COUNT = 200;
     public const double MUTATION_RATE = 0.05;
-    public const double MUTATION_DAMPING = 2;
+    public const double MUTATION_DAMPING = 0;
 
     public static List<string> Tickers = List.Create(
       "DIA", "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP", "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/
@@ -332,6 +332,7 @@ namespace Quqe
             reordered
             .Select(c => c.RefreshExpert()).Select(expert => new Action(() => {
               expert.Train();
+              //expert.TrainEx(rnnTrialCount: 3);
               trainedOne();
             })).ToArray());
         }
@@ -347,7 +348,14 @@ namespace Quqe
         for (int i = 0; i < selected.Count; i += 2)
           population.AddRange(selected[i].Crossover(selected[i + 1]));
 
-        population = population.Select(x => x.Mutate()).ToList();
+        //// mutate the very best just a little bit for some variation
+        //for (int i = 0; i < SELECTION_SIZE / 2; i++)
+        //  population[i] = population[i].Mutate(mutationRate: 0.5, dampingFactor: 4);
+        //// mutate the rest entirely randomly
+        //for (int i = SELECTION_SIZE / 2; i < population.Count; i++)
+        //  population[i] = population[i].Mutate(dampingFactor: 0);
+
+        population = population.Select(x => x.Mutate(dampingFactor: 0)).ToList();
 
         var bestThisEpoch = rankedPopulation.First();
         if (bestMixture == null || bestThisEpoch.Fitness > bestMixture.Fitness)
@@ -372,18 +380,20 @@ namespace Quqe
       return result;
     }
 
-    public static VersaceResult Anneal(Action<List<double>> historyChanged = null)
+    public static VersaceResult Anneal(VMixture initialMixture = null, Action<List<double>> historyChanged = null)
     {
+      initialMixture = initialMixture ?? new VMixture();
       RBFNet.ShouldTrace = false;
       RNN.ShouldTrace = false;
-      var fitnessHistory = new List<double>();
-      var tr = Optimizer.Anneal<VMixture>(new VMixture(), (m, temp) => m.Mutate(1, (1 - temp) * 20), m => {
+      var fitnessHistory = new List<double> { initialMixture.Fitness };
+      historyChanged(fitnessHistory);
+      var tr = Optimizer.Anneal<VMixture>(initialMixture, (m, temp) => m.Mutate(1, 20 + (1 - temp) * 20), m => {
         Parallel.Invoke(m.Members.Select(x => new Action(() => { x.RefreshExpert(); x.Expert.Train(); })).ToArray());
         var fitness = m.ComputeFitness();
         fitnessHistory.Add(fitness);
         historyChanged(fitnessHistory);
         return -fitness;
-      }, iterations: 500);
+      }, iterations: 100);
       var result = new VersaceResult {
         BestMixture = tr.Params,
         FitnessHistory = tr.CostHistory.Select(x => -x).ToList()
@@ -505,7 +515,7 @@ namespace Quqe
       var doubleValue = (double)Convert.ChangeType(Value, typeof(double));
       if (Min == 0 && Max == 1 && Value is int)
       {
-        if (Optimizer.WithProb(1 / dampingFactor))
+        if (dampingFactor == 0 || Optimizer.WithProb(1 / dampingFactor))
           doubleValue = 1 - doubleValue;
         return new VGene<TValue>(Name, Min, Max, Granularity, (TValue)Convert.ChangeType(doubleValue, typeof(TValue)));
       }
@@ -692,7 +702,7 @@ namespace Quqe
     }
 
     public double Fitness { get; private set; }
-    internal double ComputeFitness()
+    public double ComputeFitness()
     {
       int correctCount = 0;
       var experts = Members.Select(x => x.Expert).ToList();
@@ -806,7 +816,9 @@ namespace Quqe
       return inputs;
     }
 
-    public void Train()
+    public void Train() { TrainEx(); }
+
+    public void TrainEx(int rnnTrialCount = 1)
     {
       int offset = Math.Min((int)(Member.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
       int size = Math.Max(1, Math.Min((int)(Member.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
@@ -833,7 +845,10 @@ namespace Quqe
             IsRecurrent = false
           }
         });
-        RNN.TrainSCG((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs);
+        if (rnnTrialCount > 1)
+          RNN.TrainSCGMulti((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, rnnTrialCount);
+        else
+          RNN.TrainSCG((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs);
         Network = rnn;
       }
       else

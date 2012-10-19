@@ -17,6 +17,7 @@
       <Button x:Name="GetVersaceDataButton" Click="GetVersaceDataButton_Click" IsEnabled="False">Get Versace Data</Button>
       <Button x:Name="VersaceEvolveButton" Click="VersaceEvolveButton_Click">Versace Evolve</Button>
       <Button x:Name="BacktestVersaceButton" Click="BacktestVersaceButton_Click">Backtest Versace</Button>
+      <Button x:Name="GrillButton" Click="GrillButton_Click">Retrain</Button>
       <StackPanel Orientation="Horizontal">
         <TextBlock VerticalAlignment="Center" Margin="12,0,4,0">Symbol:</TextBlock>
         <TextBox x:Name="SymbolBox">QQQ</TextBox>
