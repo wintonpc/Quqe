@@ -30,6 +30,8 @@ namespace QuqeViz
       InitializeComponent();
       Initialize();
       Update();
+      var btw = new BacktestWindow();
+      btw.Show();
     }
 
     public void DoBacktest(string symbol, string strategyName, double initialValue, int marginFactor, bool isValidation)
@@ -48,8 +50,6 @@ namespace QuqeViz
       bool validationWarning = DateTime.Parse(ValidationStartBox.Text) <= DateTime.Parse(TrainingEndBox.Text);
       Trace.WriteLine(string.Format("Validation:  {0}  -  {1}{2}",
         ValidationStartBox.Text, ValidationEndBox.Text, validationWarning ? " !!!!!" : ""));
-      if (strat is DTStrategy)
-        EvalAndDumpDTStrategy((DTStrategy)strat);
       Trace.WriteLine(backtestReport.ToString());
       var bs = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
       ShowBacktestChart(bs, backtestReport.Trades, signal, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
@@ -67,24 +67,6 @@ namespace QuqeViz
         }
       });
     }
-
-    public void EvalAndDumpDTStrategy(DTStrategy strat)
-    {
-      var bars = Data.Get(SymbolBox.Text);
-      var dt = strat.MakeDt(DateTime.Parse(TrainingStartBox.Text), bars.To(TrainingEndBox.Text));
-      var validationSet = strat.MakeDtExamples(DateTime.Parse(ValidationStartBox.Text), bars.To(ValidationEndBox.Text)).ToList();
-      Optimizer.DTQuality(dt, validationSet, true);
-    }
-
-    //public static void DoGenomelessBacktest(string symbol, string startDate, string endDate, Strategy strat, double initialValue, int marginFactor, bool isValidation)
-    //{
-    //  var bars = Data.Get(symbol).From(startDate).To(endDate);
-    //  strat.ApplyToBars(bars);
-    //  var backtestReport = strat.Backtest(null, new Account { Equity = initialValue, MarginFactor = marginFactor, Padding = 50 });
-    //  Trace.WriteLine(backtestReport.ToString());
-    //  Strategy.WriteTrades(backtestReport.Trades, DateTime.Now, "no-genome");
-    //  ShowBacktestChart(bars, backtestReport.Trades, initialValue, marginFactor, isValidation, strat.Name, null);
-    //}
 
     static void ShowBacktestChart(DataSeries<Bar> bars, List<TradeRecord> trades, DataSeries<SignalValue> signal,
       double initialValue, int marginFactor, bool isValidation, string strategyName, IEnumerable<StrategyParameter> sParams)
@@ -107,122 +89,17 @@ namespace QuqeViz
         Type = PlotType.Dash,
         Color = Brushes.Blue
       });
-      g1.Plots.Add(new Plot {
-        Title = "OTPD Stops",
-        DataSeries = otpdTrades.ToDataSeries(t => t.StopLimit),
-        Type = PlotType.Dash,
-        Color = Brushes.Goldenrod
-      });
-      //g1.Plots.Add(new Plot {
-      //  DataSeries = bars.Closes().LinReg(2, 1).Delay(1),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Blue
-      //});
-      //g1.Plots.Add(new Plot {
-      //  DataSeries = bars.Closes().LinReg(7, 1).Delay(1),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Red
-      //});
-      //g1.Plots.Add(new Plot {
-      //  DataSeries = signal.MapElements<Value>((s, v) => s[0].Stop),
-      //  Type = PlotType.Dash,
-      //  Color = Brushes.Blue
-      //});
       g1.AddTrades(trades);
 
-      //var g4 = w.Chart.AddGraph();
-      //g4.Plots.Add(new Plot {
-      //  Title = "RSquared(10)",
-      //  DataSeries = bars.Closes().RSquared(10).Delay(1),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.Red
-      //});
-      //g4.Plots.Add(new Plot {
-      //  DataSeries = bars.ConstantLine(0.75),
-      //  Type = PlotType.ValueLine,
-      //  Color = Brushes.GreenYellow
-      //});
-
-      //var g5 = w.Chart.AddGraph();
-      //g5.Plots.Add(new Plot {
-      //  Title = "LinRegSlope(4)",
-      //  DataSeries = bars.Closes().LinRegSlope(4).Delay(1),
-      //  Type = PlotType.Bar,
-      //  Color = Brushes.Gray
-      //});
-
-      //var g2 = w.Chart.AddGraph();
-      //g2.Plots.Add(new Plot {
-      //  Title = "Profit per trade",
-      //  DataSeries = profitPerTrade,
-      //  Type = PlotType.Bar,
-      //  Color = Brushes.Blue
-      //});
-
-      var simpleSignal = signal.ToSimpleSignal();
-      var simpleOtpdSignal = otpdTrades.ToDataSeries(t => t.PositionDirection == PositionDirection.Long ? 1 : -1)
-        .From(bars.First().Timestamp);
-      var signalDiffElements = new List<Value>();
-      DataSeries.Walk(bars, simpleSignal, simpleOtpdSignal, pos => {
-        signalDiffElements.Add(new Value(bars[0].Timestamp,
-          Math.Sign(simpleSignal[0]) == Math.Sign(simpleOtpdSignal[0]) ? 0 :
-          (simpleSignal[0] >= 0) == bars[0].IsGreen ? 1 :
-          -1));
-      });
-      var signalDiff = new DataSeries<Value>(bars.Symbol, signalDiffElements);
-
-      Trace.WriteLine(string.Format("When different, I'm right {0} times, they're right {1} times",
-        signalDiff.Count(x => x > 0), signalDiff.Count(x => x < 0)));
-
-      var y = otpdTrades.ToDataSeries(t => t.IsWin ? -1 : Math.Abs(t.Exit - t.Entry)).From(bars.First().Timestamp)
-        .ZipElements<Bar, Value>(bars, (l, b, v) => {
-          if (l[0] == -1)
-            return 0;
-          if (b[0].WaxHeight() - l[0] > 0.03)
-            return 2;
-          else
-            return 1;
-        });
-
-      //var g9 = w.Chart.AddGraph();
-      //g9.Plots.Add(new Plot {
-      //  DataSeries = y,
-      //  Type = PlotType.Bar,
-      //  Color = Brushes.DeepPink
-      //});
-
-      Trace.WriteLine(string.Format("{0}% of OTPD losses are stopped", (double)y.Count(x => x == 2) / y.Count(x => x > 0)));
-
-      var g2b = w.Chart.AddGraph();
-      g2b.Plots.Add(new Plot {
-        Title = "OTPD",
-        DataSeries = simpleOtpdSignal,
+      var g2 = w.Chart.AddGraph();
+      g2.Plots.Add(new Plot {
+        Title = "Profit per trade",
+        DataSeries = profitPerTrade,
         Type = PlotType.Bar,
-        Color = new SolidColorBrush(Color.FromArgb(128, 255, 0, 0))
-      });
-      g2b.Plots.Add(new Plot {
-        Title = "Signal",
-        DataSeries = simpleSignal,
-        Type = PlotType.Bar,
-        Color = new SolidColorBrush(Color.FromArgb(128, 0, 0, 255))
-      });
-
-      var g4 = w.Chart.AddGraph();
-      g4.Plots.Add(new Plot {
-        Title = "Pos = I was right, Neg = OTPD was right",
-        DataSeries = signalDiff,
-        Type = PlotType.Bar,
-        Color = Brushes.DarkGray
+        Color = Brushes.Blue
       });
 
       var g3 = w.Chart.AddGraph();
-      g3.Plots.Add(new Plot {
-        Title = string.Format("OTPD"),
-        DataSeries = otpdTrades.ToDataSeries(t => t.AccountValueAfterTrade),
-        Type = PlotType.ValueLine,
-        Color = Brushes.Red,
-        LineThickness = 2
-      });
       g3.Plots.Add(new Plot {
         Title = string.Format("Initial Value: ${0:N0}   Margin: {1}", initialValue, marginFactor == 1 ? "none" : marginFactor + "x"),
         DataSeries = accountValue,
@@ -285,13 +162,6 @@ namespace QuqeViz
       Settings.Default.Save();
     }
 
-    //private void BacktestButton_Click(object sender, RoutedEventArgs e)
-    //{
-    //  DoBacktest(SymbolBox.Text, TrainingStartBox.Text, TrainingEndBox.Text, (string)StrategiesBox.SelectedItem,
-    //    double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), false);
-    //  Update();
-    //}
-
     private void ValidateButton_Click(object sender, RoutedEventArgs e)
     {
       DoBacktest(SymbolBox.Text, (string)StrategiesBox.SelectedItem,
@@ -303,6 +173,7 @@ namespace QuqeViz
     {
       Optimizer.ParallelizeStrategyOptimization = ParallelCheckBox.IsChecked.Value;
     }
+
     private void GetVersaceDataButton_Click(object sender, RoutedEventArgs e)
     {
       Versace.GetData();
