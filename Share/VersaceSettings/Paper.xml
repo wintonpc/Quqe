@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<VersaceSettings ExpertsPerMixture="10" PopulationSize="10" SelectionSize="4" EpochCount="2" MutationRate="0.05" MutationDamping="0" StartDate="2001-11-11T00:00:00" EndDate="2003-02-12T00:00:00" TestingSplitPct="0" UseValidationSet="false" ValidationSplitPct="0" TrainingMethod="Paper">
+  <ProtoChromosome>
+    <Gene Name="NetworkType" Value="0" Min="0" Max="1" Granularity="1" />
+    <Gene Name="ElmanTrainingEpochs" Value="372" Min="20" Max="1000" Granularity="1" />
+    <Gene Name="DatabaseType" Value="1" Min="0" Max="1" Granularity="1" />
+    <Gene Name="TrainingOffsetPct" Value="0.0024500000000000004" Min="0" Max="1" Granularity="1E-05" />
+    <Gene Name="TrainingSizePct" Value="0.52462000000000009" Min="0" Max="1" Granularity="1E-05" />
+    <Gene Name="UseComplementCoding" Value="1" Min="0" Max="1" Granularity="1" />
+    <Gene Name="UsePrincipalComponentAnalysis" Value="0" Min="0" Max="1" Granularity="1" />
+    <Gene Name="PrincipalComponent" Value="36" Min="0" Max="100" Granularity="1" />
+    <Gene Name="RbfNetTolerance" Value="0.871" Min="0" Max="1" Granularity="0.001" />
+    <Gene Name="RbfGaussianSpread" Value="8.84" Min="0.1" Max="10" Granularity="0.01" />
+    <Gene Name="ElmanHidden1NodeCount" Value="50" Min="3" Max="150" Granularity="1" />
+    <Gene Name="ElmanHidden2NodeCount" Value="53" Min="3" Max="100" Granularity="1" />
+  </ProtoChromosome>
+</VersaceSettings>

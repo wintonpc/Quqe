@@ -534,5 +534,12 @@ namespace QuqeTest
         w
       });
     }
+
+    [TestMethod]
+    public void DirWatch()
+    {
+      var dw = new DirectoryWatcher<object>(@"c:\users\wintonpc", "*", fn => fn);
+      SyncContext.Current.Run();
+    }
   }
 }

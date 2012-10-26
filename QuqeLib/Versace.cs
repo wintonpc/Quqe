@@ -21,8 +21,18 @@ namespace Quqe
 {
   public class VersaceResult
   {
+    public string Path { get; private set; }
     public VMixture BestMixture;
     public List<double> FitnessHistory;
+    public VersaceSettings VersaceSettings;
+
+    public VersaceResult(VMixture bestMixture, List<double> fitnessHistory, VersaceSettings settings, string path = null)
+    {
+      BestMixture = bestMixture;
+      FitnessHistory = fitnessHistory;
+      VersaceSettings = settings;
+      Path = path;
+    }
 
     public static string DoublesToBase64(IEnumerable<double> h)
     {
@@ -53,6 +63,7 @@ namespace Quqe
         Directory.CreateDirectory("VersaceResults");
       new XElement("VersaceResult",
         new XElement("FitnessHistory", DoublesToBase64(FitnessHistory)),
+        VersaceSettings.ToXml(),
         BestMixture.ToXml())
         .Save(string.Format("VersaceResults\\VersaceResult-{0:yyyyMMdd}-{0:HHmmss}.xml", DateTime.Now));
     }
@@ -60,30 +71,94 @@ namespace Quqe
     public static VersaceResult Load(string fn)
     {
       var vr = XElement.Load(fn);
-      return new VersaceResult {
-        FitnessHistory = DoublesFromBase64(vr.Element("FitnessHistory").Value),
-        BestMixture = VMixture.Load(vr.Element("Mixture"))
+      return new VersaceResult(
+        VMixture.Load(vr.Element("Mixture")),
+        DoublesFromBase64(vr.Element("FitnessHistory").Value).ToList(),
+        VersaceSettings.Load(vr.Element("VersaceSettings")),
+        fn);
+    }
+  }
+
+  public enum TrainingMethod { Paper }
+
+  public class VersaceSettings
+  {
+    public int ExpertsPerMixture = 10;
+    public int PopulationSize = 10;
+    public int SelectionSize = 4;
+    public int EpochCount = 2;
+    public double MutationRate = 0.05;
+    public double MutationDamping = 0;
+
+    public DateTime StartDate = DateTime.Parse("11/11/2001");
+    public DateTime EndDate = DateTime.Parse("02/12/2003");
+    public int TestingSplitPct;
+    public bool UseValidationSet = false;
+    public int ValidationSplitPct = 0;
+
+    public TrainingMethod TrainingMethod = TrainingMethod.Paper;
+
+    public List<VGene> ProtoChromosome = new List<VGene> {
+        new VGene<int>("NetworkType", 0, 1, 1),
+        new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
+        new VGene<int>("DatabaseType", 0, 1, 1),
+        new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
+        new VGene<double>("TrainingSizePct", 0, 1, 0.00001),
+        new VGene<int>("UseComplementCoding", 0, 1, 1),
+        new VGene<int>("UsePrincipalComponentAnalysis", 0, 1, 1),
+        new VGene<int>("PrincipalComponent", 0, 100, 1),
+        new VGene<double>("RbfNetTolerance", 0, 1, 0.001),
+        new VGene<double>("RbfGaussianSpread", 0.1, 10, 0.01),
+        new VGene<int>("ElmanHidden1NodeCount", 3, 150, 1),
+        new VGene<int>("ElmanHidden2NodeCount", 3, 100, 1)
+      };
+
+    public XElement ToXml()
+    {
+      return new XElement("VersaceSettings",
+        new XAttribute("ExpertsPerMixture", ExpertsPerMixture),
+        new XAttribute("PopulationSize", PopulationSize),
+        new XAttribute("SelectionSize", SelectionSize),
+        new XAttribute("EpochCount", EpochCount),
+        new XAttribute("MutationRate", MutationRate),
+        new XAttribute("MutationDamping", MutationDamping),
+        new XAttribute("StartDate", StartDate),
+        new XAttribute("EndDate", EndDate),
+        new XAttribute("TestingSplitPct", TestingSplitPct),
+        new XAttribute("UseValidationSet", UseValidationSet),
+        new XAttribute("ValidationSplitPct", ValidationSplitPct),
+        new XAttribute("TrainingMethod", TrainingMethod),
+        new XElement("ProtoChromosome", ProtoChromosome.Select(x => x.ToXml()).ToArray()));
+    }
+
+    public static VersaceSettings Load(XElement eSettings)
+    {
+      return new VersaceSettings {
+        ExpertsPerMixture = int.Parse(eSettings.Attribute("ExpertsPerMixture").Value),
+        PopulationSize = int.Parse(eSettings.Attribute("PopulationSize").Value),
+        SelectionSize = int.Parse(eSettings.Attribute("SelectionSize").Value),
+        EpochCount = int.Parse(eSettings.Attribute("EpochCount").Value),
+        MutationRate = int.Parse(eSettings.Attribute("MutationRate").Value),
+        MutationDamping = int.Parse(eSettings.Attribute("MutationDamping").Value),
+        StartDate = DateTime.Parse(eSettings.Attribute("StartDate").Value),
+        EndDate = DateTime.Parse(eSettings.Attribute("EndDate").Value),
+        TestingSplitPct = int.Parse(eSettings.Attribute("TestingSplitPct").Value),
+        UseValidationSet = bool.Parse(eSettings.Attribute("UseValidationSet").Value),
+        ValidationSplitPct = int.Parse(eSettings.Attribute("ValidationSplitPct").Value),
+        TrainingMethod = (TrainingMethod)Enum.Parse(typeof(TrainingMethod), eSettings.Attribute("TrainingMethod").Value),
+        ProtoChromosome = eSettings.Element("ProtoChromosome").Elements("VGene").Select(x => VGene.Load(x)).ToList()
       };
     }
   }
 
   public static class Versace
   {
-    public const int EXPERTS_PER_MIXTURE = 10;
-    public const int POPULATION_SIZE = 10;
-    public const int SELECTION_SIZE = 4;
-    public const int EPOCH_COUNT = 100;
-    //public const int EPOCH_COUNT = 200;
-    public const double MUTATION_RATE = 0.05;
-    public const double MUTATION_DAMPING = 0;
+    public static VersaceSettings Settings = new VersaceSettings();
 
     public static List<string> Tickers = List.Create(
       "DIA", "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP", "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/
       "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU"
       );
-
-    static DateTime StartDate = DateTime.Parse("11/11/2001");
-    static DateTime EndDate = DateTime.Parse("02/12/2003");
 
     static Versace()
     {
@@ -282,9 +357,9 @@ namespace Quqe
     {
       GCSettings.LatencyMode = GCLatencyMode.Batch;
       var fitnessHistory = new List<double>();
-      var population = List.Repeat(POPULATION_SIZE, n => new VMixture());
+      var population = List.Repeat(Settings.PopulationSize, n => new VMixture());
       VMixture bestMixture = null;
-      for (int epoch = 0; epoch < EPOCH_COUNT; epoch++)
+      for (int epoch = 0; epoch < Settings.EpochCount; epoch++)
       {
         Trace.WriteLine(string.Format("Epoch {0} started {1}", epoch, DateTime.Now));
 
@@ -294,7 +369,7 @@ namespace Quqe
           lock (trainLock)
           {
             numTrained++;
-            Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, EXPERTS_PER_MIXTURE * POPULATION_SIZE));
+            Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, Settings.ExpertsPerMixture * Settings.PopulationSize));
             if (numTrained % 10 == 0)
               GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
           }
@@ -341,8 +416,8 @@ namespace Quqe
           mixture.ComputeFitness();
         var oldPopulation = population.ToList();
         var rankedPopulation = population.OrderByDescending(m => m.Fitness).ToList();
-        var selected = rankedPopulation.Take(SELECTION_SIZE).Shuffle().ToList();
-        population = rankedPopulation.Take(POPULATION_SIZE - SELECTION_SIZE).ToList();
+        var selected = rankedPopulation.Take(Settings.SelectionSize).Shuffle().ToList();
+        population = rankedPopulation.Take(Settings.PopulationSize - Settings.SelectionSize).ToList();
 
         Debug.Assert(selected.Count % 2 == 0);
         for (int i = 0; i < selected.Count; i += 2)
@@ -372,10 +447,7 @@ namespace Quqe
         GC.Collect();
         Trace.WriteLine("===========================================================================");
       }
-      var result = new VersaceResult {
-        BestMixture = bestMixture,
-        FitnessHistory = fitnessHistory
-      };
+      var result = new VersaceResult(bestMixture, fitnessHistory, Versace.Settings);
       result.Save();
       return result;
     }
@@ -394,10 +466,7 @@ namespace Quqe
         historyChanged(fitnessHistory);
         return -fitness;
       }, iterations: 100);
-      var result = new VersaceResult {
-        BestMixture = tr.Params,
-        FitnessHistory = tr.CostHistory.Select(x => -x).ToList()
-      };
+      var result = new VersaceResult(tr.Params, tr.CostHistory.Select(x => -x).ToList(), Versace.Settings);
       result.Save();
       return result;
     }
@@ -422,8 +491,10 @@ namespace Quqe
           }
           else
           {
+            var start = Settings.StartDate;
+            var end = Settings.EndDate;
             var address = string.Format("http://ichart.finance.yahoo.com/table.csv?s={0}&a={1}&b={2}&c={3}&d={4}&e={5}&f={6}&g=d&ignore=.csv",
-              ticker, StartDate.Month - 1, StartDate.Day, StartDate.Year, EndDate.Month - 1, EndDate.Day, EndDate.Year);
+              ticker, start.Month - 1, start.Day, start.Year, end.Month - 1, end.Day, end.Year);
             c.DownloadFile(address, fn);
           }
 
@@ -446,8 +517,10 @@ namespace Quqe
     private static void GetDowJonesData(WebClient c, string ticker, string fn)
     {
       List<string> lines = new List<string>();
+      var start = Settings.StartDate;
+      var end = Settings.EndDate;
       var address = string.Format("http://finance.yahoo.com/q/hp?s={0}&a={1}&b={2}&c={3}&d={4}&e={5}&f={6}&g=d",
-        ticker, StartDate.Month - 1, StartDate.Day, StartDate.Year, EndDate.Month - 1, EndDate.Day, EndDate.Year);
+        ticker, start.Month - 1, start.Day, start.Year, end.Month - 1, end.Day, end.Year);
 
       while (true)
       {
@@ -460,7 +533,7 @@ namespace Quqe
           if (fs.Count != 7)
             continue;
           var timestamp = DateTime.ParseExact(fs[0], "MMM d, yyyy", null);
-          if (timestamp < StartDate) // yahoo enumerates data in reverse chronological order
+          if (timestamp < Settings.StartDate) // yahoo enumerates data in reverse chronological order
             goto Done;
           lines.Add(string.Format("{0:yyyy-MM-dd},{1},{2},{3},{4},{5}",
             timestamp, double.Parse(fs[1]), double.Parse(fs[2]), double.Parse(fs[3]), double.Parse(fs[4]), long.Parse(fs[5], System.Globalization.NumberStyles.AllowThousands)));
@@ -479,9 +552,25 @@ namespace Quqe
   {
     public readonly string Name;
     public VGene(string name) { Name = name; }
+    public abstract VGene Clone();
     public abstract VGene Mutate(double dampingFactor);
     public abstract XElement ToXml();
-    public abstract void SetXmlValue(string value);
+
+    static List<string> DoubleNames = List.Create("TrainingOffsetPct", "TrainingSizePct", "RbfNetTolerance", "RbfGaussianSpread");
+
+    public static VGene Load(XElement eGene)
+    {
+      var name = eGene.Attribute("Name").Value;
+      var min = double.Parse(eGene.Attribute("Min").Value);
+      var max = double.Parse(eGene.Attribute("Max").Value);
+      var granularity = double.Parse(eGene.Attribute("Granularity").Value);
+      var valueString = eGene.Attribute("Value").Value;
+
+      if (DoubleNames.Contains(name))
+        return new VGene<double>(name, min, max, granularity, double.Parse(valueString));
+      else
+        return new VGene<int>(name, min, max, granularity, int.Parse(valueString));
+    }
   }
 
   public class VGene<TValue> : VGene
@@ -530,14 +619,20 @@ namespace Quqe
       }
     }
 
-    public override XElement ToXml()
+    public override VGene Clone()
     {
-      return new XElement("Gene", new XAttribute("Name", Name), new XAttribute("Value", Value));
+      return new VGene<TValue>(Name, Min, Max, Granularity, Value);
     }
 
-    public override void SetXmlValue(string value)
+    public override XElement ToXml()
     {
-      Value = (TValue)Convert.ChangeType(value, typeof(TValue));
+      return new XElement("Gene",
+        new XAttribute("Name", Name),
+        new XAttribute("Value", Value),
+        new XAttribute("Min", Min),
+        new XAttribute("Max", Max),
+        new XAttribute("Granularity", Granularity)
+        );
     }
   }
 
@@ -546,25 +641,21 @@ namespace Quqe
     public List<VGene> Chromosome;
     public Expert Expert { get; private set; }
 
-    public VMember()
+    public VMember(Func<string, VGene> makeGene)
     {
       Chromosome = new List<VGene> {
-        new VGene<int>("NetworkType", 0, 1, 1),
-        //new VGene<int>("NetworkType", 1, 1, 1),
-        //new VGene<int>("ElmanTrainingEpochs", 20, 20, 1),
-        new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
-        new VGene<int>("DatabaseType", 0, 1, 1),
-        new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
-        new VGene<double>("TrainingSizePct", 0, 1, 0.00001),
-        new VGene<int>("UseComplementCoding", 0, 1, 1),
-        new VGene<int>("UsePrincipalComponentAnalysis", 0, 1, 1),
-        new VGene<int>("PrincipalComponent", 0, 100, 1),
-        new VGene<double>("RbfNetTolerance", 0, 1, 0.001),
-        new VGene<double>("RbfGaussianSpread", 0.1, 10, 0.01),
-        new VGene<int>("ElmanHidden1NodeCount", 3, 150, 1),
-        new VGene<int>("ElmanHidden2NodeCount", 3, 100, 1)
-        //new VGene<int>("ElmanHidden1NodeCount", 3, 200, 1),
-        //new VGene<int>("ElmanHidden2NodeCount", 3, 200, 1)
+        makeGene("NetworkType"),
+        makeGene("ElmanTrainingEpochs"),
+        makeGene("DatabaseType"),
+        makeGene("TrainingOffsetPct"),
+        makeGene("TrainingSizePct"),
+        makeGene("UseComplementCoding"),
+        makeGene("UsePrincipalComponentAnalysis"),
+        makeGene("PrincipalComponent"),
+        makeGene("RbfNetTolerance"),
+        makeGene("RbfGaussianSpread"),
+        makeGene("ElmanHidden1NodeCount"),
+        makeGene("ElmanHidden2NodeCount")
       };
     }
 
@@ -608,14 +699,18 @@ namespace Quqe
       return List.Create(a, b);
     }
 
-    public VMember Mutate(double mutationRate = Versace.MUTATION_RATE, double dampingFactor = Versace.MUTATION_DAMPING)
+    public VMember Mutate(double? mutationRate = null, double? dampingFactor = null)
     {
-      return new VMember(Mutate(Chromosome, mutationRate, dampingFactor));
+      mutationRate = mutationRate ?? Versace.Settings.MutationRate;
+      dampingFactor = dampingFactor ?? Versace.Settings.MutationDamping;
+      return new VMember(Mutate(Chromosome, mutationRate.Value, dampingFactor.Value));
     }
 
-    static List<VGene> Mutate(IEnumerable<VGene> genes, double mutationRate = Versace.MUTATION_RATE, double dampingFactor = Versace.MUTATION_DAMPING)
+    static List<VGene> Mutate(IEnumerable<VGene> genes, double? mutationRate = null, double? dampingFactor = null)
     {
-      return genes.Select(g => Random.NextDouble() < mutationRate ? g.Mutate(dampingFactor) : g).ToList();
+      mutationRate = mutationRate ?? Versace.Settings.MutationRate;
+      dampingFactor = dampingFactor ?? Versace.Settings.MutationDamping;
+      return genes.Select(g => Random.NextDouble() < mutationRate.Value ? g.Mutate(dampingFactor.Value) : g).ToList();
     }
 
     TValue GetGeneValue<TValue>(string name) where TValue : struct
@@ -654,10 +749,9 @@ namespace Quqe
 
     public static VMember Load(XElement eMember)
     {
-      var member = new VMember();
       var eChrom = eMember.Element("Chromosome");
-      foreach (var ge in eChrom.Elements("Gene"))
-        member.Chromosome.First(x => x.Name == ge.Attribute("Name").Value).SetXmlValue(ge.Attribute("Value").Value);
+      var eGenes = eChrom.Elements("Gene");
+      var member = new VMember(name => VGene.Load(eGenes.First(x => x.Attribute("Name").Value == name)));
       member.Expert = Expert.Load(eMember.Element("Expert"), member);
       return member;
     }
@@ -672,7 +766,8 @@ namespace Quqe
 
     public VMixture()
     {
-      Members = List.Repeat(Versace.EXPERTS_PER_MIXTURE, n => new VMember());
+      Members = List.Repeat(Versace.Settings.ExpertsPerMixture, n =>
+        new VMember(name => Versace.Settings.ProtoChromosome.First(x => x.Name == name).Clone()));
     }
 
     VMixture(List<VMember> members)
@@ -696,8 +791,10 @@ namespace Quqe
         new VMixture(q.Select(x => x[1]).ToList()));
     }
 
-    public VMixture Mutate(double mutationRate = Versace.MUTATION_RATE, double dampingFactor = Versace.MUTATION_DAMPING)
+    public VMixture Mutate(double? mutationRate = null, double? dampingFactor = null)
     {
+      mutationRate = mutationRate ?? Versace.Settings.MutationRate;
+      dampingFactor = dampingFactor ?? Versace.Settings.MutationDamping;
       return new VMixture(Members.Select(x => x.Mutate(mutationRate, dampingFactor)).ToList());
     }
 

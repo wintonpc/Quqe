@@ -12,6 +12,9 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.ComponentModel;
 using PCW;
+using System.Collections.ObjectModel;
+using Path = System.IO.Path;
+using Quqe;
 
 namespace QuqeViz
 {
@@ -24,13 +27,47 @@ namespace QuqeViz
     public BacktestWindow()
     {
       InitializeComponent();
-      Presentation = new BacktestPresentation();
-      this.DataContext = Presentation;
+      Loaded += delegate {
+        Presentation = new BacktestPresentation();
+        this.DataContext = Presentation;
+      };
+    }
+
+    private void VersaceResultListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+      Presentation.SetSelectedVersaceResult((VersaceResultHolder)VersaceResultListBox.SelectedItem);
+    }
+  }
+
+  public class VersaceResultHolder
+  {
+    public readonly VersaceResult VersaceResult;
+    public VersaceResultHolder(VersaceResult vr)
+    {
+      VersaceResult = vr;
+    }
+
+    public string Name { get { return Path.GetFileNameWithoutExtension(VersaceResult.Path); } }
+
+    public override string ToString()
+    {
+      return string.Format("F: {1:N1}%   ({0})", Name, VersaceResult.BestMixture.Fitness * 100);
     }
   }
 
   public class BacktestPresentation : DependencyObject
   {
+    DirectoryWatcher<VersaceResultHolder> Watcher;
+
+    public BacktestPresentation()
+    {
+      Watcher = new DirectoryWatcher<VersaceResultHolder>("VersaceResults", "*.xml", fn => new VersaceResultHolder(VersaceResult.Load(fn)));
+
+      SetupPropertyChangeHooks();
+    }
+
+    public ObservableCollection<VersaceResultHolder> VersaceResults { get { return Watcher.Items; } }
+
     public DateTime StartDate
     {
       get { return (DateTime)GetValue(StartDateProperty); }
@@ -94,9 +131,16 @@ namespace QuqeViz
     {
       ValidationDate = StartDate.AddDays((int)(TestingDate.Subtract(StartDate).TotalDays * ValidationSplitPct / 100.0));
     }
-    
 
-    public BacktestPresentation()
+    public VersaceResultHolder SelectedVersaceResult
+    {
+      get { return (VersaceResultHolder)GetValue(SelectedVersaceResultProperty); }
+      set { SetValue(SelectedVersaceResultProperty, value); }
+    }
+    public static readonly DependencyProperty SelectedVersaceResultProperty =
+        DependencyProperty.Register("SelectedVersaceResult", typeof(VersaceResultHolder), typeof(BacktestPresentation), new UIPropertyMetadata());
+
+    void SetupPropertyChangeHooks()
     {
       HookPropChange(TestingSplitPctProperty, RefreshTestingDate);
       HookPropChange(StartDateProperty, RefreshTestingDate);
@@ -109,6 +153,11 @@ namespace QuqeViz
     void HookPropChange(DependencyProperty dp, EventHandler handler)
     {
       DependencyPropertyDescriptor.FromProperty(dp, typeof(BacktestPresentation)).AddValueChanged(this, handler);
+    }
+
+    internal void SetSelectedVersaceResult(VersaceResultHolder versaceResultHolder)
+    {
+      SelectedVersaceResult = versaceResultHolder;
     }
   }
 
