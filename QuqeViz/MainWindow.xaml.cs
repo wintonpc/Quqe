@@ -30,8 +30,8 @@ namespace QuqeViz
       InitializeComponent();
       Initialize();
       Update();
-      //var btw = new BacktestWindow();
-      //btw.Show();
+      var btw = new BacktestWindow();
+      btw.Show();
     }
 
     public void DoBacktest(string symbol, string strategyName, double initialValue, int marginFactor, bool isValidation)
@@ -225,9 +225,9 @@ namespace QuqeViz
       ch.Show();
 
       m.Reset();
-      var output = Versace.ValidationInput.Columns().Select(x => (double)Math.Sign(m.Predict(x))).ToList();
+      var output = Versace.TestingInput.Columns().Select(x => (double)Math.Sign(m.Predict(x))).ToList();
       var inputSeries = new DataSeries<Bar>(Versace.DIA.Symbol, Versace.DIA.Skip(Versace.TrainingOutput.Count));
-      var idealSignal = new DataSeries<Value>("", Versace.ValidationOutput.ToDataSeries(inputSeries));
+      var idealSignal = new DataSeries<Value>("", Versace.TestingOutput.ToDataSeries(inputSeries));
       var actualSignal = new DataSeries<Value>("", output.ToDataSeries(inputSeries));
       var diff = idealSignal.ZipElements<Value, Value>(actualSignal, (i, a, _) => i[0].Val == a[0].Val ? 1 : -1);
       Trace.WriteLine(string.Format("Accuracy: {0:N1}%", (double)diff.Count(x => x.Val == 1) / diff.Length * 100));

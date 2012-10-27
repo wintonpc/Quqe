@@ -541,5 +541,16 @@ namespace QuqeTest
       var dw = new DirectoryWatcher<object>(@"c:\users\wintonpc", "*", fn => fn);
       SyncContext.Current.Run();
     }
+
+    [TestMethod]
+    public void ListPartitioning()
+    {
+      var letters = "abcdefghijklmnopqrstuvwxyz".ToList();
+      var subs = letters.PartitionByIndex(0, 6, 7, 9, letters.Count).Select(ls => new string(ls.ToArray())).ToList();
+      Assert.AreEqual(subs[0], "abcdef");
+      Assert.AreEqual(subs[1], "g");
+      Assert.AreEqual(subs[2], "hi");
+      Assert.AreEqual(subs[3], "jklmnopqrstuvwxyz");
+    }
   }
 }

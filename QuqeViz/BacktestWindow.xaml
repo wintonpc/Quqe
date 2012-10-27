@@ -9,42 +9,45 @@
   </Window.Resources>
   <Grid>
     <Grid.RowDefinitions>
-      <RowDefinition Height="160" />
-      <RowDefinition Height="217*" />
+      <RowDefinition Height="183" />
+      <RowDefinition Height="3" />
+      <RowDefinition Height="194*" />
     </Grid.RowDefinitions>
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="345" />
       <ColumnDefinition Width="317*" />
     </Grid.ColumnDefinitions>
-    <ListBox Name="VersaceResultListBox" Grid.RowSpan="2" Grid.Column="1" ItemsSource="{Binding VersaceResults}" MouseDoubleClick="VersaceResultListBox_MouseDoubleClick" />
-    <Grid Name="grid1" HorizontalAlignment="Left" Width="345" Margin="0,0,0,37">
+    <ListBox Grid.Column="1" Name="VersaceSettingsListBox" Margin="0,0,0,4" ItemsSource="{Binding VersaceSettings}" MouseDoubleClick="VersaceSettingsListBox_MouseDoubleClick" />
+    <ListBox Grid.Column="1" Grid.Row="2" Name="VersaceResultListBox" ItemsSource="{Binding VersaceResults}" MouseDoubleClick="VersaceResultListBox_MouseDoubleClick" />
+    <Grid Name="grid1" HorizontalAlignment="Left" Width="345">
       <Grid.RowDefinitions>
         <RowDefinition Height="24" />
         <RowDefinition Height="24" />
         <RowDefinition Height="24" />
         <RowDefinition Height="24" />
-        <RowDefinition Height="24" />
+        <RowDefinition Height="35" />
+        <RowDefinition Height="52*" />
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="69" />
-        <ColumnDefinition Width="100" />
+        <ColumnDefinition Width="74" />
         <ColumnDefinition Width="27" />
         <ColumnDefinition Width="97" />
         <ColumnDefinition Width="48" />
         <ColumnDefinition Width="4*" />
       </Grid.ColumnDefinitions>
       <Label Content="Start" Name="label1" VerticalContentAlignment="Top" Padding="4" />
-      <ComboBox Grid.Column="1" Name="StartComboBox" IsEditable="True"
+      <TextBox Grid.Column="1" Name="StartTextBox" Margin="2" Padding="0" TextAlignment="Center"
                 Text="{Binding StartDate, Converter={StaticResource DateConverter}, UpdateSourceTrigger=LostFocus}" />
       <Label Content="Validation" Name="label2" Grid.Row="1" VerticalContentAlignment="Top" Padding="4" />
       <Label Content="Testing" Name="label3" Grid.Row="2" VerticalContentAlignment="Top" Padding="4" />
       <Label Content="End" Name="label4" Grid.Row="3" VerticalContentAlignment="Top" Padding="4" />
-      <ComboBox IsEditable="True" Name="EndComboBox" Grid.Column="1" Grid.Row="3"
+      <TextBox Name="EndTextBox" Grid.Column="1" Grid.Row="3" Margin="2" Padding="0" TextAlignment="Center"
                 Text="{Binding EndDate, Converter={StaticResource DateConverter}, UpdateSourceTrigger=LostFocus}" />
-      <Label Name="ValidationDateLabel" Grid.Column="1" Grid.Row="1"
+      <Label Name="ValidationDateLabel" Grid.Column="1" Grid.Row="1" HorizontalContentAlignment="Center"
              Content="{Binding ValidationDate, Converter={StaticResource DateConverter}}"
              Visibility="{Binding UseValidationSet, Converter={StaticResource BoolToHiddenConverter}}"/>
-      <Label Name="TestingDateLabel" Grid.Column="1" Grid.Row="2"
+      <Label Name="TestingDateLabel" Grid.Column="1" Grid.Row="2" HorizontalContentAlignment="Center"
              Content="{Binding TestingDate, Converter={StaticResource DateConverter}}"/>
       <CheckBox Content="" Grid.Column="2" Grid.Row="1" Name="ValidationCheckBox" Margin="4" Padding="0" IsChecked="{Binding UseValidationSet}" Focusable="False" />
       <Slider Grid.Column="3" Grid.Row="1" Name="ValidationSlider" Minimum="0" Maximum="100" IsEnabled="{Binding UseValidationSet}"
@@ -61,10 +64,14 @@
         <Label Name="TestingPctLabel" Content="{Binding TestingSplitPct}" Padding="4,4,0,0"/>
         <Label Content="%" Padding="0,4,0,0"/>
       </StackPanel>
-      <Label Grid.ColumnSpan="5" Grid.Row="4" Height="24" Name="label5" VerticalAlignment="Center" HorizontalAlignment="Center"
-             Margin="2" Padding="20,4,20,2" Background="Blue" Foreground="White" FontWeight="Bold"
-             Content="{Binding SelectedVersaceResult}"
-             />
+      <Button Grid.Row="4" Height="24" HorizontalAlignment="Left" Name="TrainButton" VerticalAlignment="Top" Width="92" Content="Train"
+              Margin="4,4,0,0" Grid.ColumnSpan="2" Click="TrainButton_Click" />
     </Grid>
+    <Rectangle Grid.Column="0" Grid.Row="1" Name="rectangle1" Stroke="Black" Fill="Black"/>
+    <Rectangle Grid.Column="1" Grid.Row="1" Name="rectangle2" Stroke="Black" Fill="Black"/>
+    <StackPanel Grid.Row="2" Orientation="Vertical"  Margin="4,4,4,0">
+      <Label Height="22" VerticalAlignment="Top" Content="{Binding SelectedMixtureName}" Background="Blue" Foreground="White" Padding="3" HorizontalContentAlignment="Center"/>
+      <Button Content="Backtest" Height="24" Margin="0,2,0,0" HorizontalAlignment="Left" Name="BacktestButton" VerticalAlignment="Top" Width="92" Click="BacktestButton_Click" />
+    </StackPanel>
   </Grid>
 </Window>

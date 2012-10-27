@@ -83,24 +83,25 @@ namespace Quqe
 
   public class VersaceSettings
   {
+    public string Path { get; private set; }
+
     public int ExpertsPerMixture = 10;
     public int PopulationSize = 10;
     public int SelectionSize = 4;
     public int EpochCount = 2;
     public double MutationRate = 0.05;
     public double MutationDamping = 0;
+    public TrainingMethod TrainingMethod = TrainingMethod.Paper;
 
     public DateTime StartDate = DateTime.Parse("11/11/2001");
     public DateTime EndDate = DateTime.Parse("02/12/2003");
-    public int TestingSplitPct;
+    public int TestingSplitPct = 78;
     public bool UseValidationSet = false;
     public int ValidationSplitPct = 0;
 
-    public TrainingMethod TrainingMethod = TrainingMethod.Paper;
-
     public List<VGene> ProtoChromosome = new List<VGene> {
         new VGene<int>("NetworkType", 0, 1, 1),
-        new VGene<int>("ElmanTrainingEpochs", 20, 1000, 1),
+        new VGene<int>("ElmanTrainingEpochs", 20, 20, 1),
         new VGene<int>("DatabaseType", 0, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
         new VGene<double>("TrainingSizePct", 0, 1, 0.00001),
@@ -109,8 +110,8 @@ namespace Quqe
         new VGene<int>("PrincipalComponent", 0, 100, 1),
         new VGene<double>("RbfNetTolerance", 0, 1, 0.001),
         new VGene<double>("RbfGaussianSpread", 0.1, 10, 0.01),
-        new VGene<int>("ElmanHidden1NodeCount", 3, 150, 1),
-        new VGene<int>("ElmanHidden2NodeCount", 3, 100, 1)
+        new VGene<int>("ElmanHidden1NodeCount", 3, 40, 1),
+        new VGene<int>("ElmanHidden2NodeCount", 3, 20, 1)
       };
 
     public XElement ToXml()
@@ -131,6 +132,13 @@ namespace Quqe
         new XElement("ProtoChromosome", ProtoChromosome.Select(x => x.ToXml()).ToArray()));
     }
 
+    public static VersaceSettings Load(string fn)
+    {
+      var vs = Load(XElement.Load(fn));
+      vs.Path = fn;
+      return vs;
+    }
+
     public static VersaceSettings Load(XElement eSettings)
     {
       return new VersaceSettings {
@@ -138,22 +146,36 @@ namespace Quqe
         PopulationSize = int.Parse(eSettings.Attribute("PopulationSize").Value),
         SelectionSize = int.Parse(eSettings.Attribute("SelectionSize").Value),
         EpochCount = int.Parse(eSettings.Attribute("EpochCount").Value),
-        MutationRate = int.Parse(eSettings.Attribute("MutationRate").Value),
-        MutationDamping = int.Parse(eSettings.Attribute("MutationDamping").Value),
+        MutationRate = double.Parse(eSettings.Attribute("MutationRate").Value),
+        MutationDamping = double.Parse(eSettings.Attribute("MutationDamping").Value),
         StartDate = DateTime.Parse(eSettings.Attribute("StartDate").Value),
         EndDate = DateTime.Parse(eSettings.Attribute("EndDate").Value),
         TestingSplitPct = int.Parse(eSettings.Attribute("TestingSplitPct").Value),
         UseValidationSet = bool.Parse(eSettings.Attribute("UseValidationSet").Value),
         ValidationSplitPct = int.Parse(eSettings.Attribute("ValidationSplitPct").Value),
         TrainingMethod = (TrainingMethod)Enum.Parse(typeof(TrainingMethod), eSettings.Attribute("TrainingMethod").Value),
-        ProtoChromosome = eSettings.Element("ProtoChromosome").Elements("VGene").Select(x => VGene.Load(x)).ToList()
+        ProtoChromosome = eSettings.Element("ProtoChromosome").Elements("Gene").Select(x => VGene.Load(x)).ToList()
       };
+    }
+
+    public VersaceSettings Clone()
+    {
+      return Load(ToXml());
     }
   }
 
   public static class Versace
   {
-    public static VersaceSettings Settings = new VersaceSettings();
+    static VersaceSettings _Settings;
+    public static VersaceSettings Settings
+    {
+      get { return _Settings; }
+      set
+      {
+        _Settings = value;
+        LoadNormalizedValues();
+      }
+    }
 
     public static List<string> Tickers = List.Create(
       "DIA", "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP", "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/
@@ -162,7 +184,7 @@ namespace Quqe
 
     static Versace()
     {
-      LoadNormalizedValues();
+      Settings = new VersaceSettings();
     }
 
     public static List<DataSeries<Bar>> GetCleanSeries()
@@ -196,8 +218,10 @@ namespace Quqe
 
     public static Matrix TrainingInput { get; private set; }
     public static Matrix ValidationInput { get; private set; }
+    public static Matrix TestingInput { get; private set; }
     public static Vector TrainingOutput { get; private set; }
     public static Vector ValidationOutput { get; private set; }
+    public static Vector TestingOutput { get; private set; }
     public static int DatabaseADimension { get; private set; }
     public static DataSeries<Bar> DIA { get; private set; }
 
@@ -284,12 +308,28 @@ namespace Quqe
       var data = MatrixFromColumns(unalignedData.Columns().Take(unalignedData.ColumnCount - 1).ToList());
       var output = MatrixFromColumns(unalignedOutput.Columns().Skip(1).ToList());
 
-      int validationSize = 67;
-      int trainingSize = output.ColumnCount - validationSize;
-      TrainingInput = MatrixFromColumns(data.Columns().Take(trainingSize).ToList());
-      ValidationInput = MatrixFromColumns(data.Columns().Skip(trainingSize).ToList());
-      TrainingOutput = new DenseVector(output.Row(0).Take(trainingSize).ToArray());
-      ValidationOutput = new DenseVector(output.Row(0).Skip(trainingSize).ToArray());
+      int testingOffset = (int)(output.ColumnCount * (double)Settings.TestingSplitPct / 100);
+      int validationOffset = testingOffset;
+      if (Settings.UseValidationSet)
+        validationOffset = (int)(testingOffset * (double)Settings.ValidationSplitPct / 100);
+
+      var dataPartitions = data.Columns().PartitionByIndex(0, testingOffset, validationOffset, data.ColumnCount);
+      var outputPartitions = output.Row(0).PartitionByIndex(0, testingOffset, validationOffset, data.ColumnCount);
+
+      TrainingInput = MatrixFromColumns(dataPartitions[0]);
+      TrainingOutput = new DenseVector(outputPartitions[0].ToArray());
+      if (Settings.UseValidationSet)
+      {
+        ValidationInput = MatrixFromColumns(dataPartitions[1]);
+        ValidationOutput = new DenseVector(outputPartitions[1].ToArray());
+      }
+      else
+      {
+        ValidationInput = null;
+        ValidationOutput = null;
+      }
+      TestingInput = MatrixFromColumns(dataPartitions[2]);
+      TestingOutput = new DenseVector(outputPartitions[2].ToArray());
       DatabaseADimension = aOnly.Count;
     }
 
@@ -553,6 +593,7 @@ namespace Quqe
     public readonly string Name;
     public VGene(string name) { Name = name; }
     public abstract VGene Clone();
+    public abstract VGene CloneAndRandomize();
     public abstract VGene Mutate(double dampingFactor);
     public abstract XElement ToXml();
 
@@ -622,6 +663,11 @@ namespace Quqe
     public override VGene Clone()
     {
       return new VGene<TValue>(Name, Min, Max, Granularity, Value);
+    }
+
+    public override VGene CloneAndRandomize()
+    {
+      return new VGene<TValue>(Name, Min, Max, Granularity);
     }
 
     public override XElement ToXml()
@@ -767,7 +813,7 @@ namespace Quqe
     public VMixture()
     {
       Members = List.Repeat(Versace.Settings.ExpertsPerMixture, n =>
-        new VMember(name => Versace.Settings.ProtoChromosome.First(x => x.Name == name).Clone()));
+        new VMember(name => Versace.Settings.ProtoChromosome.First(x => x.Name == name).CloneAndRandomize()));
     }
 
     VMixture(List<VMember> members)
@@ -805,14 +851,14 @@ namespace Quqe
       var experts = Members.Select(x => x.Expert).ToList();
       foreach (var expert in experts)
         expert.Reset();
-      for (int j = 0; j < Versace.ValidationOutput.Count; j++)
+      for (int j = 0; j < Versace.TestingOutput.Count; j++)
       {
-        var vote = Predict(Versace.ValidationInput.Column(j));
+        var vote = Predict(Versace.TestingInput.Column(j));
         Debug.Assert(vote != 0);
-        if (Versace.ValidationOutput[j] == vote)
+        if (Versace.TestingOutput[j] == vote)
           correctCount++;
       }
-      Fitness = (double)correctCount / Versace.ValidationOutput.Count;
+      Fitness = (double)correctCount / Versace.TestingOutput.Count;
       return Fitness;
     }
 

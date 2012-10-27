@@ -5,7 +5,6 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -15,6 +14,8 @@ using PCW;
 using System.Collections.ObjectModel;
 using Path = System.IO.Path;
 using Quqe;
+using System.Xml.Linq;
+using System.Threading;
 
 namespace QuqeViz
 {
@@ -35,7 +36,27 @@ namespace QuqeViz
 
     private void VersaceResultListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-      Presentation.SetSelectedVersaceResult((VersaceResultHolder)VersaceResultListBox.SelectedItem);
+      if (VersaceResultListBox.SelectedItem != null)
+      {
+        var h = (VersaceResultHolder)VersaceResultListBox.SelectedItem;
+        Presentation.OnSelectedVersaceResult(h.ToString(), h.VersaceResult);
+      }
+    }
+
+    private void VersaceSettingsListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+      if (VersaceSettingsListBox.SelectedItem != null)
+        Presentation.OnSelectedVersaceSettings(((VersaceSettingsHolder)VersaceSettingsListBox.SelectedItem).VersaceSettings);
+    }
+
+    private void TrainButton_Click(object sender, RoutedEventArgs e)
+    {
+      Presentation.OnClick();
+    }
+
+    private void BacktestButton_Click(object sender, RoutedEventArgs e)
+    {
+
     }
   }
 
@@ -55,18 +76,37 @@ namespace QuqeViz
     }
   }
 
+  public class VersaceSettingsHolder
+  {
+    public readonly VersaceSettings VersaceSettings;
+    public VersaceSettingsHolder(VersaceSettings vs)
+    {
+      VersaceSettings = vs;
+    }
+
+    public string Name { get { return Path.GetFileNameWithoutExtension(VersaceSettings.Path); } }
+
+    public override string ToString()
+    {
+      return string.Format("{0}  ({1:MM/dd/yyyy} - {2:MM/dd/yyyy})", Name, VersaceSettings.StartDate, VersaceSettings.EndDate);
+    }
+  }
+
   public class BacktestPresentation : DependencyObject
   {
-    DirectoryWatcher<VersaceResultHolder> Watcher;
+    DirectoryWatcher<VersaceResultHolder> ResultsWatcher;
+    DirectoryWatcher<VersaceSettingsHolder> SettingsWatcher;
 
     public BacktestPresentation()
     {
-      Watcher = new DirectoryWatcher<VersaceResultHolder>("VersaceResults", "*.xml", fn => new VersaceResultHolder(VersaceResult.Load(fn)));
-
+      ResultsWatcher = new DirectoryWatcher<VersaceResultHolder>("VersaceResults", "*.xml", fn => new VersaceResultHolder(VersaceResult.Load(fn)));
+      SettingsWatcher = new DirectoryWatcher<VersaceSettingsHolder>("VersaceSettings", "*.xml", fn => new VersaceSettingsHolder(Quqe.VersaceSettings.Load(fn)));
       SetupPropertyChangeHooks();
+      OnSelectedVersaceSettings(Versace.Settings);
     }
 
-    public ObservableCollection<VersaceResultHolder> VersaceResults { get { return Watcher.Items; } }
+    public ObservableCollection<VersaceResultHolder> VersaceResults { get { return ResultsWatcher.Items; } }
+    public ObservableCollection<VersaceSettingsHolder> VersaceSettings { get { return SettingsWatcher.Items; } }
 
     public DateTime StartDate
     {
@@ -132,14 +172,6 @@ namespace QuqeViz
       ValidationDate = StartDate.AddDays((int)(TestingDate.Subtract(StartDate).TotalDays * ValidationSplitPct / 100.0));
     }
 
-    public VersaceResultHolder SelectedVersaceResult
-    {
-      get { return (VersaceResultHolder)GetValue(SelectedVersaceResultProperty); }
-      set { SetValue(SelectedVersaceResultProperty, value); }
-    }
-    public static readonly DependencyProperty SelectedVersaceResultProperty =
-        DependencyProperty.Register("SelectedVersaceResult", typeof(VersaceResultHolder), typeof(BacktestPresentation), new UIPropertyMetadata());
-
     void SetupPropertyChangeHooks()
     {
       HookPropChange(TestingSplitPctProperty, RefreshTestingDate);
@@ -155,9 +187,59 @@ namespace QuqeViz
       DependencyPropertyDescriptor.FromProperty(dp, typeof(BacktestPresentation)).AddValueChanged(this, handler);
     }
 
-    internal void SetSelectedVersaceResult(VersaceResultHolder versaceResultHolder)
+    public string SelectedMixtureName
     {
-      SelectedVersaceResult = versaceResultHolder;
+      get { return (string)GetValue(SelectedMixtureNameProperty); }
+      set { SetValue(SelectedMixtureNameProperty, value); }
+    }
+    public static readonly DependencyProperty SelectedMixtureNameProperty =
+        DependencyProperty.Register("SelectedMixtureName", typeof(string), typeof(BacktestPresentation), new UIPropertyMetadata(""));
+
+    VMixture SelectedMixture;
+    internal void OnSelectedVersaceResult(string name, VersaceResult r)
+    {
+      SelectedMixture = r.BestMixture;
+      SelectedMixtureName = name;
+      OnSelectedVersaceSettings(r.VersaceSettings);
+    }
+
+    VersaceSettings SelectedSettings;
+    internal void OnSelectedVersaceSettings(VersaceSettings s)
+    {
+      StartDate = s.StartDate;
+      EndDate = s.EndDate;
+      TestingSplitPct = s.TestingSplitPct;
+      UseValidationSet = s.UseValidationSet;
+      ValidationSplitPct = s.ValidationSplitPct;
+      SelectedSettings = s.Clone();
+    }
+
+    internal void OnClick()
+    {
+      var ch = new EqPlotWindow();
+      ch.Show();
+      var mainSync = SyncContext.Current;
+      Action<List<double>> updateHistoryWindow = history => {
+        mainSync.Post(() => {
+          ch.EqPlot.Clear(Colors.White);
+          ch.EqPlot.Bounds = new Rect(0, history.Min(), history.Count, history.Max() - history.Min());
+          ch.EqPlot.DrawLine(List.Repeat(history.Count, i => new Point(i, history[i])), Colors.Blue);
+        });
+      };
+
+      SetVersaceSettings();
+      Thread t = new Thread(() => Versace.Evolve(updateHistoryWindow));
+      t.Start();
+    }
+
+    private void SetVersaceSettings()
+    {
+      SelectedSettings.StartDate = StartDate;
+      SelectedSettings.EndDate = EndDate;
+      SelectedSettings.TestingSplitPct = TestingSplitPct;
+      SelectedSettings.UseValidationSet = UseValidationSet;
+      SelectedSettings.ValidationSplitPct = ValidationSplitPct;
+      Versace.Settings = SelectedSettings;
     }
   }
 
