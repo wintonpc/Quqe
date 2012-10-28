@@ -32,6 +32,9 @@ namespace QuqeViz
         Presentation = new BacktestPresentation();
         this.DataContext = Presentation;
       };
+      Closed += delegate {
+        Application.Current.Shutdown();
+      };
     }
 
     private void VersaceResultListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)

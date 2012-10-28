@@ -75,6 +75,17 @@ public:
   ~WeightContext();
 };
 
+class OrthoContext
+{
+public:
+  Vector* Pv;
+  Matrix* Bases;
+  Vector* Dp;
+
+  OrthoContext(int basisDimension, int maxBasisCount);
+  ~OrthoContext();
+};
+
 inline Vector* WeightContext::GetTempVec(int size)
 {
   Vector* v = TempVecs[size];
@@ -83,15 +94,24 @@ inline Vector* WeightContext::GetTempVec(int size)
   return TempVecs[size] = new Vector(size);
 }
 
-extern "C" QUQEMATH_API void* CreateWeightContext(
-  LayerSpec* layerSpecs, int nLayers,
-  double* trainingData, double* outputData,
-  int nInputs, int nSamples);
+extern "C" {
+  
+QUQEMATH_API void* CreateWeightContext(
+LayerSpec* layerSpecs, int nLayers,
+double* trainingData, double* outputData,
+int nInputs, int nSamples);
 
-extern "C" QUQEMATH_API void DestroyWeightContext(void* context);
+QUQEMATH_API void DestroyWeightContext(void* context);
 
-extern "C" QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeights,
+QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeights,
   double* output, double* error, double* gradient);
+
+QUQEMATH_API void* CreateOrthoContext(int basisDimension, int maxBasisCount);
+QUQEMATH_API void DestroyOrthoContext(void* context);
+
+QUQEMATH_API void Orthogonalize(OrthoContext* c, double* p, int numBases, double* orthonormalBases);
+
+}
 
 void Propagate(double* input, int inputStride, int numLayers, Layer** currLayers, Layer** prevLayers);
 void PropagateLayer(double* input, int inputStride, Layer* layer, Vector* recurrentInput);

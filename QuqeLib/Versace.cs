@@ -105,7 +105,7 @@ namespace Quqe
     public List<VGene> ProtoChromosome = new List<VGene> {
         new VGene<int>("NetworkType", 0, 1, 1),
         new VGene<int>("ElmanTrainingEpochs", 20, 20, 1),
-        new VGene<int>("DatabaseType", 0, 1, 1),
+        new VGene<int>("DatabaseType", 1, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
         new VGene<double>("TrainingSizePct", 0, 1, 0.00001),
         new VGene<int>("UseComplementCoding", 0, 1, 1),
@@ -245,7 +245,8 @@ namespace Quqe
       var aOnly = new List<DataSeries<Value>>();
       var bOnly = new List<DataSeries<Value>>();
 
-      Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker);
+      Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker)
+        .From(Settings.StartDate).To(Settings.EndDate);
 
       Action<string, Func<Bar, Value>> addSmaNorm = (ticker, getValue) =>
         aOnly.Add(get(ticker).NormalizeSma10(getValue));
@@ -416,6 +417,7 @@ namespace Quqe
           sync.Post(() => whenDone(result));
         }
       });
+      t.IsBackground = true;
       t.Start();
     }
 

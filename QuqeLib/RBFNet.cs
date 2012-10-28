@@ -7,6 +7,7 @@ using MathNet.Numerics.LinearAlgebra.Double;
 using PCW;
 using System.Diagnostics;
 using System.Xml.Linq;
+using System.Runtime.InteropServices;
 
 namespace Quqe
 {
@@ -121,18 +122,40 @@ namespace Quqe
 
       Vector dOrig = new DenseVector(ys.ToArray());
       Vector d = (Vector)dOrig.Subtract(dOrig.Average());
+      Vector dNorm = (Vector)d.Normalize(2);
 
       var candidateBases = centers.Zip(P.Columns(), (ci, pi) => new { Center = ci, Basis = pi }).ToList();
       var selectedBases = candidateBases.Select(cb => new { Center = cb.Center, Basis = cb.Basis, OrthoBasis = cb.Basis }).Take(0).ToList();
       double qualityTotal = 0;
 
+      var context = QMCreateOrthoContext(n, m);
       var iters = m;
       for (int k = 0; k < iters; k++)
       {
+        int stride = n;
+        double[] selectedOrthonormalBases = new double[selectedBases.Count * stride];
+        for (int ptr = 0, sb = 0; sb < selectedBases.Count; ptr += stride, sb++)
+          Array.Copy(selectedBases[sb].OrthoBasis.ToArray(), 0, selectedOrthonormalBases, ptr, stride);
+
         var best = candidateBases.Select(cb => {
           var pi = cb.Basis;
-          Vector w = (Vector)Orthogonalize(pi, selectedBases.Select(sb => sb.OrthoBasis).ToList()).Normalize(2);
-          var err = Math.Pow(w.DotProduct(d.Normalize(2)), 2);
+          Vector w;
+          if (!selectedBases.Any())
+          {
+            w = (Vector)pi.Normalize(2);
+          }
+          else
+          {
+            double[] result = new double[pi.Count];
+            double[] pis = pi.ToList().ToArray();
+            double[] sobs = selectedOrthonormalBases.ToList().ToArray();
+            QMOrthogonalize(context, pis, selectedBases.Count, sobs);
+            w = new DenseVector(pis.ToList().ToArray());
+          }
+          //Vector wCheck = (Vector)Orthogonalize(pi, selectedBases.Select(b => b.OrthoBasis).ToList()).Normalize(2);
+          //var w = wCheck;
+          //Debug.Assert(w.Subtract(wCheck).Norm(2) < 0.0001);
+          var err = Math.Pow(w.DotProduct(dNorm), 2);
           return new { Center = cb.Center, OrthoBasis = w, Quality = err, Candidate = cb };
         }).OrderByDescending(q => q.Quality).First();
         candidateBases.Remove(best.Candidate);
@@ -141,6 +164,7 @@ namespace Quqe
         if (1 - qualityTotal < tolerance)
           break;
       }
+      QMDestroyOrthoContext(context);
 
       if (ShouldTrace)
         Trace.WriteLine(string.Format("Centers: {0}, Spread: {1}, Tolerance: {2}", selectedBases.Count, spread, tolerance));
@@ -172,11 +196,20 @@ namespace Quqe
       return new RBFNetSolution(resultBases, spread, isDegenerate);
     }
 
-    public static Vector Orthogonalize(Vector pi, List<Vector> withRespectTo)
+    [DllImport("QuqeMath.dll", EntryPoint = "CreateOrthoContext", CallingConvention = CallingConvention.Cdecl)]
+    extern static IntPtr QMCreateOrthoContext(int basisDimension, int maxBasisCount);
+
+    [DllImport("QuqeMath.dll", EntryPoint = "DestroyOrthoContext", CallingConvention = CallingConvention.Cdecl)]
+    extern static IntPtr QMDestroyOrthoContext(IntPtr context);
+
+    [DllImport("QuqeMath.dll", EntryPoint = "Orthogonalize", CallingConvention = CallingConvention.Cdecl)]
+    extern static void QMOrthogonalize(IntPtr c, double[] p, int n, double[] orthonormalBases);
+
+    public static Vector Orthogonalize(Vector pi, List<Vector> withRespectToNormalizedBases)
     {
       Vector result = pi;
-      foreach (var v in withRespectTo)
-        result = (Vector)(result - v.DotProduct(pi) * v.Normalize(2));
+      foreach (var v in withRespectToNormalizedBases)
+        result = (Vector)(result - v.DotProduct(pi) * v);
       return result;
     }
 

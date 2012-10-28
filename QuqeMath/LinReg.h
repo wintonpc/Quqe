@@ -77,5 +77,6 @@ inline double Dot(Vector* a, Vector* b)
 //}
 
 #define AXPY(alpha,x,n,y)    (cblas_daxpy((n), (alpha), (x)->Data, 1, (y), 1))
+#define AXPY2(alpha,xData,n,y)    (cblas_daxpy((n), (alpha), (xData), 1, (y), 1))
 
 #endif
