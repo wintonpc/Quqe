@@ -32,6 +32,7 @@ namespace QuqeViz
       Update();
       var btw = new BacktestWindow();
       btw.Show();
+      this.Loaded += delegate { btw.Activate(); };
     }
 
     public void DoBacktest(string symbol, string strategyName, double initialValue, int marginFactor, bool isValidation)

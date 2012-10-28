@@ -16,6 +16,8 @@ using System.Xml.Linq;
 using System.Xml;
 using System.Threading.Tasks;
 using System.Runtime;
+using System.Reflection;
+using System.Threading;
 
 namespace Quqe
 {
@@ -61,11 +63,12 @@ namespace Quqe
     {
       if (!Directory.Exists("VersaceResults"))
         Directory.CreateDirectory("VersaceResults");
+      Path = string.Format("VersaceResults\\VersaceResult-{0:yyyyMMdd}-{0:HHmmss}.xml", DateTime.Now);
       new XElement("VersaceResult",
         new XElement("FitnessHistory", DoublesToBase64(FitnessHistory)),
         VersaceSettings.ToXml(),
         BestMixture.ToXml())
-        .Save(string.Format("VersaceResults\\VersaceResult-{0:yyyyMMdd}-{0:HHmmss}.xml", DateTime.Now));
+        .Save(Path);
     }
 
     public static VersaceResult Load(string fn)
@@ -79,7 +82,7 @@ namespace Quqe
     }
   }
 
-  public enum TrainingMethod { Paper }
+  public enum TrainingMethod { Evolve }
 
   public class VersaceSettings
   {
@@ -91,7 +94,7 @@ namespace Quqe
     public int EpochCount = 2;
     public double MutationRate = 0.05;
     public double MutationDamping = 0;
-    public TrainingMethod TrainingMethod = TrainingMethod.Paper;
+    public TrainingMethod TrainingMethod = TrainingMethod.Evolve;
 
     public DateTime StartDate = DateTime.Parse("11/11/2001");
     public DateTime EndDate = DateTime.Parse("02/12/2003");
@@ -113,6 +116,17 @@ namespace Quqe
         new VGene<int>("ElmanHidden1NodeCount", 3, 40, 1),
         new VGene<int>("ElmanHidden2NodeCount", 3, 20, 1)
       };
+
+    public override string ToString()
+    {
+      var sb = new StringBuilder();
+      foreach (var fi in this.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public).Where(fi => fi.Name != "ProtoChromosome"))
+        sb.AppendFormat("{0} : {1}\n", fi.Name, fi.GetValue(this));
+      sb.AppendFormat("--------------------------\n");
+      foreach (var g in ProtoChromosome)
+        sb.AppendFormat("{0} : {1}\n", g.Name, g.RangeString);
+      return sb.ToString().TrimEnd('\n');
+    }
 
     public XElement ToXml()
     {
@@ -392,6 +406,19 @@ namespace Quqe
       return (Vector)(x.DotProduct(pc) * pc);
     }
 
+    public static void Train(Action<List<double>> historyChanged, Action<VersaceResult> whenDone)
+    {
+      SyncContext sync = SyncContext.Current;
+      Thread t = new Thread(() => {
+        if (Settings.TrainingMethod == TrainingMethod.Evolve)
+        {
+          var result = Versace.Evolve(historyChanged);
+          sync.Post(() => whenDone(result));
+        }
+      });
+      t.Start();
+    }
+
     static Random Random = new Random();
     public static VersaceResult Evolve(Action<List<double>> historyChanged = null)
     {
@@ -592,6 +619,7 @@ namespace Quqe
   {
     public readonly string Name;
     public VGene(string name) { Name = name; }
+    public abstract string RangeString { get; }
     public abstract VGene Clone();
     public abstract VGene CloneAndRandomize();
     public abstract VGene Mutate(double dampingFactor);
@@ -629,6 +657,24 @@ namespace Quqe
       Max = max;
       Granularity = granularity;
       Value = initialValue ?? RandomValue();
+    }
+
+    public override string RangeString
+    {
+      get
+      {
+        if (Value is int)
+        {
+          if (Min == Max)
+            return Min.ToString();
+          else if (Min == 0 && Max == 1 && Granularity == 1)
+            return "0/1";
+          else
+            return string.Format("{0} - {1}", Min, Max);
+        }
+        else
+          return string.Format("{0:N1} - {1:N1}", Min, Max);
+      }
     }
 
     TValue RandomValue()

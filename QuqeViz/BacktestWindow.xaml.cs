@@ -51,7 +51,7 @@ namespace QuqeViz
 
     private void TrainButton_Click(object sender, RoutedEventArgs e)
     {
-      Presentation.OnClick();
+      Presentation.OnTrain();
     }
 
     private void BacktestButton_Click(object sender, RoutedEventArgs e)
@@ -203,6 +203,14 @@ namespace QuqeViz
       OnSelectedVersaceSettings(r.VersaceSettings);
     }
 
+    public string SettingsDescription
+    {
+      get { return (string)GetValue(SettingsDescriptionProperty); }
+      set { SetValue(SettingsDescriptionProperty, value); }
+    }
+    public static readonly DependencyProperty SettingsDescriptionProperty =
+        DependencyProperty.Register("SettingsDescription", typeof(string), typeof(BacktestPresentation), new UIPropertyMetadata(""));
+
     VersaceSettings SelectedSettings;
     internal void OnSelectedVersaceSettings(VersaceSettings s)
     {
@@ -212,9 +220,10 @@ namespace QuqeViz
       UseValidationSet = s.UseValidationSet;
       ValidationSplitPct = s.ValidationSplitPct;
       SelectedSettings = s.Clone();
+      SettingsDescription = SelectedSettings.ToString();
     }
 
-    internal void OnClick()
+    internal void OnTrain()
     {
       var ch = new EqPlotWindow();
       ch.Show();
@@ -228,8 +237,9 @@ namespace QuqeViz
       };
 
       SetVersaceSettings();
-      Thread t = new Thread(() => Versace.Evolve(updateHistoryWindow));
-      t.Start();
+      Versace.Train(updateHistoryWindow, result => {
+        ch.Title = new VersaceResultHolder(result).ToString();
+      });
     }
 
     private void SetVersaceSettings()

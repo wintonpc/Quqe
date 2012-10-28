@@ -2,14 +2,14 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:bt="clr-namespace:QuqeViz"
-        Title="BacktestWindow" Height="416" Width="684">
+        Title="BacktestWindow" Height="809" Width="684">
   <Window.Resources>
     <bt:DateTimeToDateConverter x:Key="DateConverter"/>
     <bt:BoolToHiddenConverter x:Key="BoolToHiddenConverter"/>
   </Window.Resources>
   <Grid>
     <Grid.RowDefinitions>
-      <RowDefinition Height="183" />
+      <RowDefinition Height="560" />
       <RowDefinition Height="3" />
       <RowDefinition Height="194*" />
     </Grid.RowDefinitions>
@@ -66,6 +66,8 @@
       </StackPanel>
       <Button Grid.Row="4" Height="24" HorizontalAlignment="Left" Name="TrainButton" VerticalAlignment="Top" Width="92" Content="Train"
               Margin="4,4,0,0" Grid.ColumnSpan="2" Click="TrainButton_Click" />
+      <TextBox Grid.ColumnSpan="6" Grid.Row="5" Name="SettingsDescriptionTextBox" Margin="0,0,6,6" IsReadOnly="True"
+               Text="{Binding SettingsDescription}" VerticalScrollBarVisibility="Auto" SelectionBrush="Transparent" Background="#eeeeee" />
     </Grid>
     <Rectangle Grid.Column="0" Grid.Row="1" Name="rectangle1" Stroke="Black" Fill="Black"/>
     <Rectangle Grid.Column="1" Grid.Row="1" Name="rectangle2" Stroke="Black" Fill="Black"/>
