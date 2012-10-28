@@ -177,7 +177,7 @@ namespace QuqeViz
 
     private void GetVersaceDataButton_Click(object sender, RoutedEventArgs e)
     {
-      Versace.GetData();
+      Versace.GetData(DateTime.Parse("11/11/2001"), DateTime.Now.Date);
     }
 
     private void DIAButton_Click(object sender, RoutedEventArgs e)

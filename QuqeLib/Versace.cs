@@ -538,7 +538,7 @@ namespace Quqe
       return result;
     }
 
-    public static void GetData()
+    public static void GetData(DateTime start, DateTime end)
     {
       var dir = @"c:\users\wintonpc\git\Quqe\Share\VersaceData";
       if (!Directory.Exists(dir))
@@ -548,9 +548,7 @@ namespace Quqe
       {
         using (var c = new WebClient())
         {
-
           var fn = Path.Combine(dir, ticker + ".txt");
-
 
           if (ticker.StartsWith("^DJ")) // historical downloads of dow jones indices are not allowed
           {
@@ -558,8 +556,6 @@ namespace Quqe
           }
           else
           {
-            var start = Settings.StartDate;
-            var end = Settings.EndDate;
             var address = string.Format("http://ichart.finance.yahoo.com/table.csv?s={0}&a={1}&b={2}&c={3}&d={4}&e={5}&f={6}&g=d&ignore=.csv",
               ticker, start.Month - 1, start.Day, start.Year, end.Month - 1, end.Day, end.Year);
             c.DownloadFile(address, fn);
