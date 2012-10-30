@@ -6,7 +6,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.ComponentModel;
@@ -16,6 +15,7 @@ using Path = System.IO.Path;
 using Quqe;
 using System.Xml.Linq;
 using System.Threading;
+using System.Windows.Media;
 
 namespace QuqeViz
 {
@@ -257,10 +257,14 @@ namespace QuqeViz
 
     internal void OnBacktest()
     {
-      throw new NotImplementedException();
-    }
+      Versace.Settings = null; // check that the backtest code doesn't reference Settings
+      var ss = SelectedSettings;
 
-    //static BacktestReport Backtest(IPredictor expert, Account account,
+      var testingData = Versace.GetPreprocessedValues(ss.PreprocessingType, ss.PredictedSymbol, ss.TestingStart, ss.TestingEnd, true, Versace.GetIdealSignalFunc(ss.PredictionType));
+      var report = VersaceBacktest.Backtest(SelectedMixture, new Account { Equity = 10000, MarginFactor = 1, Padding = 40 },
+        Versace.GetPreprocessedValues(ss.PreprocessingType, ss.PredictedSymbol, ss.TrainingStart, ss.ValidationEnd, false).Inputs,
+        testingData.Inputs, testingData.Outputs);
+    }
   }
 
   public class DateTimeToDateConverter : IValueConverter

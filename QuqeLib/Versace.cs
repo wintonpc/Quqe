@@ -84,6 +84,7 @@ namespace Quqe
 
   public enum TrainingMethod { Evolve }
   public enum PredictionType { NextClose }
+  public enum PreprocessingType { Enhanced }
 
   public class VersaceSettings
   {
@@ -98,6 +99,7 @@ namespace Quqe
     public double MutationDamping = 0;
     public TrainingMethod TrainingMethod = TrainingMethod.Evolve;
     public PredictionType PredictionType = PredictionType.NextClose;
+    public PreprocessingType PreprocessingType = PreprocessingType.Enhanced;
 
     public DateTime StartDate = DateTime.Parse("11/11/2001");
     public DateTime EndDate = DateTime.Parse("02/12/2003");
@@ -148,6 +150,7 @@ namespace Quqe
         new XAttribute("ValidationSplitPct", ValidationSplitPct),
         new XAttribute("TrainingMethod", TrainingMethod),
         new XAttribute("PredictionType", PredictionType),
+        new XAttribute("PreprocessingType", PreprocessingType),
         new XElement("ProtoChromosome", ProtoChromosome.Select(x => x.ToXml()).ToArray()));
     }
 
@@ -175,9 +178,17 @@ namespace Quqe
         ValidationSplitPct = int.Parse(eSettings.Attribute("ValidationSplitPct").Value),
         TrainingMethod = (TrainingMethod)Enum.Parse(typeof(TrainingMethod), eSettings.Attribute("TrainingMethod").Value),
         PredictionType = (PredictionType)Enum.Parse(typeof(PredictionType), eSettings.Attribute("PredictionType").Value),
+        PreprocessingType = (PreprocessingType)Enum.Parse(typeof(PreprocessingType), eSettings.Attribute("PreprocessingType").Value),
         ProtoChromosome = eSettings.Element("ProtoChromosome").Elements("Gene").Select(x => VGene.Load(x)).ToList()
       };
     }
+
+    public DateTime TrainingStart { get { return StartDate; } }
+    public DateTime TrainingEnd { get { return ValidationStart.AddDays(-1); } }
+    public DateTime ValidationStart { get { return !UseValidationSet ? TestingStart : StartDate.AddMilliseconds(TestingStart.Subtract(StartDate).TotalMilliseconds * (double)ValidationSplitPct / 100).Date; } }
+    public DateTime ValidationEnd { get { return TestingStart.AddDays(-1); } }
+    public DateTime TestingStart { get { return StartDate.AddMilliseconds(EndDate.Subtract(StartDate).TotalMilliseconds * (double)TestingSplitPct / 100).Date; } }
+    public DateTime TestingEnd { get { return EndDate; } }
 
     public VersaceSettings Clone()
     {
@@ -193,10 +204,20 @@ namespace Quqe
       get { return _Settings; }
       set
       {
-        _Settings = value;
-        LoadNormalizedValues();
+        if (value == null)
+        {
+          TrainingInput = ValidationInput = TestingInput = null;
+          TrainingOutput = ValidationOutput = TestingOutput = null;
+        }
+        else
+        {
+          _Settings = value;
+          LoadNormalizedValues();
+        }
       }
     }
+
+    public static Dictionary<PreprocessingType, int> DatabaseAInputLength = new Dictionary<PreprocessingType, int>();
 
     public static List<string> GetTickers(string predictedSymbol)
     {
@@ -244,38 +265,71 @@ namespace Quqe
     public static Vector TrainingOutput { get; private set; }
     public static Vector ValidationOutput { get; private set; }
     public static Vector TestingOutput { get; private set; }
-    public static int DatabaseAInputLength { get; private set; }
+
+    public static Func<DataSeries<Bar>, double> GetIdealSignalFunc(PredictionType pt)
+    {
+      if (pt == PredictionType.NextClose)
+        return s => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close);
+      else
+        throw new Exception("Unexpected PredictionType: " + pt);
+    }
 
     public static void LoadNormalizedValues()
     {
-      DateTime testingStart = Settings.StartDate.AddMilliseconds(Settings.EndDate.Subtract(Settings.StartDate).TotalMilliseconds * (double)Settings.TestingSplitPct / 100).Date;
-      DateTime validationStart = testingStart;
-      if (Settings.UseValidationSet)
-        validationStart = Settings.StartDate.AddMilliseconds(testingStart.Subtract(Settings.StartDate).TotalMilliseconds * (double)Settings.ValidationSplitPct / 100).Date;
-      
-      Func<DataSeries<Bar>, double> idealSignal = null;
-      if (Settings.PredictionType == PredictionType.NextClose)
-        idealSignal = s => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close);
-      
-      PreprocessedData trainingData = GetPreprocessedValues(Settings.PredictedSymbol, Settings.StartDate, validationStart.AddDays(-1), true, idealSignal);
+      Func<DataSeries<Bar>, double> idealSignal = GetIdealSignalFunc(Settings.PredictionType);
+
+      PreprocessedData trainingData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.TrainingStart, Settings.TrainingEnd, true, idealSignal);
       TrainingInput = trainingData.Inputs;
       TrainingOutput = trainingData.Outputs;
-      
+
       if (Settings.UseValidationSet)
       {
-        PreprocessedData validationData = GetPreprocessedValues(Settings.PredictedSymbol, validationStart, testingStart.AddDays(-1), true, idealSignal);
+        PreprocessedData validationData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.ValidationStart, Settings.ValidationEnd, true, idealSignal);
         ValidationInput = validationData.Inputs;
         ValidationOutput = validationData.Outputs;
       }
-      
-      PreprocessedData testingData = GetPreprocessedValues(Settings.PredictedSymbol, testingStart, Settings.EndDate, true, idealSignal);
+
+      PreprocessedData testingData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.TestingStart, Settings.TestingEnd, true, idealSignal);
       TestingInput = testingData.Inputs;
       TestingOutput = testingData.Outputs;
-
-      DatabaseAInputLength = trainingData.DatabaseAInputLength;
     }
 
-    public static PreprocessedData GetPreprocessedValues(string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal = null)
+    //public static void LoadNormalizedValues()
+    //{
+    //  DateTime testingStart = Settings.StartDate.AddMilliseconds(Settings.EndDate.Subtract(Settings.StartDate).TotalMilliseconds * (double)Settings.TestingSplitPct / 100).Date;
+    //  DateTime validationStart = testingStart;
+    //  if (Settings.UseValidationSet)
+    //    validationStart = Settings.StartDate.AddMilliseconds(testingStart.Subtract(Settings.StartDate).TotalMilliseconds * (double)Settings.ValidationSplitPct / 100).Date;
+
+    //  Func<DataSeries<Bar>, double> idealSignal = null;
+    //  if (Settings.PredictionType == PredictionType.NextClose)
+    //    idealSignal = s => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close);
+
+    //  PreprocessedData trainingData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.StartDate, validationStart.AddDays(-1), true, idealSignal);
+    //  TrainingInput = trainingData.Inputs;
+    //  TrainingOutput = trainingData.Outputs;
+
+    //  if (Settings.UseValidationSet)
+    //  {
+    //    PreprocessedData validationData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, validationStart, testingStart.AddDays(-1), true, idealSignal);
+    //    ValidationInput = validationData.Inputs;
+    //    ValidationOutput = validationData.Outputs;
+    //  }
+
+    //  PreprocessedData testingData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, testingStart, Settings.EndDate, true, idealSignal);
+    //  TestingInput = testingData.Inputs;
+    //  TestingOutput = testingData.Outputs;
+    //}
+
+    public static PreprocessedData GetPreprocessedValues(PreprocessingType preprocessType, string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal = null)
+    {
+      if (preprocessType == PreprocessingType.Enhanced)
+        return PreprocessEnhanced(predictedSymbol, startDate, endDate, includeOutputs, idealSignal);
+      else
+        throw new Exception("Unexpected PreprocessingType: " + preprocessType);
+    }
+
+    static PreprocessedData PreprocessEnhanced(string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal)
     {
       var clean = GetCleanSeries(predictedSymbol, GetTickers(predictedSymbol));
       var aOnly = new List<DataSeries<Value>>();
@@ -367,14 +421,15 @@ namespace Quqe
       // % Diff. between Normalized DJIA and Normalized T Bond
       bOnly.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0]));
 
+      DatabaseAInputLength[PreprocessingType.Enhanced] = aOnly.Count;
+
       var unalignedData = SeriesToMatrix(aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList());
       if (!includeOutputs)
       {
         return new PreprocessedData {
           Predicted = predicted,
           Inputs = unalignedData,
-          Outputs = null,
-          DatabaseAInputLength = aOnly.Count
+          Outputs = null
         };
       }
       //var unalignedOutput = SeriesToMatrix(List.Create(predicted.MapElements<Value>((s, _) => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close))));
@@ -385,8 +440,7 @@ namespace Quqe
       return new PreprocessedData {
         Predicted = predicted,
         Inputs = data,
-        Outputs = new DenseVector(output.Row(0).ToArray()),
-        DatabaseAInputLength = aOnly.Count
+        Outputs = new DenseVector(output.Row(0).ToArray())
       };
     }
 
@@ -506,11 +560,11 @@ namespace Quqe
           // optimize training order to keep the most load on the CPUs
           var allUntrainedExperts = population.Where(mixture => mixture.Fitness == 0).SelectMany(mixture => mixture.Members).ToList();
           var rnnExperts = allUntrainedExperts.Where(x => x.NetworkType == NetworkType.RNN).OrderByDescending(x => {
-            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseAInputLength : TrainingInput.RowCount);
+            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseAInputLength[Settings.PreprocessingType] : TrainingInput.RowCount);
             return x.ElmanHidden1NodeCount * x.ElmanHidden2NodeCount * x.ElmanTrainingEpochs * inputFactor;
           }).ToList();
           var rbfExperts = allUntrainedExperts.Where(x => x.NetworkType == NetworkType.RBF).OrderByDescending(x => {
-            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseAInputLength : TrainingInput.RowCount);
+            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseAInputLength[Settings.PreprocessingType] : TrainingInput.RowCount);
             return x.TrainingSizePct * inputFactor;
           }).ToList();
           var reordered = rnnExperts.Concat(rbfExperts).ToList();
@@ -596,7 +650,7 @@ namespace Quqe
 
           if (ticker.StartsWith("^DJ")) // historical downloads of dow jones indices are not allowed
           {
-            GetDowJonesData(c, ticker, fn);
+            GetDowJonesData(c, ticker, fn, start, end);
           }
           else
           {
@@ -621,11 +675,9 @@ namespace Quqe
       }
     }
 
-    private static void GetDowJonesData(WebClient c, string ticker, string fn)
+    static void GetDowJonesData(WebClient c, string ticker, string fn, DateTime start, DateTime end)
     {
       List<string> lines = new List<string>();
-      var start = Settings.StartDate;
-      var end = Settings.EndDate;
       var address = string.Format("http://finance.yahoo.com/q/hp?s={0}&a={1}&b={2}&c={3}&d={4}&e={5}&f={6}&g=d",
         ticker, start.Month - 1, start.Day, start.Year, end.Month - 1, end.Day, end.Year);
 
@@ -660,7 +712,6 @@ namespace Quqe
     public DataSeries<Bar> Predicted;
     public Matrix Inputs;
     public Vector Outputs;
-    public int DatabaseAInputLength;
   }
 
   public abstract class VGene
@@ -806,7 +857,7 @@ namespace Quqe
 
     public Expert RefreshExpert()
     {
-      Expert = new Expert(this);
+      Expert = new Expert(this, Versace.Settings.PreprocessingType);
       return Expert;
     }
 
@@ -1025,17 +1076,19 @@ namespace Quqe
     VMember Member;
     public IPredictor Network;
     Matrix PrincipalComponents;
+    PreprocessingType PreprocessingType;
 
-    public Expert(VMember member)
+    public Expert(VMember member, PreprocessingType preprocessType)
     {
       Member = member;
+      PreprocessingType = preprocessType;
     }
 
     List<Vector> Preprocess(List<Vector> inputs, bool recalculatePrincipalComponents = false)
     {
       // database selection
       if (Member.DatabaseType == DatabaseType.A)
-        inputs = inputs.Select(x => (Vector)x.SubVector(0, Versace.DatabaseAInputLength)).ToList();
+        inputs = inputs.Select(x => (Vector)x.SubVector(0, Versace.DatabaseAInputLength[PreprocessingType])).ToList();
 
       // complement coding
       if (Member.UseComplementCoding)
@@ -1110,7 +1163,9 @@ namespace Quqe
 
     public XElement ToXml()
     {
-      var eExpert = new XElement("Expert", Network.ToXml());
+      var eExpert = new XElement("Expert",
+        new XAttribute("PreprocessingType", PreprocessingType),
+        Network.ToXml());
       if (PrincipalComponents != null)
         eExpert.Add(new XElement("PrincipalComponents",
           new XAttribute("RowCount", PrincipalComponents.RowCount),
@@ -1123,7 +1178,7 @@ namespace Quqe
     {
       var ePc = eExpert.Element("PrincipalComponents");
       var eNetwork = eExpert.Element("Network");
-      var expert = new Expert(member) {
+      var expert = new Expert(member, (PreprocessingType)Enum.Parse(typeof(PreprocessingType), eExpert.Attribute("PreprocessingType").Value)) {
         Network = eNetwork.Attribute("Type").Value == NetworkType.RNN.ToString()
           ? (IPredictor)RNN.Load(eNetwork) : (IPredictor)RBFNet.Load(eNetwork)
       };
@@ -1133,6 +1188,19 @@ namespace Quqe
           int.Parse(ePc.Attribute("ColumnCount").Value),
           VersaceResult.DoublesFromBase64(ePc.Value).ToArray());
       return expert;
+    }
+  }
+
+  public static class VersaceBacktest
+  {
+    public static BacktestReport Backtest(IPredictor predictor, Account account, Matrix preInputs, Matrix inputs, Vector outputs)
+    {
+      // run through the preTesting values so the RNNs can build up state
+      predictor.Reset();
+      foreach (var input in preInputs.Columns())
+        predictor.Predict(input);
+
+      return null;
     }
   }
 }
