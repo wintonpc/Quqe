@@ -59,7 +59,7 @@ namespace QuqeViz
 
     private void BacktestButton_Click(object sender, RoutedEventArgs e)
     {
-
+      Presentation.OnBacktest();
     }
   }
 
@@ -254,6 +254,13 @@ namespace QuqeViz
       SelectedSettings.ValidationSplitPct = ValidationSplitPct;
       Versace.Settings = SelectedSettings;
     }
+
+    internal void OnBacktest()
+    {
+      throw new NotImplementedException();
+    }
+
+    //static BacktestReport Backtest(IPredictor expert, Account account,
   }
 
   public class DateTimeToDateConverter : IValueConverter

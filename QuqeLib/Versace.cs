@@ -83,11 +83,13 @@ namespace Quqe
   }
 
   public enum TrainingMethod { Evolve }
+  public enum PredictionType { NextClose }
 
   public class VersaceSettings
   {
     public string Path { get; private set; }
 
+    public string PredictedSymbol = "DIA";
     public int ExpertsPerMixture = 10;
     public int PopulationSize = 10;
     public int SelectionSize = 4;
@@ -95,6 +97,7 @@ namespace Quqe
     public double MutationRate = 0.05;
     public double MutationDamping = 0;
     public TrainingMethod TrainingMethod = TrainingMethod.Evolve;
+    public PredictionType PredictionType = PredictionType.NextClose;
 
     public DateTime StartDate = DateTime.Parse("11/11/2001");
     public DateTime EndDate = DateTime.Parse("02/12/2003");
@@ -131,6 +134,7 @@ namespace Quqe
     public XElement ToXml()
     {
       return new XElement("VersaceSettings",
+        new XAttribute("PredictedSymbol", PredictedSymbol),
         new XAttribute("ExpertsPerMixture", ExpertsPerMixture),
         new XAttribute("PopulationSize", PopulationSize),
         new XAttribute("SelectionSize", SelectionSize),
@@ -143,6 +147,7 @@ namespace Quqe
         new XAttribute("UseValidationSet", UseValidationSet),
         new XAttribute("ValidationSplitPct", ValidationSplitPct),
         new XAttribute("TrainingMethod", TrainingMethod),
+        new XAttribute("PredictionType", PredictionType),
         new XElement("ProtoChromosome", ProtoChromosome.Select(x => x.ToXml()).ToArray()));
     }
 
@@ -156,6 +161,7 @@ namespace Quqe
     public static VersaceSettings Load(XElement eSettings)
     {
       return new VersaceSettings {
+        PredictedSymbol = eSettings.Attribute("PredictedSymbol").Value,
         ExpertsPerMixture = int.Parse(eSettings.Attribute("ExpertsPerMixture").Value),
         PopulationSize = int.Parse(eSettings.Attribute("PopulationSize").Value),
         SelectionSize = int.Parse(eSettings.Attribute("SelectionSize").Value),
@@ -168,6 +174,7 @@ namespace Quqe
         UseValidationSet = bool.Parse(eSettings.Attribute("UseValidationSet").Value),
         ValidationSplitPct = int.Parse(eSettings.Attribute("ValidationSplitPct").Value),
         TrainingMethod = (TrainingMethod)Enum.Parse(typeof(TrainingMethod), eSettings.Attribute("TrainingMethod").Value),
+        PredictionType = (PredictionType)Enum.Parse(typeof(PredictionType), eSettings.Attribute("PredictionType").Value),
         ProtoChromosome = eSettings.Element("ProtoChromosome").Elements("Gene").Select(x => VGene.Load(x)).ToList()
       };
     }
@@ -191,20 +198,21 @@ namespace Quqe
       }
     }
 
-    public static List<string> Tickers = List.Create(
-      "DIA", "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP", "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/
-      "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU"
-      );
+    public static List<string> GetTickers(string predictedSymbol)
+    {
+      return List.Create(predictedSymbol, "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP",
+        "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/ "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU");
+    }
 
     static Versace()
     {
       Settings = new VersaceSettings();
     }
 
-    public static List<DataSeries<Bar>> GetCleanSeries()
+    public static List<DataSeries<Bar>> GetCleanSeries(string predictedSymbol, List<string> tickers)
     {
-      var raw = Tickers.Select(t => Data.LoadVersace(t)).ToList();
-      var dia = raw.First(s => s.Symbol == "DIA");
+      var raw = tickers.Select(t => Data.LoadVersace(t)).ToList();
+      var dia = raw.First(s => s.Symbol == predictedSymbol);
       var supp = raw.Where(s => s != dia).ToList();
 
       // fill in missing data in supplemental instruments
@@ -236,17 +244,59 @@ namespace Quqe
     public static Vector TrainingOutput { get; private set; }
     public static Vector ValidationOutput { get; private set; }
     public static Vector TestingOutput { get; private set; }
-    public static int DatabaseADimension { get; private set; }
-    public static DataSeries<Bar> DIA { get; private set; }
+    public static int DatabaseAInputLength { get; private set; }
 
-    private static void LoadNormalizedValues()
+    public static void LoadNormalizedValues()
     {
-      var clean = GetCleanSeries();
+      DateTime testingStart = Settings.StartDate.AddMilliseconds(Settings.EndDate.Subtract(Settings.StartDate).TotalMilliseconds * (double)Settings.TestingSplitPct / 100).Date;
+      DateTime validationStart = testingStart;
+      if (Settings.UseValidationSet)
+        validationStart = Settings.StartDate.AddMilliseconds(testingStart.Subtract(Settings.StartDate).TotalMilliseconds * (double)Settings.ValidationSplitPct / 100).Date;
+      
+      Func<DataSeries<Bar>, double> idealSignal = null;
+      if (Settings.PredictionType == PredictionType.NextClose)
+        idealSignal = s => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close);
+      
+      PreprocessedData trainingData = GetPreprocessedValues(Settings.PredictedSymbol, Settings.StartDate, validationStart.AddDays(-1), true, idealSignal);
+      TrainingInput = trainingData.Inputs;
+      TrainingOutput = trainingData.Outputs;
+      
+      if (Settings.UseValidationSet)
+      {
+        PreprocessedData validationData = GetPreprocessedValues(Settings.PredictedSymbol, validationStart, testingStart.AddDays(-1), true, idealSignal);
+        ValidationInput = validationData.Inputs;
+        ValidationOutput = validationData.Outputs;
+      }
+      
+      PreprocessedData testingData = GetPreprocessedValues(Settings.PredictedSymbol, testingStart, Settings.EndDate, true, idealSignal);
+      TestingInput = testingData.Inputs;
+      TestingOutput = testingData.Outputs;
+
+      DatabaseAInputLength = trainingData.DatabaseAInputLength;
+    }
+
+    public static PreprocessedData GetPreprocessedValues(string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal = null)
+    {
+      var clean = GetCleanSeries(predictedSymbol, GetTickers(predictedSymbol));
       var aOnly = new List<DataSeries<Value>>();
       var bOnly = new List<DataSeries<Value>>();
 
+      if (includeOutputs)
+      {
+        // increase endDate by one trading day, because on the true endDate,
+        // we need to look one day ahead to know the correct prediction.
+        // if the trueEnd date is the last day in the DataSeries (can't look ahead), we'll have to chop it off in the output.
+        var ds = clean.First(); // any will do, since we already cleaned them to have the exact same timestamp sequence
+        int i = 1;
+        while (i < ds.Length && ds[i].Timestamp < endDate.AddDays(1))
+          i++;
+        endDate = ds[i].Timestamp;
+      }
+
+      /////////////////////
+      // helper functions
       Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker)
-        .From(Settings.StartDate).To(Settings.EndDate);
+        .From(startDate).To(endDate);
 
       Action<string, Func<Bar, Value>> addSmaNorm = (ticker, getValue) =>
         aOnly.Add(get(ticker).NormalizeSma10(getValue));
@@ -258,10 +308,12 @@ namespace Quqe
         addSmaNorm(ticker, x => x.Close);
       };
 
-      DIA = get("DIA");
+      //////////////////////////////////////////
+      // apply indicators and SMA normalizations
+      var predicted = get(predictedSymbol);
 
       // % ROC Close
-      bOnly.Add(get("DIA").MapElements<Value>((s, v) => {
+      bOnly.Add(predicted.MapElements<Value>((s, v) => {
         if (s.Pos == 0)
           return 0;
         else
@@ -269,27 +321,27 @@ namespace Quqe
       }));
 
       // % Diff Open-Close
-      bOnly.Add(get("DIA").MapElements<Value>((s, v) => (s[0].Open - s[0].Close) / s[0].Open * 100));
+      bOnly.Add(predicted.MapElements<Value>((s, v) => (s[0].Open - s[0].Close) / s[0].Open * 100));
 
       // % Diff High-Low
-      bOnly.Add(get("DIA").MapElements<Value>((s, v) => (s[0].High - s[0].Low) / s[0].Low * 100));
+      bOnly.Add(predicted.MapElements<Value>((s, v) => (s[0].High - s[0].Low) / s[0].Low * 100));
 
       // my own LinReg stuff
       {
-        var fast = get("DIA").Closes().LinReg(2, 1);
-        var slow = get("DIA").Closes().LinReg(7, 1);
+        var fast = predicted.Closes().LinReg(2, 1);
+        var slow = predicted.Closes().LinReg(7, 1);
         bOnly.Add(fast.ZipElements<Value, Value>(slow, (f, s, _) => f[0] - s[0]));
-        bOnly.Add(get("DIA").Closes().RSquared(10));
-        bOnly.Add(get("DIA").Closes().LinRegSlope(4));
+        bOnly.Add(predicted.Closes().RSquared(10));
+        bOnly.Add(predicted.Closes().LinRegSlope(4));
       }
 
-      addSmaNormOHLC("DIA");
-      addSmaNorm("DIA", x => x.Volume);
+      addSmaNormOHLC(predictedSymbol);
+      addSmaNorm(predictedSymbol, x => x.Volume);
 
-      bOnly.Add(get("DIA").ChaikinVolatility(10));
-      bOnly.Add(get("DIA").Closes().MACD(10, 21));
-      bOnly.Add(get("DIA").Closes().Momentum(10));
-      bOnly.Add(get("DIA").VersaceRSI(10));
+      bOnly.Add(predicted.ChaikinVolatility(10));
+      bOnly.Add(predicted.Closes().MACD(10, 21));
+      bOnly.Add(predicted.Closes().Momentum(10));
+      bOnly.Add(predicted.VersaceRSI(10));
 
       addSmaNormOHLC("^IXIC");
       addSmaNormOHLC("^GSPC");
@@ -315,37 +367,27 @@ namespace Quqe
       // % Diff. between Normalized DJIA and Normalized T Bond
       bOnly.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0]));
 
-      Func<DataSeries<Value>, DataSeries<Value>> removeLastBar = s => new DataSeries<Value>(s.Symbol, s.Take(s.Length - 1));
-
       var unalignedData = SeriesToMatrix(aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList());
-      var unalignedOutput = SeriesToMatrix(List.Create(get("DIA").MapElements<Value>((s, _) => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close))));
+      if (!includeOutputs)
+      {
+        return new PreprocessedData {
+          Predicted = predicted,
+          Inputs = unalignedData,
+          Outputs = null,
+          DatabaseAInputLength = aOnly.Count
+        };
+      }
+      //var unalignedOutput = SeriesToMatrix(List.Create(predicted.MapElements<Value>((s, _) => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close))));
+      var unalignedOutput = SeriesToMatrix(List.Create(predicted.MapElements<Value>((s, _) => idealSignal(s))));
 
       var data = MatrixFromColumns(unalignedData.Columns().Take(unalignedData.ColumnCount - 1).ToList());
       var output = MatrixFromColumns(unalignedOutput.Columns().Skip(1).ToList());
-
-      int testingOffset = (int)(output.ColumnCount * (double)Settings.TestingSplitPct / 100);
-      int validationOffset = testingOffset;
-      if (Settings.UseValidationSet)
-        validationOffset = (int)(testingOffset * (double)Settings.ValidationSplitPct / 100);
-
-      var dataPartitions = data.Columns().PartitionByIndex(0, validationOffset, testingOffset, data.ColumnCount);
-      var outputPartitions = output.Row(0).PartitionByIndex(0, validationOffset, testingOffset, data.ColumnCount);
-
-      TrainingInput = MatrixFromColumns(dataPartitions[0]);
-      TrainingOutput = new DenseVector(outputPartitions[0].ToArray());
-      if (Settings.UseValidationSet)
-      {
-        ValidationInput = MatrixFromColumns(dataPartitions[1]);
-        ValidationOutput = new DenseVector(outputPartitions[1].ToArray());
-      }
-      else
-      {
-        ValidationInput = null;
-        ValidationOutput = null;
-      }
-      TestingInput = MatrixFromColumns(dataPartitions[2]);
-      TestingOutput = new DenseVector(outputPartitions[2].ToArray());
-      DatabaseADimension = aOnly.Count;
+      return new PreprocessedData {
+        Predicted = predicted,
+        Inputs = data,
+        Outputs = new DenseVector(output.Row(0).ToArray()),
+        DatabaseAInputLength = aOnly.Count
+      };
     }
 
     public static Matrix MatrixFromColumns(List<Vector> columns)
@@ -464,11 +506,11 @@ namespace Quqe
           // optimize training order to keep the most load on the CPUs
           var allUntrainedExperts = population.Where(mixture => mixture.Fitness == 0).SelectMany(mixture => mixture.Members).ToList();
           var rnnExperts = allUntrainedExperts.Where(x => x.NetworkType == NetworkType.RNN).OrderByDescending(x => {
-            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseADimension : TrainingInput.RowCount);
+            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseAInputLength : TrainingInput.RowCount);
             return x.ElmanHidden1NodeCount * x.ElmanHidden2NodeCount * x.ElmanTrainingEpochs * inputFactor;
           }).ToList();
           var rbfExperts = allUntrainedExperts.Where(x => x.NetworkType == NetworkType.RBF).OrderByDescending(x => {
-            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseADimension : TrainingInput.RowCount);
+            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseAInputLength : TrainingInput.RowCount);
             return x.TrainingSizePct * inputFactor;
           }).ToList();
           var reordered = rnnExperts.Concat(rbfExperts).ToList();
@@ -540,13 +582,13 @@ namespace Quqe
       return result;
     }
 
-    public static void GetData(DateTime start, DateTime end)
+    public static void GetData(string predictedSymbol, DateTime start, DateTime end)
     {
       var dir = @"c:\users\wintonpc\git\Quqe\Share\VersaceData";
       if (!Directory.Exists(dir))
         Directory.CreateDirectory(dir);
 
-      foreach (var ticker in Tickers)
+      foreach (var ticker in GetTickers(predictedSymbol))
       {
         using (var c = new WebClient())
         {
@@ -611,6 +653,14 @@ namespace Quqe
       }
     Done: File.WriteAllLines(fn, lines);
     }
+  }
+
+  public class PreprocessedData
+  {
+    public DataSeries<Bar> Predicted;
+    public Matrix Inputs;
+    public Vector Outputs;
+    public int DatabaseAInputLength;
   }
 
   public abstract class VGene
@@ -985,7 +1035,7 @@ namespace Quqe
     {
       // database selection
       if (Member.DatabaseType == DatabaseType.A)
-        inputs = inputs.Select(x => (Vector)x.SubVector(0, Versace.DatabaseADimension)).ToList();
+        inputs = inputs.Select(x => (Vector)x.SubVector(0, Versace.DatabaseAInputLength)).ToList();
 
       // complement coding
       if (Member.UseComplementCoding)

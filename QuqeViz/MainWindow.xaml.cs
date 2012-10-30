@@ -177,12 +177,12 @@ namespace QuqeViz
 
     private void GetVersaceDataButton_Click(object sender, RoutedEventArgs e)
     {
-      Versace.GetData(DateTime.Parse("11/11/2001"), DateTime.Now.Date);
+      Versace.GetData("DIA", DateTime.Parse("11/11/2001"), DateTime.Now.Date);
     }
 
     private void DIAButton_Click(object sender, RoutedEventArgs e)
     {
-      var dia = Versace.GetCleanSeries().First(s => s.Symbol == "DIA");
+      var dia = Versace.GetCleanSeries("DIA", Versace.GetTickers("DIA")).First(s => s.Symbol == "DIA");
       var w = new ChartWindow();
       var g1 = w.Chart.AddGraph();
       g1.Plots.Add(new Plot {
@@ -225,43 +225,43 @@ namespace QuqeViz
       ch.EqPlot.DrawLine(List.Repeat(vr.FitnessHistory.Count, i => new Point(i, vr.FitnessHistory[i])), Colors.Blue);
       ch.Show();
 
-      m.Reset();
-      var output = Versace.TestingInput.Columns().Select(x => (double)Math.Sign(m.Predict(x))).ToList();
-      var inputSeries = new DataSeries<Bar>(Versace.DIA.Symbol, Versace.DIA.Skip(Versace.TrainingOutput.Count));
-      var idealSignal = new DataSeries<Value>("", Versace.TestingOutput.ToDataSeries(inputSeries));
-      var actualSignal = new DataSeries<Value>("", output.ToDataSeries(inputSeries));
-      var diff = idealSignal.ZipElements<Value, Value>(actualSignal, (i, a, _) => i[0].Val == a[0].Val ? 1 : -1);
-      Trace.WriteLine(string.Format("Accuracy: {0:N1}%", (double)diff.Count(x => x.Val == 1) / diff.Length * 100));
+      //m.Reset();
+      //var output = Versace.TestingInput.Columns().Select(x => (double)Math.Sign(m.Predict(x))).ToList();
+      //var inputSeries = new DataSeries<Bar>(Versace.DIA.Symbol, Versace.DIA.Skip(Versace.TrainingOutput.Count));
+      //var idealSignal = new DataSeries<Value>("", Versace.TestingOutput.ToDataSeries(inputSeries));
+      //var actualSignal = new DataSeries<Value>("", output.ToDataSeries(inputSeries));
+      //var diff = idealSignal.ZipElements<Value, Value>(actualSignal, (i, a, _) => i[0].Val == a[0].Val ? 1 : -1);
+      //Trace.WriteLine(string.Format("Accuracy: {0:N1}%", (double)diff.Count(x => x.Val == 1) / diff.Length * 100));
 
-      var w = new ChartWindow();
-      var g1 = w.Chart.AddGraph();
-      g1.Plots.Add(new Plot {
-        Title = "DIA",
-        DataSeries = inputSeries,
-        Type = PlotType.Candlestick
-      });
-      var g2 = w.Chart.AddGraph();
-      g2.Plots.Add(new Plot {
-        Title = "IdealSignal",
-        DataSeries = idealSignal,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-      var g3 = w.Chart.AddGraph();
-      g3.Plots.Add(new Plot {
-        Title = "ActualSignal",
-        DataSeries = actualSignal,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-      var g4 = w.Chart.AddGraph();
-      g4.Plots.Add(new Plot {
-        Title = "Diff",
-        DataSeries = diff,
-        Type = PlotType.Bar,
-        Color = Brushes.Blue
-      });
-      w.Show();
+      //var w = new ChartWindow();
+      //var g1 = w.Chart.AddGraph();
+      //g1.Plots.Add(new Plot {
+      //  Title = "DIA",
+      //  DataSeries = inputSeries,
+      //  Type = PlotType.Candlestick
+      //});
+      //var g2 = w.Chart.AddGraph();
+      //g2.Plots.Add(new Plot {
+      //  Title = "IdealSignal",
+      //  DataSeries = idealSignal,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Blue
+      //});
+      //var g3 = w.Chart.AddGraph();
+      //g3.Plots.Add(new Plot {
+      //  Title = "ActualSignal",
+      //  DataSeries = actualSignal,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Blue
+      //});
+      //var g4 = w.Chart.AddGraph();
+      //g4.Plots.Add(new Plot {
+      //  Title = "Diff",
+      //  DataSeries = diff,
+      //  Type = PlotType.Bar,
+      //  Color = Brushes.Blue
+      //});
+      //w.Show();
     }
 
     private void GrillButton_Click(object sender, RoutedEventArgs e)

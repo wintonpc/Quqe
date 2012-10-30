@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<VersaceSettings ExpertsPerMixture="10" PopulationSize="10" SelectionSize="4" EpochCount="3" MutationRate="0.05" MutationDamping="0" StartDate="2001-11-11T00:00:00" EndDate="2003-02-12T00:00:00" TestingSplitPct="78" UseValidationSet="false" ValidationSplitPct="0" TrainingMethod="Evolve">
+<VersaceSettings PredictedSymbol="DIA" PredictionType="NextClose" ExpertsPerMixture="10" PopulationSize="10" SelectionSize="4" EpochCount="3" MutationRate="0.05" MutationDamping="0" StartDate="2001-11-11T00:00:00" EndDate="2003-02-12T00:00:00" TestingSplitPct="78" UseValidationSet="false" ValidationSplitPct="0" TrainingMethod="Evolve">
   <ProtoChromosome>
     <Gene Name="NetworkType" Value="0" Min="0" Max="1" Granularity="1" />
     <Gene Name="ElmanTrainingEpochs" Value="372" Min="20" Max="20" Granularity="1" />
