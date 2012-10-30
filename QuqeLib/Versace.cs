@@ -328,8 +328,8 @@ namespace Quqe
       if (Settings.UseValidationSet)
         validationOffset = (int)(testingOffset * (double)Settings.ValidationSplitPct / 100);
 
-      var dataPartitions = data.Columns().PartitionByIndex(0, testingOffset, validationOffset, data.ColumnCount);
-      var outputPartitions = output.Row(0).PartitionByIndex(0, testingOffset, validationOffset, data.ColumnCount);
+      var dataPartitions = data.Columns().PartitionByIndex(0, validationOffset, testingOffset, data.ColumnCount);
+      var outputPartitions = output.Row(0).PartitionByIndex(0, validationOffset, testingOffset, data.ColumnCount);
 
       TrainingInput = MatrixFromColumns(dataPartitions[0]);
       TrainingOutput = new DenseVector(outputPartitions[0].ToArray());
@@ -895,14 +895,14 @@ namespace Quqe
       var experts = Members.Select(x => x.Expert).ToList();
       foreach (var expert in experts)
         expert.Reset();
-      for (int j = 0; j < Versace.TestingOutput.Count; j++)
+      for (int j = 0; j < Versace.ValidationOutput.Count; j++)
       {
-        var vote = Predict(Versace.TestingInput.Column(j));
+        var vote = Predict(Versace.ValidationInput.Column(j));
         Debug.Assert(vote != 0);
-        if (Versace.TestingOutput[j] == vote)
+        if (Versace.ValidationOutput[j] == vote)
           correctCount++;
       }
-      Fitness = (double)correctCount / Versace.TestingOutput.Count;
+      Fitness = (double)correctCount / Versace.ValidationOutput.Count;
       return Fitness;
     }
 
