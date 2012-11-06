@@ -871,7 +871,7 @@ namespace Quqe
             absoluteStop = bs[0].Open - perShareRisk[0];
           else
             absoluteStop = bs[0].Open + perShareRisk[0];
-          newElements.Add(new SignalValue(bs[0].Timestamp, bias, sizePct, absoluteStop, null));
+          newElements.Add(new SignalValue(bs[0].Timestamp, bias, SignalTimeOfDay.Open, sizePct, absoluteStop, null));
 
           //newElements.Add(new SignalValue(bs[0].Timestamp, bias, null, null, null));
         });

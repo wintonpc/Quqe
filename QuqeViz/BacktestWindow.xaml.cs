@@ -260,10 +260,10 @@ namespace QuqeViz
       Versace.Settings = null; // check that the backtest code doesn't reference Settings
       var ss = SelectedSettings;
 
-      var testingData = Versace.GetPreprocessedValues(ss.PreprocessingType, ss.PredictedSymbol, ss.TestingStart, ss.TestingEnd, true, Versace.GetIdealSignalFunc(ss.PredictionType));
-      var report = VersaceBacktest.Backtest(SelectedMixture, new Account { Equity = 10000, MarginFactor = 1, Padding = 40 },
+      var testingData = Versace.GetPreprocessedValues(ss.PreprocessingType, ss.PredictedSymbol, ss.TestingStart, ss.TestingEnd, false);
+      var report = VersaceBacktest.Backtest(ss.PredictionType, SelectedMixture, new Account { Equity = 10000, MarginFactor = 1, Padding = 40 },
         Versace.GetPreprocessedValues(ss.PreprocessingType, ss.PredictedSymbol, ss.TrainingStart, ss.ValidationEnd, false).Inputs,
-        testingData.Inputs, testingData.Outputs);
+        testingData.Inputs, testingData.Predicted);
     }
   }
 

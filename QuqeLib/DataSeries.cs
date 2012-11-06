@@ -120,18 +120,21 @@ namespace Quqe
   }
 
   public enum SignalBias { Buy, Sell, None }
+  public enum SignalTimeOfDay { Open, Close }
 
   public class SignalValue : DataSeriesElement
   {
     public readonly double? Stop;
     public readonly double? Limit;
     public readonly SignalBias Bias;
+    public readonly SignalTimeOfDay Time;
     public readonly double SizePct;
 
-    public SignalValue(DateTime timestamp, SignalBias bias, double? sizePct, double? stop, double? limit)
+    public SignalValue(DateTime timestamp, SignalBias bias, SignalTimeOfDay time, double? sizePct, double? stop, double? limit)
       : base(timestamp)
     {
       Bias = bias;
+      Time = time;
       Stop = stop;
       Limit = limit;
       SizePct = sizePct ?? 1.0;

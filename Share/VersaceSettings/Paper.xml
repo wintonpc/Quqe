@@ -11,7 +11,7 @@
     <Gene Name="PrincipalComponent" Value="0" Min="0" Max="100" Granularity="1" />
     <Gene Name="RbfNetTolerance" Value="0" Min="0" Max="1" Granularity="0.001" />
     <Gene Name="RbfGaussianSpread" Value="0" Min="0.1" Max="10" Granularity="0.01" />
-    <Gene Name="ElmanHidden1NodeCount" Value="0" Min="3" Max="150" Granularity="1" />
-    <Gene Name="ElmanHidden2NodeCount" Value="0" Min="3" Max="100" Granularity="1" />
+    <Gene Name="ElmanHidden1NodeCount" Value="0" Min="3" Max="200" Granularity="1" />
+    <Gene Name="ElmanHidden2NodeCount" Value="0" Min="3" Max="200" Granularity="1" />
   </ProtoChromosome>
 </VersaceSettings>

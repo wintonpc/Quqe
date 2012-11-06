@@ -1025,7 +1025,7 @@ namespace Quqe
     public static DataSeries<SignalValue> ToSignal(this DataSeries<Value> signal)
     {
       return signal.MapElements<SignalValue>((s, v) =>
-        new SignalValue(s[0].Timestamp, s[0] >= 0 ? SignalBias.Buy : SignalBias.Sell, null, null, null));
+        new SignalValue(s[0].Timestamp, s[0] >= 0 ? SignalBias.Buy : SignalBias.Sell, SignalTimeOfDay.Open, null, null, null));
     }
 
     //public static DataSeries<Value> DecisionTreeSignal(this DataSeries<Bar> bars,
