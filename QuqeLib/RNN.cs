@@ -78,6 +78,7 @@ namespace Quqe
     List<LayerSpec> LayerSpecs;
     List<Layer> Layers;
     const double TimeZeroRecurrentInputValue = 0.5;
+    public Vector<double> SCGInit { get; private set; }
 
     static WeightEvalInfo EvaluateWeights(RNN net, Vector<double> weights, Matrix<double> trainingData, Vector<double> outputData)
     {
@@ -351,10 +352,12 @@ namespace Quqe
     }
 
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
-    public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData)
+    public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, Vector<double> initialWeights = null)
     {
-      var result = TrainSCGInternal(net.LayerSpecs, net.GetWeightVector(), epoch_max, trainingData, outputData);
+      var scgInit = initialWeights ?? net.GetWeightVector();
+      var result = TrainSCGInternal(net.LayerSpecs, scgInit, epoch_max, trainingData, outputData);
       net.SetWeightVector(result.Params);
+      net.SCGInit = scgInit;
       return result;
     }
 
@@ -673,7 +676,8 @@ rank=same;");
       return new XElement("Network", new XAttribute("Type", NetworkType.RNN),
         new XElement("InputCount", NumInputs),
         new XElement("LayerSpecs", LayerSpecs.Select(x => x.ToXml()).ToArray()),
-        new XElement("Weights", VersaceResult.DoublesToBase64(GetWeightVector())));
+        new XElement("Weights", VersaceResult.DoublesToBase64(GetWeightVector())),
+        new XElement("SCGInit", VersaceResult.DoublesToBase64(SCGInit)));
     }
 
     public static RNN Load(XElement eExpert)

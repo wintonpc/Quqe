@@ -578,7 +578,7 @@ namespace Quqe
         }
 
         foreach (var mixture in population.Where(mixture => mixture.Fitness == 0))
-          mixture.ComputeFitness();
+          mixture.ComputeAndSetFitness();
         var oldPopulation = population.ToList();
         var rankedPopulation = population.OrderByDescending(m => m.Fitness).ToList();
         var selected = rankedPopulation.Take(Settings.SelectionSize).Shuffle().ToList();
@@ -621,25 +621,6 @@ namespace Quqe
         Trace.WriteLine("===========================================================================");
       }
       var result = new VersaceResult(bestMixture, fitnessHistory, Versace.Settings);
-      result.Save();
-      return result;
-    }
-
-    public static VersaceResult Anneal(VMixture initialMixture = null, Action<List<double>> historyChanged = null)
-    {
-      initialMixture = initialMixture ?? new VMixture();
-      RBFNet.ShouldTrace = false;
-      RNN.ShouldTrace = false;
-      var fitnessHistory = new List<double> { initialMixture.Fitness };
-      historyChanged(fitnessHistory);
-      var tr = Optimizer.Anneal<VMixture>(initialMixture, (m, temp) => m.Mutate(1, 20 + (1 - temp) * 20), m => {
-        Parallel.Invoke(m.Members.Select(x => new Action(() => { x.RefreshExpert(); x.Expert.Train(); })).ToArray());
-        var fitness = m.ComputeFitness();
-        fitnessHistory.Add(fitness);
-        historyChanged(fitnessHistory);
-        return -fitness;
-      }, iterations: 100);
-      var result = new VersaceResult(tr.Params, tr.CostHistory.Select(x => -x).ToList(), Versace.Settings);
       result.Save();
       return result;
     }
@@ -998,21 +979,23 @@ namespace Quqe
     }
 
     public double Fitness { get; private set; }
-    public double ComputeFitness()
+    public static double ComputeFitness(IPredictor predictor)
     {
       int correctCount = 0;
-      var experts = Members.Select(x => x.Expert).ToList();
-      foreach (var expert in experts)
-        expert.Reset();
+      predictor.Reset();
       for (int j = 0; j < Versace.ValidationOutput.Count; j++)
       {
-        var vote = Predict(Versace.ValidationInput.Column(j));
+        var vote = Math.Sign(predictor.Predict(Versace.ValidationInput.Column(j)));
         Debug.Assert(vote != 0);
         if (Versace.ValidationOutput[j] == vote)
           correctCount++;
       }
-      Fitness = (double)correctCount / Versace.ValidationOutput.Count;
-      return Fitness;
+      return (double)correctCount / Versace.ValidationOutput.Count;
+    }
+
+    public void ComputeAndSetFitness()
+    {
+      Fitness = ComputeFitness(this);
     }
 
     public double Predict(Vector<double> input)

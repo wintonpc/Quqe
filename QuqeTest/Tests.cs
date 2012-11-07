@@ -7,6 +7,7 @@ using Quqe;
 using PCW;
 using System.Diagnostics;
 using MathNet.Numerics.LinearAlgebra.Double;
+using System.Threading.Tasks;
 
 namespace QuqeTest
 {
@@ -551,6 +552,36 @@ namespace QuqeTest
       Assert.AreEqual(subs[1], "g");
       Assert.AreEqual(subs[2], "hi");
       Assert.AreEqual(subs[3], "jklmnopqrstuvwxyz");
+    }
+
+    [TestMethod]
+    public void Retrain()
+    {
+      var vr = VersaceResult.Load(@"C:\Users\wintonpc\git\Quqe\Share\VersaceResults\VersaceResult-20121030-213048.xml");
+      Versace.Settings = vr.VersaceSettings;
+      var mixture = vr.BestMixture;
+      mixture.Dump();
+
+      DumpFitnessDetail(mixture);
+      RBFNet.ShouldTrace = false;
+      RNN.ShouldTrace = false;
+      while (true)
+      {
+        Parallel.ForEach(mixture.Members.Select(m => m.RefreshExpert()), e => e.Train());
+        DumpFitnessDetail(mixture);
+      }
+    }
+
+    static void DumpFitnessDetail(VMixture mixture)
+    {
+      var fitnesses = new List<double>();
+      for (int i = 0; i < mixture.Members.Count; i++)
+      {
+        var fitness = VMixture.ComputeFitness(mixture.Members[i].Expert);
+        fitnesses.Add(fitness);
+      }
+      fitnesses.Add(VMixture.ComputeFitness(mixture));
+      Trace.WriteLine(fitnesses.Join("\t", f => (f * 100).ToString("N1")));
     }
   }
 }

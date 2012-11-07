@@ -292,7 +292,7 @@ namespace QuqeViz
             member.RefreshExpert();
             member.Expert.TrainEx(rnnTrialCount: 4);
           });
-          m.ComputeFitness();
+          m.ComputeAndSetFitness();
           Trace.WriteLine("[" + i + "] Fitness: " + m.Fitness);
           fitnessHistory.Add(m.Fitness);
           updateHistoryWindow(fitnessHistory);
