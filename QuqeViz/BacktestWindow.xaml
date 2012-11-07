@@ -74,6 +74,7 @@
     <StackPanel Grid.Row="2" Orientation="Vertical"  Margin="4,4,4,0">
       <Label Height="22" VerticalAlignment="Top" Content="{Binding SelectedMixtureName}" Background="Blue" Foreground="White" Padding="3" HorizontalContentAlignment="Center"/>
       <Button Content="Backtest" Height="24" Margin="0,2,0,0" HorizontalAlignment="Left" Name="BacktestButton" VerticalAlignment="Top" Width="92" Click="BacktestButton_Click" />
+      <Button Content="Dump" Height="24" Margin="0,2,0,0" HorizontalAlignment="Left" Name="DumpButton" VerticalAlignment="Top" Width="92" Click="DumpButton_Click" />
     </StackPanel>
   </Grid>
 </Window>

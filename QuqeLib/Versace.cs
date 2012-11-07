@@ -108,7 +108,7 @@ namespace Quqe
     public int ValidationSplitPct = 0;
 
     public List<VGene> ProtoChromosome = new List<VGene> {
-        new VGene<int>("NetworkType", 0, 1, 1),
+        new VGene<int>("NetworkType", 1, 1, 1),
         new VGene<int>("ElmanTrainingEpochs", 20, 20, 1),
         new VGene<int>("DatabaseType", 1, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
@@ -605,6 +605,28 @@ namespace Quqe
 
         population = population.Select(x => x.Mutate(dampingFactor: 0)).ToList();
 
+        if ((epoch + 1) % 4 == 0)
+        {
+          Func<VMember, bool> isGoodRbf = m => m.NetworkType == NetworkType.RBF && m.Expert != null && !((RBFNet)m.Expert.Network).IsDegenerate;
+          foreach (var mixture in population.ToList())
+          {
+            var otherGood = oldPopulation.Except(List.Create(mixture)).SelectMany(mix => mix.Members.Where(isGoodRbf)).ToList();
+            foreach (var member in mixture.Members.ToList())
+            {
+              if (!isGoodRbf(member))
+              {
+                mixture.Members.Remove(member);
+                VMember otherGoodClone;
+                if (!otherGood.Any())
+                  otherGoodClone = new VMixture().Members.First();
+                else
+                  otherGoodClone = VMember.Load(otherGood.RandomItem().ToXml());
+                mixture.Members.Add(otherGoodClone);
+              }
+            }
+          }
+        }
+
         var bestThisEpoch = rankedPopulation.First();
         if (bestMixture == null || bestThisEpoch.Fitness > bestMixture.Fitness)
           bestMixture = bestThisEpoch;
@@ -912,11 +934,7 @@ namespace Quqe
     public bool UsePrincipalComponentAnalysis { get { return GetGeneValue<int>("UsePrincipalComponentAnalysis") == 1; } }
     public int PrincipalComponent { get { return GetGeneValue<int>("PrincipalComponent"); } }
     public double RbfNetTolerance { get { return GetGeneValue<double>("RbfNetTolerance"); } }
-    public double RbfGaussianSpread
-    {
-      get { return GetGeneValue<double>("RbfGaussianSpread"); }
-      set { SetGeneValue<double>("RbfGaussianSpread", value); }
-    }
+    public double RbfGaussianSpread { get { return GetGeneValue<double>("RbfGaussianSpread"); } }
     public int ElmanHidden1NodeCount { get { return GetGeneValue<int>("ElmanHidden1NodeCount"); } }
     public int ElmanHidden2NodeCount { get { return GetGeneValue<int>("ElmanHidden2NodeCount"); } }
 
@@ -1134,9 +1152,7 @@ namespace Quqe
       }
       else
       {
-        double recommendedSpread;
-        Network = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs, Member.RbfNetTolerance, Member.RbfGaussianSpread, out recommendedSpread);
-        Member.RbfGaussianSpread = recommendedSpread;
+        Network = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs, Member.RbfNetTolerance, Member.RbfGaussianSpread);
       }
     }
 

@@ -61,6 +61,11 @@ namespace QuqeViz
     {
       Presentation.OnBacktest();
     }
+
+    private void DumpButton_Click(object sender, RoutedEventArgs e)
+    {
+      Presentation.OnDump();
+    }
   }
 
   public class VersaceResultHolder
@@ -264,6 +269,11 @@ namespace QuqeViz
       var report = VersaceBacktest.Backtest(ss.PredictionType, SelectedMixture, new Account { Equity = 10000, MarginFactor = 1, Padding = 40 },
         Versace.GetPreprocessedValues(ss.PreprocessingType, ss.PredictedSymbol, ss.TrainingStart, ss.ValidationEnd, false).Inputs,
         testingData.Inputs, testingData.Predicted);
+    }
+
+    internal void OnDump()
+    {
+      SelectedMixture.Dump();
     }
   }
 

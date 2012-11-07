@@ -39,12 +39,10 @@ namespace Quqe
   public class RBFNetSolution
   {
     public bool IsDegenerate;
-    public double RecommendedSpread;
     public readonly List<RadialBasis> Bases;
     public RBFNetSolution(List<RadialBasis> bases, double recommendedSpread, bool isDegenerate)
     {
       Bases = bases;
-      RecommendedSpread = recommendedSpread;
       IsDegenerate = isDegenerate;
     }
   }
@@ -66,10 +64,9 @@ namespace Quqe
       IsDegenerate = isDegenerate;
     }
 
-    public static RBFNet Train(Matrix trainingData, Vector outputData, double tolerance, double spread, out double recommendedSpread)
+    public static RBFNet Train(Matrix trainingData, Vector outputData, double tolerance, double spread)
     {
       var solution = SolveOLS(trainingData.Columns(), outputData.ToList(), tolerance, spread); // TODO: don't call Columns
-      recommendedSpread = solution.RecommendedSpread;
       return new RBFNet(solution.Bases.Where(b => b.Center != null).ToList(), solution.Bases.Single(b => b.Center == null).Weight, spread, solution.IsDegenerate);
     }
 
@@ -99,19 +96,9 @@ namespace Quqe
 
     public static RBFNetSolution SolveOLS(List<Vector> xs, List<double> ys, double tolerance, double spread)
     {
-      double originalSpread = spread;
-      int retryCount = 0;
-      var spreadRetryFactors = new double[] { 0.9, 0.8, 0.7, 0.5, 0.3, 0.1, 1.2, 1.5, 2.0, 3.0 };
-    Solve:
       Func<Vector, Vector, double> phi = (x, c) => Phi(x, c, spread);
-      //var maxCenters = Math.Max(Math.Min(xs.Count, 3), (int)(xs.Count / 3));
       var maxCenters = (int)Math.Min(xs.Count, Math.Max(1, 4 * Math.Sqrt(xs.Count)));
-      var centerChoices = new List<Vector>(xs);
-      var centers = List.Repeat(maxCenters, () => {
-        var c = centerChoices.RandomItem();
-        centerChoices.Remove(c);
-        return c;
-      });
+      var centers = new List<Vector>(xs);
       var n = xs.Count;
       var m = centers.Count;
 
@@ -175,20 +162,8 @@ namespace Quqe
       bool isDegenerate = false;
       if (weights.Any(w => double.IsNaN(w)))
       {
-        if (retryCount < 20)
-        {
-          //spread = originalSpread * spreadRetryFactors[retryCount];
-          //spread = originalSpread * (1.0 - (retryCount + 1) / 11.0);
-          spread *= 0.9;
-          retryCount++;
-          goto Solve;
-        }
-        else
-        {
-          Trace.WriteLine("! Degenerate RBF network !");
-          isDegenerate = true;
-          spread = originalSpread;
-        }
+        Trace.WriteLine("! Degenerate RBF network !");
+        isDegenerate = true;
       }
       var allBases = selectedBases.ToList();
       allBases.Insert(0, null);
