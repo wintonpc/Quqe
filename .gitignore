@@ -11,3 +11,8 @@ Share/VersaceResults/*
 *.vshost.exe.manifest
 */*.user
 TestResults
+Share/*.exe.config
+Share/*.lib
+Share/*.exp
+*.sdf
+*.opensdf
