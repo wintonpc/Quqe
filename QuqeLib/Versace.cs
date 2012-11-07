@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 using System.Runtime;
 using System.Reflection;
 using System.Threading;
+using MathNet.Numerics.Statistics;
 
 namespace Quqe
 {
@@ -108,7 +109,7 @@ namespace Quqe
     public int ValidationSplitPct = 0;
 
     public List<VGene> ProtoChromosome = new List<VGene> {
-        new VGene<int>("NetworkType", 1, 1, 1),
+        new VGene<int>("NetworkType", 0, 1, 1),
         new VGene<int>("ElmanTrainingEpochs", 20, 20, 1),
         new VGene<int>("DatabaseType", 1, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
@@ -547,7 +548,7 @@ namespace Quqe
           RBFNet.ShouldTrace = true;
           RNN.ShouldTrace = true;
           foreach (var expert in population.Where(mixture => mixture.Fitness == 0)
-            .SelectMany(mixture => mixture.Members).Select(c => c.RefreshExpert()))
+            .SelectMany(mixture => mixture.Members).Select(m => m.Expert))
           {
             expert.Train();
             trainedOne();
@@ -570,7 +571,7 @@ namespace Quqe
           var reordered = rnnExperts.Concat(rbfExperts).ToList();
           Parallel.Invoke(new ParallelOptions { MaxDegreeOfParallelism = 8 },
             reordered
-            .Select(c => c.RefreshExpert()).Select(expert => new Action(() => {
+            .Select(m => m.Expert).Select(expert => new Action(() => {
               expert.Train();
               //expert.TrainEx(rnnTrialCount: 3);
               trainedOne();
@@ -607,7 +608,7 @@ namespace Quqe
 
         if ((epoch + 1) % 4 == 0)
         {
-          Func<VMember, bool> isGoodRbf = m => m.NetworkType == NetworkType.RBF && m.Expert != null && !((RBFNet)m.Expert.Network).IsDegenerate;
+          Func<VMember, bool> isGoodRbf = m => m.NetworkType == NetworkType.RBF && m.Expert.Network != null && !((RBFNet)m.Expert.Network).IsDegenerate;
           foreach (var mixture in population.ToList())
           {
             var otherGood = oldPopulation.Except(List.Create(mixture)).SelectMany(mix => mix.Members.Where(isGoodRbf)).ToList();
@@ -633,7 +634,8 @@ namespace Quqe
         fitnessHistory.Add(bestThisEpoch.Fitness);
         if (historyChanged != null)
           historyChanged(fitnessHistory);
-        Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}%   (Best: {2:N1}%)", epoch, bestThisEpoch.Fitness * 100.0, bestMixture.Fitness * 100.0));
+        var diversity = Diversity(oldPopulation);
+        Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}%   (Best: {2:N1}%)   Diversity: {3:N4}", epoch, bestThisEpoch.Fitness * 100.0, bestMixture.Fitness * 100.0, diversity));
         var oldChromosomes = oldPopulation.SelectMany(m => m.Members).ToList();
         Trace.WriteLine(string.Format("Epoch {0} composition:   Elman {1:N1}%   RBF {2:N1}%", epoch,
           (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.RNN) / oldChromosomes.Count * 100,
@@ -645,6 +647,14 @@ namespace Quqe
       var result = new VersaceResult(bestMixture, fitnessHistory, Versace.Settings);
       result.Save();
       return result;
+    }
+
+    static double Diversity(List<VMixture> population)
+    {
+      var d = new DenseMatrix(Settings.ExpertsPerMixture * population.First().Members.First().Chromosome.Count, Settings.PopulationSize);
+      for (int m = 0; m < population.Count; m++)
+        d.SetColumn(m, population[m].Members.SelectMany(mem => mem.Chromosome.Select(x => (x.GetDoubleValue() - x.GetDoubleMin()) / (x.GetDoubleMax() - x.GetDoubleMin()))).ToArray());
+      return d.Rows().Sum(r => Statistics.Variance(r));
     }
 
     public static void GetData(string predictedSymbol, DateTime start, DateTime end)
@@ -733,6 +743,9 @@ namespace Quqe
     public abstract VGene Clone();
     public abstract VGene CloneAndRandomize();
     public abstract VGene Mutate(double dampingFactor);
+    public abstract double GetDoubleMin();
+    public abstract double GetDoubleMax();
+    public abstract double GetDoubleValue();
     public abstract XElement ToXml();
 
     static List<string> DoubleNames = List.Create("TrainingOffsetPct", "TrainingSizePct", "RbfNetTolerance", "RbfGaussianSpread");
@@ -759,6 +772,10 @@ namespace Quqe
     public readonly double Max;
     public readonly double Granularity;
     public TValue Value { get; set; }
+
+    public override double GetDoubleMin() { return Min; }
+    public override double GetDoubleMax() { return Max; }
+    public override double GetDoubleValue() { return (double)Convert.ChangeType(Value, typeof(double)); }
 
     public VGene(string name, double min, double max, double granularity, TValue? initialValue = null)
       : base(name)
@@ -843,7 +860,13 @@ namespace Quqe
     public List<VGene> Chromosome;
     public Expert Expert { get; private set; }
 
+    VMember()
+    {
+      Expert = new Expert(this, Versace.Settings.PreprocessingType);
+    }
+
     public VMember(Func<string, VGene> makeGene)
+      : this()
     {
       Chromosome = new List<VGene> {
         makeGene("NetworkType"),
@@ -862,14 +885,9 @@ namespace Quqe
     }
 
     VMember(List<VGene> genes)
+      : this()
     {
       Chromosome = genes;
-    }
-
-    public Expert RefreshExpert()
-    {
-      Expert = new Expert(this, Versace.Settings.PreprocessingType);
-      return Expert;
     }
 
     static Random Random = new Random();
@@ -892,7 +910,7 @@ namespace Quqe
       var a = x.ToList();
       var b = y.ToList();
       for (int i = 0; i < a.Count; i++)
-        if (Random.Next(2) == 0)
+        if (Optimizer.WithProb(0.5))
         {
           var t = a[i];
           a[i] = b[i];
@@ -1084,8 +1102,9 @@ namespace Quqe
   {
     VMember Member;
     public IPredictor Network;
-    Matrix PrincipalComponents;
     PreprocessingType PreprocessingType;
+    Matrix PrincipalComponents;
+    object TrainingInit;
 
     public Expert(VMember member, PreprocessingType preprocessType)
     {
@@ -1115,9 +1134,9 @@ namespace Quqe
       return inputs;
     }
 
-    public void Train() { TrainEx(); }
+    public void Train() { TrainEx(preserveTrainingInit: true); }
 
-    public void TrainEx(int rnnTrialCount = 1)
+    public void TrainEx(int rnnTrialCount = 1, bool preserveTrainingInit = false)
     {
       int offset = Math.Min((int)(Member.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
       int size = Math.Max(1, Math.Min((int)(Member.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
@@ -1144,10 +1163,13 @@ namespace Quqe
             IsRecurrent = false
           }
         });
+        Vector<double> trainingInit = preserveTrainingInit ? (Vector<double>)TrainingInit : null;
+        TrainResult<Vector> trainResult;
         if (rnnTrialCount > 1)
-          RNN.TrainSCGMulti((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, rnnTrialCount);
+          trainResult = RNN.TrainSCGMulti((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, rnnTrialCount, trainingInit);
         else
-          RNN.TrainSCG((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs);
+          trainResult = RNN.TrainSCG((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, trainingInit);
+        TrainingInit = trainResult.TrainingInit;
         Network = rnn;
       }
       else
@@ -1178,12 +1200,18 @@ namespace Quqe
           new XAttribute("RowCount", PrincipalComponents.RowCount),
           new XAttribute("ColumnCount", PrincipalComponents.ColumnCount),
           VersaceResult.DoublesToBase64(PrincipalComponents.ToColumnWiseArray())));
+      if (TrainingInit != null)
+      {
+        if (Member.NetworkType == NetworkType.RNN)
+          eExpert.Add(new XElement("TrainingInit", VersaceResult.DoublesToBase64((Vector<double>)TrainingInit)));
+      }
       return eExpert;
     }
 
     public static Expert Load(XElement eExpert, VMember member)
     {
       var ePc = eExpert.Element("PrincipalComponents");
+      var eTi = eExpert.Element("TrainingInit");
       var eNetwork = eExpert.Element("Network");
       var expert = new Expert(member, (PreprocessingType)Enum.Parse(typeof(PreprocessingType), eExpert.Attribute("PreprocessingType").Value)) {
         Network = eNetwork.Attribute("Type").Value == NetworkType.RNN.ToString()
@@ -1194,6 +1222,11 @@ namespace Quqe
           int.Parse(ePc.Attribute("RowCount").Value),
           int.Parse(ePc.Attribute("ColumnCount").Value),
           VersaceResult.DoublesFromBase64(ePc.Value).ToArray());
+      if (eTi != null)
+      {
+        if (member.NetworkType == NetworkType.RNN)
+          expert.TrainingInit = new DenseVector(VersaceResult.DoublesFromBase64(eTi.Value).ToArray());
+      }
       return expert;
     }
   }

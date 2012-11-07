@@ -558,7 +558,7 @@ namespace QuqeTest
     public void Retrain()
     {
       //var vr = VersaceResult.Load(@"C:\Users\wintonpc\git\Quqe\Share\VersaceResults\VersaceResult-20121030-213048.xml");
-      var vr = VersaceResult.Load(@"C:\Users\wintonpc\git\Quqe\Share\VersaceResults\VersaceResult-20121107-120607.xml");
+      var vr = VersaceResult.Load(@"C:\Users\wintonpc\git\Quqe\Share\VersaceResults\VersaceResult-20121107-174940.xml");
       Versace.Settings = vr.VersaceSettings;
       var mixture = vr.BestMixture;
       mixture.Dump();
@@ -568,7 +568,7 @@ namespace QuqeTest
       RNN.ShouldTrace = false;
       while (true)
       {
-        Parallel.ForEach(mixture.Members.Select(m => m.RefreshExpert()), e => e.Train());
+        Parallel.ForEach(mixture.Members.Select(m => m.Expert), e => e.TrainEx(preserveTrainingInit: true));
         DumpFitnessDetail(mixture);
       }
     }

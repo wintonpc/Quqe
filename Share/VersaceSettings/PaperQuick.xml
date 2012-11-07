@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<VersaceSettings PredictedSymbol="DIA" PredictionType="NextClose" PreprocessingType="Enhanced" ExpertsPerMixture="10" PopulationSize="10" SelectionSize="4" EpochCount="30" MutationRate="0.05" MutationDamping="0" StartDate="2001-11-11T00:00:00" EndDate="2004-02-12T00:00:00" TestingSplitPct="56" UseValidationSet="true" ValidationSplitPct="78" TrainingMethod="Evolve">
+<VersaceSettings PredictedSymbol="DIA" PredictionType="NextClose" PreprocessingType="Enhanced" ExpertsPerMixture="10" PopulationSize="10" SelectionSize="4" EpochCount="50" MutationRate="0.05" MutationDamping="0" StartDate="2001-11-11T00:00:00" EndDate="2004-02-12T00:00:00" TestingSplitPct="56" UseValidationSet="true" ValidationSplitPct="78" TrainingMethod="Evolve">
   <ProtoChromosome>
     <Gene Name="NetworkType" Value="0" Min="0" Max="1" Granularity="1" />
     <Gene Name="ElmanTrainingEpochs" Value="0" Min="20" Max="1000" Granularity="1" />
@@ -11,7 +11,7 @@
     <Gene Name="PrincipalComponent" Value="0" Min="0" Max="100" Granularity="1" />
     <Gene Name="RbfNetTolerance" Value="0" Min="0" Max="1" Granularity="0.001" />
     <Gene Name="RbfGaussianSpread" Value="0" Min="0.1" Max="10" Granularity="0.01" />
-    <Gene Name="ElmanHidden1NodeCount" Value="0" Min="3" Max="200" Granularity="1" />
-    <Gene Name="ElmanHidden2NodeCount" Value="0" Min="3" Max="200" Granularity="1" />
+    <Gene Name="ElmanHidden1NodeCount" Value="0" Min="3" Max="150" Granularity="1" />
+    <Gene Name="ElmanHidden2NodeCount" Value="0" Min="3" Max="100" Granularity="1" />
   </ProtoChromosome>
 </VersaceSettings>

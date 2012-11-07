@@ -78,7 +78,6 @@ namespace Quqe
     List<LayerSpec> LayerSpecs;
     List<Layer> Layers;
     const double TimeZeroRecurrentInputValue = 0.5;
-    public Vector<double> SCGInit { get; private set; }
 
     static WeightEvalInfo EvaluateWeights(RNN net, Vector<double> weights, Matrix<double> trainingData, Vector<double> outputData)
     {
@@ -168,6 +167,7 @@ namespace Quqe
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
     public static TrainResult<Vector> TrainSCGInternal(List<LayerSpec> layerSpecs, Vector<double> weights, double epoch_max, Matrix<double> trainingData, Vector<double> outputData)
     {
+      var initialWeights = weights;
       Stopwatch sw = new Stopwatch();
       sw.Start();
       IntPtr context = QMCreateWeightContext(layerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray(),
@@ -347,21 +347,21 @@ namespace Quqe
       return new TrainResult<Vector> {
         Params = (Vector)w,
         Cost = errAtW,
-        CostHistory = errHistory
+        CostHistory = errHistory,
+        TrainingInit = initialWeights
       };
     }
 
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
-    public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, Vector<double> initialWeights = null)
+    public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, Vector<double> initialWeights)
     {
       var scgInit = initialWeights ?? net.GetWeightVector();
       var result = TrainSCGInternal(net.LayerSpecs, scgInit, epoch_max, trainingData, outputData);
       net.SetWeightVector(result.Params);
-      net.SCGInit = scgInit;
       return result;
     }
 
-    public static TrainResult<Vector> TrainSCGMulti(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, int numTrials)
+    public static TrainResult<Vector> TrainSCGMulti(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, int numTrials, Vector<double> initialWeights)
     {
       object theLock = new object();
       var results = new List<TrainResult<Vector>>();
@@ -676,8 +676,7 @@ rank=same;");
       return new XElement("Network", new XAttribute("Type", NetworkType.RNN),
         new XElement("InputCount", NumInputs),
         new XElement("LayerSpecs", LayerSpecs.Select(x => x.ToXml()).ToArray()),
-        new XElement("Weights", VersaceResult.DoublesToBase64(GetWeightVector())),
-        new XElement("SCGInit", VersaceResult.DoublesToBase64(SCGInit)));
+        new XElement("Weights", VersaceResult.DoublesToBase64(GetWeightVector())));
     }
 
     public static RNN Load(XElement eExpert)

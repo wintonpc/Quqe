@@ -162,7 +162,8 @@ namespace Quqe
       bool isDegenerate = false;
       if (weights.Any(w => double.IsNaN(w)))
       {
-        Trace.WriteLine("! Degenerate RBF network !");
+        if (ShouldTrace)
+          Trace.WriteLine("! Degenerate RBF network !");
         isDegenerate = true;
       }
       var allBases = selectedBases.ToList();

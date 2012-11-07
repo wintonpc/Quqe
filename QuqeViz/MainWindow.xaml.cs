@@ -289,7 +289,6 @@ namespace QuqeViz
         for (int i = 0; i < 100; i++)
         {
           Parallel.ForEach(m.Members, member => {
-            member.RefreshExpert();
             member.Expert.TrainEx(rnnTrialCount: 4);
           });
           m.ComputeAndSetFitness();

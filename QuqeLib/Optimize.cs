@@ -1064,5 +1064,6 @@ namespace Quqe
     public double Cost;
     public List<double> CostHistory;
     public List<double> AcceptRatioHistory;
+    public object TrainingInit;
   }
 }
