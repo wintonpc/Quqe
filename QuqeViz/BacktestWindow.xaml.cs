@@ -233,20 +233,28 @@ namespace QuqeViz
 
     internal void OnTrain()
     {
-      var ch = new EqPlotWindow();
-      ch.Show();
+      var fitnessChart = new EqPlotWindow();
+      fitnessChart.Show();
+      var diversityChart = new EqPlotWindow();
+      diversityChart.Show();
       var mainSync = SyncContext.Current;
-      Action<List<double>> updateHistoryWindow = history => {
+      Action<List<PopulationInfo>> updateHistoryWindow = populationHistory => {
         mainSync.Post(() => {
-          ch.EqPlot.Clear(Colors.White);
-          ch.EqPlot.Bounds = new Rect(0, history.Min(), history.Count, history.Max() - history.Min());
-          ch.EqPlot.DrawLine(List.Repeat(history.Count, i => new Point(i, history[i])), Colors.Blue);
+          var fitnessHistory = populationHistory.Select(pi => pi.Fitness).ToList();
+          fitnessChart.EqPlot.Clear(Colors.White);
+          fitnessChart.EqPlot.Bounds = new Rect(0, fitnessHistory.Min(), fitnessHistory.Count, fitnessHistory.Max() - fitnessHistory.Min());
+          fitnessChart.EqPlot.DrawLine(List.Repeat(fitnessHistory.Count, i => new Point(i, fitnessHistory[i])), Colors.Blue);
+
+          var diversityHistory = populationHistory.Select(pi => pi.Diversity).ToList();
+          diversityChart.EqPlot.Clear(Colors.White);
+          diversityChart.EqPlot.Bounds = new Rect(0, diversityHistory.Min(), diversityHistory.Count, diversityHistory.Max() - diversityHistory.Min());
+          diversityChart.EqPlot.DrawLine(List.Repeat(diversityHistory.Count, i => new Point(i, diversityHistory[i])), Colors.DarkOrange);
         });
       };
 
       SetVersaceSettings();
       Versace.Train(updateHistoryWindow, result => {
-        ch.Title = new VersaceResultHolder(result).ToString();
+        fitnessChart.Title = new VersaceResultHolder(result).ToString();
       });
     }
 

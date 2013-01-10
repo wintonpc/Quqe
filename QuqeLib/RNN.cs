@@ -355,7 +355,7 @@ namespace Quqe
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
     public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, Vector<double> initialWeights)
     {
-      var scgInit = initialWeights ?? net.GetWeightVector();
+      var scgInit = (initialWeights != null && initialWeights.Count == net.GetWeightVector().Count) ? initialWeights : net.GetWeightVector();
       var result = TrainSCGInternal(net.LayerSpecs, scgInit, epoch_max, trainingData, outputData);
       net.SetWeightVector(result.Params);
       return result;

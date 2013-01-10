@@ -27,14 +27,21 @@ namespace Quqe
     public string Path { get; private set; }
     public VMixture BestMixture;
     public List<double> FitnessHistory;
+    public List<double> DiversityHistory;
     public VersaceSettings VersaceSettings;
 
-    public VersaceResult(VMixture bestMixture, List<double> fitnessHistory, VersaceSettings settings, string path = null)
+    public VersaceResult(VMixture bestMixture, List<double> fitnessHistory, List<double> diversityHistory, VersaceSettings settings, string path = null)
     {
       BestMixture = bestMixture;
       FitnessHistory = fitnessHistory;
+      DiversityHistory = diversityHistory;
       VersaceSettings = settings;
       Path = path;
+    }
+
+    public VersaceResult(VMixture bestMixture, List<PopulationInfo> history, VersaceSettings settings, string path = null)
+      :this(bestMixture, history.Select(x => x.Fitness).ToList(), history.Select(x => x.Diversity).ToList(), settings, path)
+    {
     }
 
     public static string DoublesToBase64(IEnumerable<double> h)
@@ -67,6 +74,7 @@ namespace Quqe
       Path = string.Format("VersaceResults\\VersaceResult-{0:yyyyMMdd}-{0:HHmmss}.xml", DateTime.Now);
       new XElement("VersaceResult",
         new XElement("FitnessHistory", DoublesToBase64(FitnessHistory)),
+        new XElement("DiversityHistory", DoublesToBase64(DiversityHistory)),
         VersaceSettings.ToXml(),
         BestMixture.ToXml())
         .Save(Path);
@@ -78,6 +86,7 @@ namespace Quqe
       return new VersaceResult(
         VMixture.Load(vr.Element("Mixture")),
         DoublesFromBase64(vr.Element("FitnessHistory").Value).ToList(),
+        DoublesFromBase64(vr.Element("DiversityHistory").Value).ToList(),
         VersaceSettings.Load(vr.Element("VersaceSettings")),
         fn);
     }
@@ -504,7 +513,7 @@ namespace Quqe
       return (Vector)(x.DotProduct(pc) * pc);
     }
 
-    public static void Train(Action<List<double>> historyChanged, Action<VersaceResult> whenDone)
+    public static void Train(Action<List<PopulationInfo>> historyChanged, Action<VersaceResult> whenDone)
     {
       SyncContext sync = SyncContext.Current;
       Thread t = new Thread(() => {
@@ -519,10 +528,10 @@ namespace Quqe
     }
 
     static Random Random = new Random();
-    public static VersaceResult Evolve(Action<List<double>> historyChanged = null)
+    public static VersaceResult Evolve(Action<List<PopulationInfo>> historyChanged = null)
     {
       GCSettings.LatencyMode = GCLatencyMode.Batch;
-      var fitnessHistory = new List<double>();
+      var history = new List<PopulationInfo>();
       var population = List.Repeat(Settings.PopulationSize, n => new VMixture());
       VMixture bestMixture = null;
       for (int epoch = 0; epoch < Settings.EpochCount; epoch++)
@@ -631,10 +640,10 @@ namespace Quqe
         var bestThisEpoch = rankedPopulation.First();
         if (bestMixture == null || bestThisEpoch.Fitness > bestMixture.Fitness)
           bestMixture = bestThisEpoch;
-        fitnessHistory.Add(bestThisEpoch.Fitness);
-        if (historyChanged != null)
-          historyChanged(fitnessHistory);
         var diversity = Diversity(oldPopulation);
+        history.Add(new PopulationInfo { Fitness = bestThisEpoch.Fitness, Diversity = diversity });
+        if (historyChanged != null)
+          historyChanged(history);
         Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}%   (Best: {2:N1}%)   Diversity: {3:N4}", epoch, bestThisEpoch.Fitness * 100.0, bestMixture.Fitness * 100.0, diversity));
         var oldChromosomes = oldPopulation.SelectMany(m => m.Members).ToList();
         Trace.WriteLine(string.Format("Epoch {0} composition:   Elman {1:N1}%   RBF {2:N1}%", epoch,
@@ -644,7 +653,7 @@ namespace Quqe
         GC.Collect();
         Trace.WriteLine("===========================================================================");
       }
-      var result = new VersaceResult(bestMixture, fitnessHistory, Versace.Settings);
+      var result = new VersaceResult(bestMixture, history, Versace.Settings);
       result.Save();
       return result;
     }
@@ -726,6 +735,12 @@ namespace Quqe
       }
     Done: File.WriteAllLines(fn, lines);
     }
+  }
+
+  public class PopulationInfo
+  {
+    public double Fitness;
+    public double Diversity;
   }
 
   public class PreprocessedData
@@ -884,25 +899,31 @@ namespace Quqe
       };
     }
 
-    VMember(List<VGene> genes)
+    VMember(List<VGene> genes, object trainingInit)
       : this()
     {
       Chromosome = genes;
+      Expert.TrainingInit = trainingInit;
     }
 
     static Random Random = new Random();
-    public List<VMember> CrossoverAndMutate(VMember other)
-    {
-      var a = Chromosome.ToList();
-      var b = other.Chromosome.ToList();
-      Crossover(a, b);
+    //public List<VMember> CrossoverAndMutate(VMember other)
+    //{
+    //  var a = Chromosome.ToList();
+    //  var b = other.Chromosome.ToList();
+    //  Crossover(a, b);
 
-      return List.Create(new VMember(Mutate(a)), new VMember(Mutate(b)));
-    }
+    //  return List.Create(new VMember(Mutate(a)), new VMember(Mutate(b)));
+    //}
 
     public List<VMember> Crossover(VMember other)
     {
-      return Crossover(Chromosome, other.Chromosome).Select(c => new VMember(c)).ToList();
+      var children = Crossover(Chromosome, other.Chromosome);
+      var a = children[0];
+      var b = children[1];
+      return List.Create(
+        new VMember(children[0], this.Expert.TrainingInit),
+        new VMember(children[1], other.Expert.TrainingInit));
     }
 
     static List<List<VGene>> Crossover(IEnumerable<VGene> x, IEnumerable<VGene> y)
@@ -923,7 +944,11 @@ namespace Quqe
     {
       mutationRate = mutationRate ?? Versace.Settings.MutationRate;
       dampingFactor = dampingFactor ?? Versace.Settings.MutationDamping;
-      return new VMember(Mutate(Chromosome, mutationRate.Value, dampingFactor.Value));
+      object trainingInit = this.Expert.TrainingInit;
+      if (trainingInit != null && NetworkType == NetworkType.RNN && Expert.Network != null)
+        if (Optimizer.WithProb(mutationRate.Value))
+          trainingInit = Optimizer.RandomVector(((RNN)Expert.Network).GetWeightVector().Count, -1, 1);
+      return new VMember(Mutate(Chromosome, mutationRate.Value, dampingFactor.Value), trainingInit);
     }
 
     static List<VGene> Mutate(IEnumerable<VGene> genes, double? mutationRate = null, double? dampingFactor = null)
@@ -991,13 +1016,13 @@ namespace Quqe
       Members = members;
     }
 
-    public List<VMixture> CrossoverAndMutate(VMixture other)
-    {
-      var q = Members.Zip(other.Members, (a, b) => a.CrossoverAndMutate(b));
-      return List.Create(
-        new VMixture(q.Select(x => x[0]).ToList()),
-        new VMixture(q.Select(x => x[1]).ToList()));
-    }
+    //public List<VMixture> CrossoverAndMutate(VMixture other)
+    //{
+    //  var q = Members.Zip(other.Members, (a, b) => a.CrossoverAndMutate(b));
+    //  return List.Create(
+    //    new VMixture(q.Select(x => x[0]).ToList()),
+    //    new VMixture(q.Select(x => x[1]).ToList()));
+    //}
 
     public List<VMixture> Crossover(VMixture other)
     {
@@ -1104,7 +1129,7 @@ namespace Quqe
     public IPredictor Network;
     PreprocessingType PreprocessingType;
     Matrix PrincipalComponents;
-    object TrainingInit;
+    public object TrainingInit;
 
     public Expert(VMember member, PreprocessingType preprocessType)
     {
@@ -1163,7 +1188,7 @@ namespace Quqe
             IsRecurrent = false
           }
         });
-        Vector<double> trainingInit = preserveTrainingInit ? (Vector<double>)TrainingInit : null;
+        Vector<double> trainingInit = preserveTrainingInit ? (TrainingInit as Vector<double>) : null;
         TrainResult<Vector> trainResult;
         if (rnnTrialCount > 1)
           trainResult = RNN.TrainSCGMulti((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, rnnTrialCount, trainingInit);
