@@ -547,16 +547,6 @@ namespace Quqe
       for (int i = 0; i < count; i++)
         yield return bars[i];
     }
-
-    public static DataSeries<Value> NeuralNet(this DataSeries<Bar> bars, NeuralNet net,
-      IEnumerable<DataSeries<Value>> inputs)
-    {
-      Value[] result = new Value[bars.Length];
-      DataSeries.Walk(inputs.Cast<DataSeries>().Concat(List.Create<DataSeries>(bars)), pos => {
-        result[pos] = new Value(bars[0].Timestamp, net.Propagate(inputs.Select(x => x[0].Val))[0]);
-      });
-      return new DataSeries<Value>(bars.Symbol, result);
-    }
   }
 
   public static class Signals
@@ -619,189 +609,6 @@ namespace Quqe
           return 0;
         return r[0] >= thresh ? (b[1].IsGreen ? -1 : 1) : (b[1].IsGreen ? 1 : -1);
       });
-    }
-  }
-
-  public enum Prediction { Green, Red }
-
-  public static class DtSignals
-  {
-    public enum Last2BarColor { Green, Red }
-    public enum LastBarColor { Green, Red }
-    public enum LastBarSize { Small, Medium, Large }
-    public enum GapType { NoneLower, NoneUpper, Up, SuperUp, Down, SuperDown }
-    public enum EmaSlope { Up, Down }
-    public enum Momentum { Positive, Negative }
-    public enum Lrr2 { Buy, Sell }
-    public enum RSquared { Linear, Nonlinear }
-    public enum LinRegSlope { Positive, Negative }
-
-    public static IEnumerable<DtExample> MakeCandleExamples(DataSeries<Bar> carefulBars,
-      double smallMax = 0.65, double mediumMax = 1.20,
-      double gapPadding = 0, double superGapPadding = 0,
-      double smallMaxPct = -0.1, double largeMinPct = 0.1, int sizeAvgPeriod = 10, int enableBarSizeAveraging = 0,
-      int emaPeriod = 12, int enableEma = 0,
-      int momentumPeriod = 19, int enableMomentum = 0,
-      int rSquaredPeriod = 8, double rSquaredThresh = 0.75, int enableRSquared = 0,
-      int linRegSlopePeriod = 14, int enableLinRegSlope = 0,
-      int enableLrr2 = 0
-      )
-    {
-      List<DtExample> examples = new List<DtExample>();
-      var emaSlope = carefulBars.Closes().ZLEMA(emaPeriod).Derivative().Delay(1);
-      var momo = carefulBars.Closes().Momentum(momentumPeriod).Delay(1);
-      var rsquared = carefulBars.Closes().RSquared(rSquaredPeriod).Delay(1);
-      var linRegSlope = carefulBars.Closes().LinRegSlope(linRegSlopePeriod).Delay(1);
-      var lrr2 = carefulBars.LinRegRel2(); // already delayed!
-      var bs = carefulBars.From(emaSlope.First().Timestamp);
-      DataSeries.Walk(
-        List.Create<DataSeries>(bs, emaSlope, momo, lrr2), pos => {
-          if (pos < 2)
-            return;
-          var a = new List<object>();
-          a.Add(bs[1].IsGreen ? LastBarColor.Green : LastBarColor.Red);
-          a.Add(bs[2].IsGreen ? Last2BarColor.Green : Last2BarColor.Red);
-          if (enableBarSizeAveraging > 0)
-          {
-            var avgHeight = bs.BackBars(Math.Min(pos + 1, sizeAvgPeriod + 1)).Skip(1).Average(x => x.WaxHeight());
-            var r = (bs[0].WaxHeight() - avgHeight) / avgHeight;
-            a.Add(
-              r < smallMaxPct ? LastBarSize.Small :
-              r > largeMinPct ? LastBarSize.Large :
-              LastBarSize.Medium);
-          }
-          else
-          {
-            a.Add(
-              bs[1].WaxHeight() < smallMax ? LastBarSize.Small :
-              bs[1].WaxHeight() < mediumMax ? LastBarSize.Medium :
-              LastBarSize.Large);
-          }
-          a.Add(
-            Between(bs[0].Open, bs[1].WaxBottom, bs[1].WaxMid()) ? GapType.NoneLower :
-            Between(bs[0].Open, bs[1].WaxMid(), bs[1].WaxTop) ? GapType.NoneUpper :
-            Between(bs[0].Open, bs[1].WaxTop + gapPadding, bs[1].High) ? GapType.Up :
-            Between(bs[0].Open, bs[1].Low, bs[1].WaxBottom - gapPadding) ? GapType.Down :
-            bs[0].Open > bs[1].High + superGapPadding ? GapType.SuperUp :
-            bs[0].Open < bs[1].Low - superGapPadding ? GapType.SuperDown :
-            GapType.NoneLower);
-          if (enableEma > 0)
-            a.Add(emaSlope[0] >= 0 ? EmaSlope.Up : EmaSlope.Down);
-          if (enableMomentum > 0)
-            a.Add(momo[0] >= 0 ? Momentum.Positive : Momentum.Negative);
-          if (enableLrr2 > 0)
-            a.Add(lrr2[0] >= 0 ? Lrr2.Buy : Lrr2.Sell);
-          if (enableLinRegSlope > 0)
-            a.Add(linRegSlope[0] >= 0 ? LinRegSlope.Positive : LinRegSlope.Negative);
-          if (enableRSquared > 0)
-            a.Add(rsquared[0] >= rSquaredThresh ? RSquared.Linear : RSquared.Nonlinear);
-          examples.Add(new DtExample(bs[0].Timestamp, bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
-        });
-      return examples;
-    }
-
-    static bool Between(double v, double low, double high)
-    {
-      return low <= v && v <= high;
-    }
-
-    public static DataSeries<Value> DtCombo(DataSeries<Bar> teachingSet, DataSeries<Bar> validationSet)
-    {
-      Func<DataSeries<Bar>, IEnumerable<DtExample>> makeExamples = bs => {
-        return MakeCandleExamples(bs,
-        smallMax: 0.65,
-        mediumMax: 1.21,
-        gapPadding: 0,
-        superGapPadding: 0.4,
-        enableEma: 1,
-        emaPeriod: 3,
-        enableMomentum: 0,
-        momentumPeriod: 19,
-        enableLrr2: 0,
-        enableLinRegSlope: 0,
-        linRegSlopePeriod: 14,
-        enableRSquared: 0,
-        rSquaredPeriod: 8,
-        rSquaredThresh: 0.75
-        );
-      };
-
-      var dt = DecisionTree.Learn(makeExamples(teachingSet), Prediction.Green, 0.50);
-      var exs = makeExamples(validationSet);
-      var firstDate = exs.First().Timestamp.Value;
-      var attribs = exs.Select(x => x.AttributesValues).ToList();
-      var bars = validationSet.From(firstDate);
-      var lrr2 = validationSet.LinRegRel2(10, 1.7).From(firstDate);
-      var newElements = new List<Value>();
-      for (int i = 0; i < bars.Length; i++)
-      {
-        var d = DecisionTree.Decide(attribs[i], dt);
-        if (d is string && (string)d == "Unsure")
-          newElements.Add(new Value(bars[0].Timestamp, lrr2[i] >= 0 ? 1 : -1));
-        else
-          newElements.Add(new Value(bars[0].Timestamp, d.Equals(Prediction.Green) ? 1 : -1));
-      }
-
-      return new DataSeries<Value>(bars.Symbol, newElements);
-    }
-
-    public enum OpenCloseRel { OpenBelowClose, CloseBelowOpen }
-    public enum ActualOpenRel { Below, Between, Above }
-
-    public static IEnumerable<DtExample> MakeExamples2(IEnumerable<StrategyParameter> sParams, DataSeries<Bar> carefulBars)
-    {
-      int toPeriod = sParams.Get<int>("TOPeriod");
-      int toForecast = sParams.Get<int>("TOForecast");
-      int tcPeriod = sParams.Get<int>("TCPeriod");
-      int tcForecast = sParams.Get<int>("TCForecast");
-      int voPeriod = sParams.Get<int>("VOPeriod");
-      int voForecast = sParams.Get<int>("VOForecast");
-      int vcPeriod = sParams.Get<int>("VCPeriod");
-      int vcForecast = sParams.Get<int>("VCForecast");
-      int atrPeriod = sParams.Get<int>("ATRPeriod");
-      double atrThresh = sParams.Get<double>("ATRThresh");
-
-      if (carefulBars.Length < 2)
-        return new List<DtExample>();
-
-      List<DtExample> examples = new List<DtExample>();
-      var opens = carefulBars.Opens();
-      var closes = carefulBars.Closes();
-      var tof = opens.LinReg(toPeriod, toForecast);
-      var tcf = closes.LinReg(tcPeriod, tcForecast).Delay(1);
-      var vof = opens.LinReg(voPeriod, voForecast);
-      var vcf = closes.LinReg(vcPeriod, vcForecast).Delay(1);
-      var atr = carefulBars.ATR(atrPeriod).Delay(1);
-
-      tof = tof.From(atr.First().Timestamp);
-      vof = tof.From(atr.First().Timestamp);
-
-      var bs = carefulBars.From(atr.First().Timestamp);
-      DataSeries.Walk(
-        List.Create<DataSeries>(bs, tof, tcf, vof, vcf, atr), pos => {
-          if (pos < 1)
-            return;
-          var a = new List<object>();
-          DataSeries<Value> open;
-          DataSeries<Value> close;
-          if (atr[0] > atrThresh)
-          {
-            open = vof;
-            close = vcf;
-          }
-          else
-          {
-            open = tof;
-            close = tcf;
-          }
-          a.Add(open[0] < close[0] ? OpenCloseRel.OpenBelowClose : OpenCloseRel.CloseBelowOpen);
-          a.Add(
-            bs[0].Open < Math.Min(open[0], close[0]) ? ActualOpenRel.Below :
-            bs[0].Open > Math.Max(open[0], close[0]) ? ActualOpenRel.Above :
-            ActualOpenRel.Between);
-          examples.Add(new DtExample(bs[0].Timestamp, bs[0].IsGreen ? Prediction.Green : Prediction.Red, a));
-        });
-      return examples;
     }
   }
 
@@ -1001,21 +808,6 @@ namespace Quqe
       return new DataSeries<Value>(trades.First().Symbol, trades.Select(t => new Value(t.EntryTime.Date, getValue(t))));
     }
 
-    public static DataSeries<Value> DecisionTreeSignal(object dt, IEnumerable<DtExample> examples)
-    {
-      return new DataSeries<Value>("DT", examples.Select(x => {
-        var d = DecisionTree.Decide(x.AttributesValues, dt);
-        double v;
-        if (d.Equals("Unsure"))
-          v = 0;
-        else if (d.Equals(Prediction.Green))
-          v = 1;
-        else
-          v = -1;
-        return new Value(x.Timestamp.Value, v);
-      }));
-    }
-
     public static DataSeries<Value> ToSimpleSignal(this DataSeries<SignalValue> signal)
     {
       return signal.MapElements<Value>((s, v) =>
@@ -1027,25 +819,6 @@ namespace Quqe
       return signal.MapElements<SignalValue>((s, v) =>
         new SignalValue(s[0].Timestamp, s[0] >= 0 ? SignalBias.Buy : SignalBias.Sell, SignalTimeOfDay.Open, null, null, null));
     }
-
-    //public static DataSeries<Value> DecisionTreeSignal(this DataSeries<Bar> bars,
-    //  IEnumerable<StrategyParameter> sParams, double minMajority, Func<IEnumerable<StrategyParameter>, DataSeries<Bar>, IEnumerable<DtExample>> makeExamples)
-    //{
-    //  var examples = makeExamples(sParams, bars);
-    //  var dt = DecisionTree.Learn(examples, Prediction.Green, minMajority);
-
-    //  return new DataSeries<Value>(bars.Symbol, examples.Select(x => {
-    //    var d = DecisionTree.Decide(x.AttributesValues, dt);
-    //    double v;
-    //    if (d.Equals("Unsure"))
-    //      v = 0;
-    //    else if (d.Equals(Prediction.Green))
-    //      v = 1;
-    //    else
-    //      v = -1;
-    //    return new Value(x.Timestamp.Value, v);
-    //  }));
-    //}
   }
 
   public static class BarHelpers

@@ -59,11 +59,8 @@
   <ItemGroup>
     <Compile Include="Account.cs" />
     <Compile Include="Backtest.cs" />
-    <Compile Include="BCO.cs" />
     <Compile Include="DataSeries.cs" />
-    <Compile Include="DecisionTree.cs" />
     <Compile Include="Indicators.cs" />
-    <Compile Include="NeuralNet.cs" />
     <Compile Include="Optimize.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RBFNet.cs" />
