@@ -26,12 +26,12 @@ namespace Quqe
     {
       return new XElement("RadialBasis",
         new XElement("Weight", Weight),
-        new XElement("Center", VersaceResult.DoublesToBase64(Center)));
+        new XElement("Center", QUtil.DoublesToBase64(Center)));
     }
 
     public static RadialBasis Load(XElement eBasis)
     {
-      return new RadialBasis(new DenseVector(VersaceResult.DoublesFromBase64(eBasis.Element("Center").Value).ToArray()),
+      return new RadialBasis(new DenseVector(QUtil.DoublesFromBase64(eBasis.Element("Center").Value).ToArray()),
         double.Parse(eBasis.Element("Weight").Value));
     }
   }

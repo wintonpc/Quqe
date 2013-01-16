@@ -22,191 +22,7 @@ using MathNet.Numerics.Statistics;
 
 namespace Quqe
 {
-  public class VersaceResult
-  {
-    public string Path { get; private set; }
-    public VMixture BestMixture;
-    public List<double> FitnessHistory;
-    public List<double> DiversityHistory;
-    public VersaceSettings VersaceSettings;
-
-    public VersaceResult(VMixture bestMixture, List<double> fitnessHistory, List<double> diversityHistory, VersaceSettings settings, string path = null)
-    {
-      BestMixture = bestMixture;
-      FitnessHistory = fitnessHistory;
-      DiversityHistory = diversityHistory;
-      VersaceSettings = settings;
-      Path = path;
-    }
-
-    public VersaceResult(VMixture bestMixture, List<PopulationInfo> history, VersaceSettings settings, string path = null)
-      :this(bestMixture, history.Select(x => x.Fitness).ToList(), history.Select(x => x.Diversity).ToList(), settings, path)
-    {
-    }
-
-    public static string DoublesToBase64(IEnumerable<double> h)
-    {
-      using (var ms = new MemoryStream())
-      using (var bw = new BinaryWriter(ms))
-      {
-        foreach (var d in h)
-          bw.Write(d);
-        return Convert.ToBase64String(ms.ToArray());
-      }
-    }
-
-    public static List<double> DoublesFromBase64(string b)
-    {
-      var result = new List<double>();
-      using (var ms = new MemoryStream(Convert.FromBase64String(b)))
-      using (var br = new BinaryReader(ms))
-      {
-        while (ms.Position < ms.Length)
-          result.Add(br.ReadDouble());
-      }
-      return result;
-    }
-
-    public void Save()
-    {
-      if (!Directory.Exists("VersaceResults"))
-        Directory.CreateDirectory("VersaceResults");
-      Path = string.Format("VersaceResults\\VersaceResult-{0:yyyyMMdd}-{0:HHmmss}.xml", DateTime.Now);
-      new XElement("VersaceResult",
-        new XElement("FitnessHistory", DoublesToBase64(FitnessHistory)),
-        new XElement("DiversityHistory", DoublesToBase64(DiversityHistory)),
-        VersaceSettings.ToXml(),
-        BestMixture.ToXml())
-        .Save(Path);
-    }
-
-    public static VersaceResult Load(string fn)
-    {
-      var vr = XElement.Load(fn);
-      return new VersaceResult(
-        VMixture.Load(vr.Element("Mixture")),
-        DoublesFromBase64(vr.Element("FitnessHistory").Value).ToList(),
-        DoublesFromBase64(vr.Element("DiversityHistory").Value).ToList(),
-        VersaceSettings.Load(vr.Element("VersaceSettings")),
-        fn);
-    }
-  }
-
-  public enum TrainingMethod { Evolve }
-  public enum PredictionType { NextClose }
-  public enum PreprocessingType { Enhanced }
-
-  public class VersaceSettings
-  {
-    public string Path { get; private set; }
-
-    public string PredictedSymbol = "DIA";
-    public int ExpertsPerMixture = 10;
-    public int PopulationSize = 10;
-    public int SelectionSize = 4;
-    public int EpochCount = 2;
-    public double MutationRate = 0.05;
-    public double MutationDamping = 0;
-    public TrainingMethod TrainingMethod = TrainingMethod.Evolve;
-    public PredictionType PredictionType = PredictionType.NextClose;
-    public PreprocessingType PreprocessingType = PreprocessingType.Enhanced;
-
-    public DateTime StartDate = DateTime.Parse("11/11/2001");
-    public DateTime EndDate = DateTime.Parse("02/12/2003");
-    public int TestingSplitPct = 78;
-    public bool UseValidationSet = false;
-    public int ValidationSplitPct = 0;
-
-    public List<VGene> ProtoChromosome = new List<VGene> {
-        new VGene<int>("NetworkType", 0, 1, 1),
-        new VGene<int>("ElmanTrainingEpochs", 20, 20, 1),
-        new VGene<int>("DatabaseType", 1, 1, 1),
-        new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),
-        new VGene<double>("TrainingSizePct", 0, 1, 0.00001),
-        new VGene<int>("UseComplementCoding", 0, 1, 1),
-        new VGene<int>("UsePrincipalComponentAnalysis", 0, 1, 1),
-        new VGene<int>("PrincipalComponent", 0, 100, 1),
-        new VGene<double>("RbfNetTolerance", 0, 1, 0.001),
-        new VGene<double>("RbfGaussianSpread", 0.1, 10, 0.01),
-        new VGene<int>("ElmanHidden1NodeCount", 3, 40, 1),
-        new VGene<int>("ElmanHidden2NodeCount", 3, 20, 1)
-      };
-
-    public override string ToString()
-    {
-      var sb = new StringBuilder();
-      foreach (var fi in this.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public).Where(fi => fi.Name != "ProtoChromosome"))
-        sb.AppendFormat("{0} : {1}\n", fi.Name, fi.GetValue(this));
-      sb.AppendFormat("--------------------------\n");
-      foreach (var g in ProtoChromosome)
-        sb.AppendFormat("{0} : {1}\n", g.Name, g.RangeString);
-      return sb.ToString().TrimEnd('\n');
-    }
-
-    public XElement ToXml()
-    {
-      return new XElement("VersaceSettings",
-        new XAttribute("PredictedSymbol", PredictedSymbol),
-        new XAttribute("ExpertsPerMixture", ExpertsPerMixture),
-        new XAttribute("PopulationSize", PopulationSize),
-        new XAttribute("SelectionSize", SelectionSize),
-        new XAttribute("EpochCount", EpochCount),
-        new XAttribute("MutationRate", MutationRate),
-        new XAttribute("MutationDamping", MutationDamping),
-        new XAttribute("StartDate", StartDate),
-        new XAttribute("EndDate", EndDate),
-        new XAttribute("TestingSplitPct", TestingSplitPct),
-        new XAttribute("UseValidationSet", UseValidationSet),
-        new XAttribute("ValidationSplitPct", ValidationSplitPct),
-        new XAttribute("TrainingMethod", TrainingMethod),
-        new XAttribute("PredictionType", PredictionType),
-        new XAttribute("PreprocessingType", PreprocessingType),
-        new XElement("ProtoChromosome", ProtoChromosome.Select(x => x.ToXml()).ToArray()));
-    }
-
-    public static VersaceSettings Load(string fn)
-    {
-      var vs = Load(XElement.Load(fn));
-      vs.Path = fn;
-      return vs;
-    }
-
-    public static VersaceSettings Load(XElement eSettings)
-    {
-      return new VersaceSettings {
-        PredictedSymbol = eSettings.Attribute("PredictedSymbol").Value,
-        ExpertsPerMixture = int.Parse(eSettings.Attribute("ExpertsPerMixture").Value),
-        PopulationSize = int.Parse(eSettings.Attribute("PopulationSize").Value),
-        SelectionSize = int.Parse(eSettings.Attribute("SelectionSize").Value),
-        EpochCount = int.Parse(eSettings.Attribute("EpochCount").Value),
-        MutationRate = double.Parse(eSettings.Attribute("MutationRate").Value),
-        MutationDamping = double.Parse(eSettings.Attribute("MutationDamping").Value),
-        StartDate = DateTime.Parse(eSettings.Attribute("StartDate").Value),
-        EndDate = DateTime.Parse(eSettings.Attribute("EndDate").Value),
-        TestingSplitPct = int.Parse(eSettings.Attribute("TestingSplitPct").Value),
-        UseValidationSet = bool.Parse(eSettings.Attribute("UseValidationSet").Value),
-        ValidationSplitPct = int.Parse(eSettings.Attribute("ValidationSplitPct").Value),
-        TrainingMethod = (TrainingMethod)Enum.Parse(typeof(TrainingMethod), eSettings.Attribute("TrainingMethod").Value),
-        PredictionType = (PredictionType)Enum.Parse(typeof(PredictionType), eSettings.Attribute("PredictionType").Value),
-        PreprocessingType = (PreprocessingType)Enum.Parse(typeof(PreprocessingType), eSettings.Attribute("PreprocessingType").Value),
-        ProtoChromosome = eSettings.Element("ProtoChromosome").Elements("Gene").Select(x => VGene.Load(x)).ToList()
-      };
-    }
-
-    public DateTime TrainingStart { get { return StartDate; } }
-    public DateTime TrainingEnd { get { return ValidationStart.AddDays(-1); } }
-    public DateTime ValidationStart { get { return !UseValidationSet ? TestingStart : StartDate.AddMilliseconds(TestingStart.Subtract(StartDate).TotalMilliseconds * (double)ValidationSplitPct / 100).Date; } }
-    public DateTime ValidationEnd { get { return TestingStart.AddDays(-1); } }
-    public DateTime TestingStart { get { return StartDate.AddMilliseconds(EndDate.Subtract(StartDate).TotalMilliseconds * (double)TestingSplitPct / 100).Date; } }
-    public DateTime TestingEnd { get { return EndDate; } }
-
-    public VersaceSettings Clone()
-    {
-      return Load(ToXml());
-    }
-  }
-
-  public static class Versace
+  public static partial class Versace
   {
     static VersaceSettings _Settings;
     public static VersaceSettings Settings
@@ -222,9 +38,14 @@ namespace Quqe
         else
         {
           _Settings = value;
-          LoadNormalizedValues();
+          LoadPreprocessedValues();
         }
       }
+    }
+
+    static Versace()
+    {
+      Settings = new VersaceSettings();
     }
 
     public static Dictionary<PreprocessingType, int> DatabaseAInputLength = new Dictionary<PreprocessingType, int>();
@@ -233,40 +54,6 @@ namespace Quqe
     {
       return List.Create(predictedSymbol, "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP",
         "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/ "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU");
-    }
-
-    static Versace()
-    {
-      Settings = new VersaceSettings();
-    }
-
-    public static List<DataSeries<Bar>> GetCleanSeries(string predictedSymbol, List<string> tickers)
-    {
-      var raw = tickers.Select(t => Data.LoadVersace(t)).ToList();
-      var dia = raw.First(s => s.Symbol == predictedSymbol);
-      var supp = raw.Where(s => s != dia).ToList();
-
-      // fill in missing data in supplemental instruments
-      var supp2 = supp.Select(s => {
-        var q = (from d in dia
-                 join x in s on d.Timestamp equals x.Timestamp into joined
-                 from j in joined.DefaultIfEmpty()
-                 select new { Timestamp = d.Timestamp, X = j }).ToList();
-        List<Bar> newElements = new List<Bar>();
-        for (int i = 0; i < q.Count; i++)
-        {
-          if (q[i].X != null)
-            newElements.Add(q[i].X);
-          else
-          {
-            var prev = newElements.Last();
-            newElements.Add(new Bar(q[i].Timestamp, prev.Open, prev.Low, prev.High, prev.Close, prev.Volume));
-          }
-        }
-        return new DataSeries<Bar>(s.Symbol, newElements);
-      }).ToList();
-
-      return supp2.Concat(List.Create(dia)).ToList();
     }
 
     public static Matrix TrainingInput { get; private set; }
@@ -284,175 +71,6 @@ namespace Quqe
         throw new Exception("Unexpected PredictionType: " + pt);
     }
 
-    public static void LoadNormalizedValues()
-    {
-      Func<DataSeries<Bar>, double> idealSignal = GetIdealSignalFunc(Settings.PredictionType);
-
-      PreprocessedData trainingData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.TrainingStart, Settings.TrainingEnd, true, idealSignal);
-      TrainingInput = trainingData.Inputs;
-      TrainingOutput = trainingData.Outputs;
-
-      if (Settings.UseValidationSet)
-      {
-        PreprocessedData validationData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.ValidationStart, Settings.ValidationEnd, true, idealSignal);
-        ValidationInput = validationData.Inputs;
-        ValidationOutput = validationData.Outputs;
-      }
-
-      PreprocessedData testingData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.TestingStart, Settings.TestingEnd, true, idealSignal);
-      TestingInput = testingData.Inputs;
-      TestingOutput = testingData.Outputs;
-    }
-
-    //public static void LoadNormalizedValues()
-    //{
-    //  DateTime testingStart = Settings.StartDate.AddMilliseconds(Settings.EndDate.Subtract(Settings.StartDate).TotalMilliseconds * (double)Settings.TestingSplitPct / 100).Date;
-    //  DateTime validationStart = testingStart;
-    //  if (Settings.UseValidationSet)
-    //    validationStart = Settings.StartDate.AddMilliseconds(testingStart.Subtract(Settings.StartDate).TotalMilliseconds * (double)Settings.ValidationSplitPct / 100).Date;
-
-    //  Func<DataSeries<Bar>, double> idealSignal = null;
-    //  if (Settings.PredictionType == PredictionType.NextClose)
-    //    idealSignal = s => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close);
-
-    //  PreprocessedData trainingData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.StartDate, validationStart.AddDays(-1), true, idealSignal);
-    //  TrainingInput = trainingData.Inputs;
-    //  TrainingOutput = trainingData.Outputs;
-
-    //  if (Settings.UseValidationSet)
-    //  {
-    //    PreprocessedData validationData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, validationStart, testingStart.AddDays(-1), true, idealSignal);
-    //    ValidationInput = validationData.Inputs;
-    //    ValidationOutput = validationData.Outputs;
-    //  }
-
-    //  PreprocessedData testingData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, testingStart, Settings.EndDate, true, idealSignal);
-    //  TestingInput = testingData.Inputs;
-    //  TestingOutput = testingData.Outputs;
-    //}
-
-    public static PreprocessedData GetPreprocessedValues(PreprocessingType preprocessType, string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal = null)
-    {
-      if (preprocessType == PreprocessingType.Enhanced)
-        return PreprocessEnhanced(predictedSymbol, startDate, endDate, includeOutputs, idealSignal);
-      else
-        throw new Exception("Unexpected PreprocessingType: " + preprocessType);
-    }
-
-    static PreprocessedData PreprocessEnhanced(string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal)
-    {
-      var clean = GetCleanSeries(predictedSymbol, GetTickers(predictedSymbol));
-      var aOnly = new List<DataSeries<Value>>();
-      var bOnly = new List<DataSeries<Value>>();
-
-      if (includeOutputs)
-      {
-        // increase endDate by one trading day, because on the true endDate,
-        // we need to look one day ahead to know the correct prediction.
-        // if the trueEnd date is the last day in the DataSeries (can't look ahead), we'll have to chop it off in the output.
-        var ds = clean.First(); // any will do, since we already cleaned them to have the exact same timestamp sequence
-        int i = 1;
-        while (i < ds.Length && ds[i].Timestamp < endDate.AddDays(1))
-          i++;
-        endDate = ds[i].Timestamp;
-      }
-
-      /////////////////////
-      // helper functions
-      Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker)
-        .From(startDate).To(endDate);
-
-      Action<string, Func<Bar, Value>> addSmaNorm = (ticker, getValue) =>
-        aOnly.Add(get(ticker).NormalizeSma10(getValue));
-
-      Action<string> addSmaNormOHLC = (ticker) => {
-        addSmaNorm(ticker, x => x.Open);
-        addSmaNorm(ticker, x => x.High);
-        addSmaNorm(ticker, x => x.Low);
-        addSmaNorm(ticker, x => x.Close);
-      };
-
-      //////////////////////////////////////////
-      // apply indicators and SMA normalizations
-      var predicted = get(predictedSymbol);
-
-      // % ROC Close
-      bOnly.Add(predicted.MapElements<Value>((s, v) => {
-        if (s.Pos == 0)
-          return 0;
-        else
-          return (s[0].Close - s[1].Close) / s[1].Close * 100;
-      }));
-
-      // % Diff Open-Close
-      bOnly.Add(predicted.MapElements<Value>((s, v) => (s[0].Open - s[0].Close) / s[0].Open * 100));
-
-      // % Diff High-Low
-      bOnly.Add(predicted.MapElements<Value>((s, v) => (s[0].High - s[0].Low) / s[0].Low * 100));
-
-      // my own LinReg stuff
-      {
-        var fast = predicted.Closes().LinReg(2, 1);
-        var slow = predicted.Closes().LinReg(7, 1);
-        bOnly.Add(fast.ZipElements<Value, Value>(slow, (f, s, _) => f[0] - s[0]));
-        bOnly.Add(predicted.Closes().RSquared(10));
-        bOnly.Add(predicted.Closes().LinRegSlope(4));
-      }
-
-      addSmaNormOHLC(predictedSymbol);
-      addSmaNorm(predictedSymbol, x => x.Volume);
-
-      bOnly.Add(predicted.ChaikinVolatility(10));
-      bOnly.Add(predicted.Closes().MACD(10, 21));
-      bOnly.Add(predicted.Closes().Momentum(10));
-      bOnly.Add(predicted.VersaceRSI(10));
-
-      addSmaNormOHLC("^IXIC");
-      addSmaNormOHLC("^GSPC");
-      addSmaNormOHLC("^DJI");
-      addSmaNormOHLC("^DJT");
-      addSmaNormOHLC("^DJU");
-      addSmaNormOHLC("^DJA");
-      addSmaNormOHLC("^N225");
-      addSmaNormOHLC("^BVSP");
-      addSmaNormOHLC("^GDAX");
-      addSmaNormOHLC("^FTSE");
-      // MISSING: dollar/yen
-      // MISSING: dollar/swiss frank
-      addSmaNormOHLC("^TYX");
-      addSmaNormOHLC("^TNX");
-      addSmaNormOHLC("^FVX");
-      addSmaNormOHLC("^IRX");
-      // MISSING: eurobond
-
-      addSmaNormOHLC("^XAU");
-      addSmaNorm("^XAU", x => x.Volume);
-
-      // % Diff. between Normalized DJIA and Normalized T Bond
-      bOnly.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0]));
-
-      DatabaseAInputLength[PreprocessingType.Enhanced] = aOnly.Count;
-
-      var unalignedData = SeriesToMatrix(aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList());
-      if (!includeOutputs)
-      {
-        return new PreprocessedData {
-          Predicted = predicted,
-          Inputs = unalignedData,
-          Outputs = null
-        };
-      }
-      //var unalignedOutput = SeriesToMatrix(List.Create(predicted.MapElements<Value>((s, _) => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close))));
-      var unalignedOutput = SeriesToMatrix(List.Create(predicted.MapElements<Value>((s, _) => idealSignal(s))));
-
-      var data = MatrixFromColumns(unalignedData.Columns().Take(unalignedData.ColumnCount - 1).ToList());
-      var output = MatrixFromColumns(unalignedOutput.Columns().Skip(1).ToList());
-      return new PreprocessedData {
-        Predicted = predicted,
-        Inputs = data,
-        Outputs = new DenseVector(output.Row(0).ToArray())
-      };
-    }
 
     public static Matrix MatrixFromColumns(List<Vector> columns)
     {
@@ -664,76 +282,6 @@ namespace Quqe
       for (int m = 0; m < population.Count; m++)
         d.SetColumn(m, population[m].Members.SelectMany(mem => mem.Chromosome.Select(x => (x.GetDoubleValue() - x.GetDoubleMin()) / (x.GetDoubleMax() - x.GetDoubleMin()))).ToArray());
       return d.Rows().Sum(r => Statistics.Variance(r));
-    }
-
-    public static void GetData(string predictedSymbol, DateTime start, DateTime end)
-    {
-      var dir = @"c:\users\wintonpc\git\Quqe\Share\VersaceData";
-      if (!Directory.Exists(dir))
-        Directory.CreateDirectory(dir);
-
-      foreach (var ticker in GetTickers(predictedSymbol))
-      {
-        using (var c = new WebClient())
-        {
-          var fn = Path.Combine(dir, ticker + ".txt");
-
-          if (ticker.StartsWith("^DJ")) // historical downloads of dow jones indices are not allowed
-          {
-            GetDowJonesData(c, ticker, fn, start, end);
-          }
-          else
-          {
-            var address = string.Format("http://ichart.finance.yahoo.com/table.csv?s={0}&a={1}&b={2}&c={3}&d={4}&e={5}&f={6}&g=d&ignore=.csv",
-              ticker, start.Month - 1, start.Day, start.Year, end.Month - 1, end.Day, end.Year);
-            c.DownloadFile(address, fn);
-          }
-
-          var fixedLines = File.ReadAllLines(fn).Skip(1).Reverse().Select(line => {
-            var toks = line.Split(',');
-            var timestamp = DateTime.ParseExact(toks[0], "yyyy-MM-dd", null);
-            var open = double.Parse(toks[1]);
-            var high = double.Parse(toks[2]);
-            var low = double.Parse(toks[3]);
-            var close = double.Parse(toks[4]);
-            var volume = long.Parse(toks[5]);
-            return string.Format("{0:yyyyMMdd};{1};{2};{3};{4};{5}",
-              timestamp, open, high, low, close, volume);
-          });
-          File.WriteAllLines(fn, fixedLines);
-        }
-      }
-    }
-
-    static void GetDowJonesData(WebClient c, string ticker, string fn, DateTime start, DateTime end)
-    {
-      List<string> lines = new List<string>();
-      var address = string.Format("http://finance.yahoo.com/q/hp?s={0}&a={1}&b={2}&c={3}&d={4}&e={5}&f={6}&g=d",
-        ticker, start.Month - 1, start.Day, start.Year, end.Month - 1, end.Day, end.Year);
-
-      while (true)
-      {
-        var html = c.DownloadString(address);
-        var trs = Regex.Matches(html, @"<tr[^>]*>(<td [^>]*tabledata[^>]*>[^<]+</td>)+</tr>", RegexOptions.IgnoreCase | RegexOptions.Singleline)
-          .OfType<Match>().Select(m => m.Groups[0].Value).ToList();
-        foreach (var tr in trs)
-        {
-          var fs = Regex.Matches(tr, @"<td [^>]*tabledata[^>]*>([^<]+)</td>", RegexOptions.IgnoreCase | RegexOptions.Singleline).OfType<Match>().Select(m => m.Groups[1].Value).ToList();
-          if (fs.Count != 7)
-            continue;
-          var timestamp = DateTime.ParseExact(fs[0], "MMM d, yyyy", null);
-          if (timestamp < Settings.StartDate) // yahoo enumerates data in reverse chronological order
-            goto Done;
-          lines.Add(string.Format("{0:yyyy-MM-dd},{1},{2},{3},{4},{5}",
-            timestamp, double.Parse(fs[1]), double.Parse(fs[2]), double.Parse(fs[3]), double.Parse(fs[4]), long.Parse(fs[5], System.Globalization.NumberStyles.AllowThousands)));
-        }
-
-        var nextAddrMatch = Regex.Match(html, @"<a [^>]*href=""([^""]+)""[^>]*>Next</a>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-        if (!nextAddrMatch.Success)
-          goto Done;
-        address = "http://finance.yahoo.com" + HttpUtility.HtmlDecode(nextAddrMatch.Groups[1].Value);
-      }
-    Done: File.WriteAllLines(fn, lines);
     }
   }
 
@@ -1224,11 +772,11 @@ namespace Quqe
         eExpert.Add(new XElement("PrincipalComponents",
           new XAttribute("RowCount", PrincipalComponents.RowCount),
           new XAttribute("ColumnCount", PrincipalComponents.ColumnCount),
-          VersaceResult.DoublesToBase64(PrincipalComponents.ToColumnWiseArray())));
+          QUtil.DoublesToBase64(PrincipalComponents.ToColumnWiseArray())));
       if (TrainingInit != null)
       {
         if (Member.NetworkType == NetworkType.RNN)
-          eExpert.Add(new XElement("TrainingInit", VersaceResult.DoublesToBase64((Vector<double>)TrainingInit)));
+          eExpert.Add(new XElement("TrainingInit", QUtil.DoublesToBase64((Vector<double>)TrainingInit)));
       }
       return eExpert;
     }
@@ -1246,11 +794,11 @@ namespace Quqe
         expert.PrincipalComponents = new DenseMatrix(
           int.Parse(ePc.Attribute("RowCount").Value),
           int.Parse(ePc.Attribute("ColumnCount").Value),
-          VersaceResult.DoublesFromBase64(ePc.Value).ToArray());
+          QUtil.DoublesFromBase64(ePc.Value).ToArray());
       if (eTi != null)
       {
         if (member.NetworkType == NetworkType.RNN)
-          expert.TrainingInit = new DenseVector(VersaceResult.DoublesFromBase64(eTi.Value).ToArray());
+          expert.TrainingInit = new DenseVector(QUtil.DoublesFromBase64(eTi.Value).ToArray());
       }
       return expert;
     }

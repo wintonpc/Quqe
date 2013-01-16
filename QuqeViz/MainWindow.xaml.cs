@@ -35,46 +35,46 @@ namespace QuqeViz
       this.Loaded += delegate { btw.Activate(); };
     }
 
-    public void DoBacktest(string symbol, string strategyName, double initialValue, int marginFactor, bool isValidation)
-    {
-      var bars = Data.Get(symbol);
-      var strat = StrategyOptimizerReport.CreateStrategy(strategyName);
-      var signal = strat.MakeSignal(bars.From(ValidationStartBox.Text).To(ValidationEndBox.Text));
-      var backtestReport = Strategy.BacktestSignal(bars, signal,
-        new Account {
-          Equity = initialValue,
-          MarginFactor = marginFactor,
-          Padding = 80,
-          //IgnoreGains = true
-        }, 0, null);
-      Trace.WriteLine(string.Format("Training  :  {0}  -  {1}", TrainingStartBox.Text, TrainingEndBox.Text));
-      bool validationWarning = DateTime.Parse(ValidationStartBox.Text) <= DateTime.Parse(TrainingEndBox.Text);
-      Trace.WriteLine(string.Format("Validation:  {0}  -  {1}{2}",
-        ValidationStartBox.Text, ValidationEndBox.Text, validationWarning ? " !!!!!" : ""));
-      Trace.WriteLine(backtestReport.ToString());
-      var bs = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
-      ShowBacktestChart(bs, backtestReport.Trades, signal, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
+    //public void DoBacktest(string symbol, string strategyName, double initialValue, int marginFactor, bool isValidation)
+    //{
+    //  var bars = Data.Get(symbol);
+    //  var strat = StrategyOptimizerReport.CreateStrategy(strategyName);
+    //  var signal = strat.MakeSignal(bars.From(ValidationStartBox.Text).To(ValidationEndBox.Text));
+    //  var backtestReport = Strategy.BacktestSignal(bars, signal,
+    //    new Account {
+    //      Equity = initialValue,
+    //      MarginFactor = marginFactor,
+    //      Padding = 80,
+    //      //IgnoreGains = true
+    //    }, 0, null);
+    //  Trace.WriteLine(string.Format("Training  :  {0}  -  {1}", TrainingStartBox.Text, TrainingEndBox.Text));
+    //  bool validationWarning = DateTime.Parse(ValidationStartBox.Text) <= DateTime.Parse(TrainingEndBox.Text);
+    //  Trace.WriteLine(string.Format("Validation:  {0}  -  {1}{2}",
+    //    ValidationStartBox.Text, ValidationEndBox.Text, validationWarning ? " !!!!!" : ""));
+    //  Trace.WriteLine(backtestReport.ToString());
+    //  var bs = bars.From(signal.First().Timestamp).To(signal.Last().Timestamp);
+    //  ShowBacktestChart(bs, backtestReport.Trades, signal, initialValue, marginFactor, isValidation, strategyName, strat.SParams);
 
-      int wrong = 0;
-      int total = 0;
-      DataSeries.Walk(signal, bs, pos => {
-        if (pos == 0)
-          return;
-        if (signal[0].Bias != signal[1].Bias)
-        {
-          if (bs[0].IsGreen != (signal[0].Bias == SignalBias.Buy))
-            wrong++;
-          total++;
-        }
-      });
-    }
+    //  int wrong = 0;
+    //  int total = 0;
+    //  DataSeries.Walk(signal, bs, pos => {
+    //    if (pos == 0)
+    //      return;
+    //    if (signal[0].Bias != signal[1].Bias)
+    //    {
+    //      if (bs[0].IsGreen != (signal[0].Bias == SignalBias.Buy))
+    //        wrong++;
+    //      total++;
+    //    }
+    //  });
+    //}
 
     static void ShowBacktestChart(DataSeries<Bar> bars, List<TradeRecord> trades, DataSeries<SignalValue> signal,
       double initialValue, int marginFactor, bool isValidation, string strategyName, IEnumerable<StrategyParameter> sParams)
     {
       var profitPerTrade = trades.ToDataSeries(t => t.Profit * 100.0);
       var accountValue = trades.ToDataSeries(t => t.AccountValueAfterTrade);
-      var otpdTrades = OTPDStrategy.GetTrades(true, true, true, true, 1000000);
+      //var otpdTrades = OTPDStrategy.GetTrades(true, true, true, true, 1000000);
 
       var w = new ChartWindow();
       w.Title = bars.Symbol + " : " + (!isValidation ? "Training" : "Validation");
@@ -165,9 +165,6 @@ namespace QuqeViz
 
     private void ValidateButton_Click(object sender, RoutedEventArgs e)
     {
-      DoBacktest(SymbolBox.Text, (string)StrategiesBox.SelectedItem,
-        double.Parse(InitialValueBox.Text), int.Parse(MarginFactorBox.Text), true);
-      Update();
     }
 
     private void ParallelCheckBox_Checked(object sender, RoutedEventArgs e)
@@ -177,7 +174,7 @@ namespace QuqeViz
 
     private void GetVersaceDataButton_Click(object sender, RoutedEventArgs e)
     {
-      Versace.GetData("DIA", DateTime.Parse("11/11/2001"), DateTime.Now.Date);
+      VersaceDataFetching.DownloadData("DIA", DateTime.Parse("11/11/2001"), DateTime.Now.Date);
     }
 
     private void DIAButton_Click(object sender, RoutedEventArgs e)

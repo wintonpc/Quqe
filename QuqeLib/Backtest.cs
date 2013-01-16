@@ -16,7 +16,6 @@ namespace Quqe
     }
 
     List<TradeRecord> Trades;
-    //List<Value> AccountValues;
     public static BacktestHelper Start(DataSeries<Bar> bars, Account account)
     {
       var b = new BacktestHelper(bars, account);
@@ -26,15 +25,9 @@ namespace Quqe
 
     void StartInternal()
     {
-      //AccountValues = new List<Value>();
       Trades = new List<TradeRecord>();
       Account.Traded += Trades.Add;
     }
-
-    //public void UpdateAccountValue(double value)
-    //{
-    //  AccountValues.Add(new Value(Bars[0].Timestamp, value));
-    //}
 
     public BacktestReport Stop()
     {
@@ -42,7 +35,6 @@ namespace Quqe
 
       return new BacktestReport {
         InputSet = Bars,
-        //AccountValue = accountValue,
         Trades = Trades,
         MaxDrawdownPercent = CalcMaxDrawdownPercent(accountValue)
       };
@@ -126,16 +118,13 @@ namespace Quqe
 
   public class BacktestReport
   {
-    //public Dictionary<string, double> Parameters;
     public DataSeries<Bar> InputSet;
-    //public DataSeries<Value> AccountValue;
     public List<TradeRecord> Trades;
     public double TotalReturn { get { return 1 + (Trades.Last().AccountValueAfterTrade - Trades.First().AccountValueBeforeTrade) / Trades.First().AccountValueBeforeTrade; } }
     public double ProfitFactor { get { return TotalProfit / TotalLoss; } }
     public double TotalProfit { get { return Trades.Where(t => t.IsWin).Sum(t => t.Profit); } }
     public double TotalLoss { get { return Trades.Where(t => !t.IsWin).Sum(t => t.Loss) + Trades.Count * 9.90; /* 9.90 = hack! */ } }
     public double MaxDrawdownPercent;
-    //public List<double> ProfitFactorHistory;
     public int NumWinningTrades { get { return Trades.Where(x => x.IsWin).Count(); } }
     public int NumLosingTrades { get { return Trades.Where(x => !x.IsWin).Count(); } }
     public double AverageWin { get { return Trades.Where(x => x.IsWin).Average(x => x.Profit); } }
@@ -149,20 +138,19 @@ namespace Quqe
     public double MaxPercentLoss { get { return Trades.Max(t => t.PercentLoss); } }
     public int MaxLossesWithin10Days
     {
-      get
-      {
-        return Trades.ToDataSeries(t => t.IsWin ? 0 : 10).SMA(10).Select(x => (int)x.Val).Max();
-      }
+      get { return Trades.ToDataSeries(t => t.IsWin ? 0 : 10).SMA(10).Select(x => (int)x.Val).Max(); }
     }
 
     public double WinningTradeFraction
     {
       get { return (double)NumWinningTrades / (NumWinningTrades + NumLosingTrades); }
     }
+
     public double AverageWinLossRatio
     {
       get { return AverageWin / AverageLoss; }
     }
+
     public double CPC { get { return ProfitFactor * WinningTradeFraction * AverageWinLossRatio; } }
 
     public override string ToString()

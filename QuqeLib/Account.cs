@@ -76,7 +76,7 @@ namespace Quqe
           throw new Exception();
       }
     }
-    //public double Equity { get; set; }
+
     public double MarginFactor { get; set; }
     public double TotalBorrowable { get { return Equity * MarginFactor; } }
     public double BuyingPower { get { return TotalBorrowable - AmountBorrowed; } }

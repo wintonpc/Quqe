@@ -676,7 +676,7 @@ rank=same;");
       return new XElement("Network", new XAttribute("Type", NetworkType.RNN),
         new XElement("InputCount", NumInputs),
         new XElement("LayerSpecs", LayerSpecs.Select(x => x.ToXml()).ToArray()),
-        new XElement("Weights", VersaceResult.DoublesToBase64(GetWeightVector())));
+        new XElement("Weights", QUtil.DoublesToBase64(GetWeightVector())));
     }
 
     public static RNN Load(XElement eExpert)
@@ -684,7 +684,7 @@ rank=same;");
       var numInputs = int.Parse(eExpert.Element("InputCount").Value);
       var layerSpecs = eExpert.Element("LayerSpecs").Elements("LayerSpec").Select(x => LayerSpec.Load(x)).ToList();
       var rnn = new RNN(numInputs, layerSpecs);
-      rnn.SetWeightVector(new DenseVector(VersaceResult.DoublesFromBase64(eExpert.Element("Weights").Value).ToArray()));
+      rnn.SetWeightVector(new DenseVector(QUtil.DoublesFromBase64(eExpert.Element("Weights").Value).ToArray()));
       return rnn;
     }
   }
