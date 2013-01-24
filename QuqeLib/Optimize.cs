@@ -146,13 +146,6 @@ namespace Quqe
   {
     public static bool ShowTrace = true;
 
-    class ValidationWindow
-    {
-      public DateTime PadFirst;
-      public DateTime First;
-      public DateTime Last;
-    }
-
     static Genome TransitionGenome(Genome genome, double temperature)
     {
       return new Genome {

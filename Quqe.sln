@@ -1,6 +1,6 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuqeLib", "QuqeLib\QuqeLib.csproj", "{1B373E93-67B2-4045-8F5A-94C1C738EA2C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuqeTest", "QuqeTest\QuqeTest.csproj", "{B92A5514-3A0E-48DC-A9B6-51AC0DEB650E}"
@@ -19,6 +19,13 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StockCharts", "StockCharts\StockCharts.csproj", "{3EDD9282-6CEC-404B-B64C-CF24E2D0BD80}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QuqeMath", "QuqeMath\QuqeMath.vcxproj", "{810F4084-61D2-44A1-B6D9-532E649F6348}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{CAE11B0D-CACA-44CD-B050-C312595E2A0B}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\NuGet.Config = .nuget\NuGet.Config
+		.nuget\NuGet.exe = .nuget\NuGet.exe
+		.nuget\NuGet.targets = .nuget\NuGet.targets
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(TestCaseManagementSettings) = postSolution
