@@ -19,6 +19,7 @@ using System.Runtime;
 using System.Reflection;
 using System.Threading;
 using MathNet.Numerics.Statistics;
+using System.Globalization;
 
 namespace Quqe
 {
@@ -410,7 +411,7 @@ namespace Quqe
     {
       return new XElement("Gene",
         new XAttribute("Name", Name),
-        new XAttribute("Value", Value),
+        new XAttribute("Value", ((IConvertible)Value).ToString(CultureInfo.InvariantCulture)),
         new XAttribute("Min", Min),
         new XAttribute("Max", Max),
         new XAttribute("Granularity", Granularity)

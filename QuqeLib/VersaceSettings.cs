@@ -7,7 +7,6 @@ using System.Reflection;
 
 namespace Quqe
 {
-
   public enum TrainingMethod { Evolve }
   public enum PredictionType { NextClose }
   public enum PreprocessingType { Enhanced }
