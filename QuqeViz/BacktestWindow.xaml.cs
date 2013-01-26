@@ -107,8 +107,8 @@ namespace QuqeViz
 
     public BacktestPresentation()
     {
-      ResultsWatcher = new DirectoryWatcher<VersaceResultHolder>("VersaceResults", "*.xml", fn => new VersaceResultHolder(VersaceResult.Load(fn)));
-      SettingsWatcher = new DirectoryWatcher<VersaceSettingsHolder>("VersaceSettings", "*.xml", fn => new VersaceSettingsHolder(Quqe.VersaceSettings.Load(fn)));
+      ResultsWatcher = new DirectoryWatcher<VersaceResultHolder>("VersaceResults", "*.xml", fn => new VersaceResultHolder(XSer.Read<VersaceResult>(XElement.Load(fn))));
+      SettingsWatcher = new DirectoryWatcher<VersaceSettingsHolder>("VersaceSettings", "*.xml", fn => new VersaceSettingsHolder(XSer.Read<VersaceSettings>(XElement.Load(fn))));
       SetupPropertyChangeHooks();
       OnSelectedVersaceSettings(Versace.Settings);
     }

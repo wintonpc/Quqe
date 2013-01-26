@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Xml.Linq;
 using System.Reflection;
+using PCW;
 
 namespace Quqe
 {
@@ -58,56 +59,6 @@ namespace Quqe
       return sb.ToString().TrimEnd('\n');
     }
 
-    public XElement ToXml()
-    {
-      return new XElement("VersaceSettings",
-        new XAttribute("PredictedSymbol", PredictedSymbol),
-        new XAttribute("ExpertsPerMixture", ExpertsPerMixture),
-        new XAttribute("PopulationSize", PopulationSize),
-        new XAttribute("SelectionSize", SelectionSize),
-        new XAttribute("EpochCount", EpochCount),
-        new XAttribute("MutationRate", MutationRate),
-        new XAttribute("MutationDamping", MutationDamping),
-        new XAttribute("StartDate", StartDate),
-        new XAttribute("EndDate", EndDate),
-        new XAttribute("TestingSplitPct", TestingSplitPct),
-        new XAttribute("UseValidationSet", UseValidationSet),
-        new XAttribute("ValidationSplitPct", ValidationSplitPct),
-        new XAttribute("TrainingMethod", TrainingMethod),
-        new XAttribute("PredictionType", PredictionType),
-        new XAttribute("PreprocessingType", PreprocessingType),
-        new XElement("ProtoChromosome", ProtoChromosome.Select(x => x.ToXml()).ToArray()));
-    }
-
-    public static VersaceSettings Load(string fn)
-    {
-      var vs = Load(XElement.Load(fn));
-      vs.Path = fn;
-      return vs;
-    }
-
-    public static VersaceSettings Load(XElement eSettings)
-    {
-      return new VersaceSettings {
-        PredictedSymbol = eSettings.Attribute("PredictedSymbol").Value,
-        ExpertsPerMixture = int.Parse(eSettings.Attribute("ExpertsPerMixture").Value),
-        PopulationSize = int.Parse(eSettings.Attribute("PopulationSize").Value),
-        SelectionSize = int.Parse(eSettings.Attribute("SelectionSize").Value),
-        EpochCount = int.Parse(eSettings.Attribute("EpochCount").Value),
-        MutationRate = double.Parse(eSettings.Attribute("MutationRate").Value),
-        MutationDamping = double.Parse(eSettings.Attribute("MutationDamping").Value),
-        StartDate = DateTime.Parse(eSettings.Attribute("StartDate").Value),
-        EndDate = DateTime.Parse(eSettings.Attribute("EndDate").Value),
-        TestingSplitPct = int.Parse(eSettings.Attribute("TestingSplitPct").Value),
-        UseValidationSet = bool.Parse(eSettings.Attribute("UseValidationSet").Value),
-        ValidationSplitPct = int.Parse(eSettings.Attribute("ValidationSplitPct").Value),
-        TrainingMethod = (TrainingMethod)Enum.Parse(typeof(TrainingMethod), eSettings.Attribute("TrainingMethod").Value),
-        PredictionType = (PredictionType)Enum.Parse(typeof(PredictionType), eSettings.Attribute("PredictionType").Value),
-        PreprocessingType = (PreprocessingType)Enum.Parse(typeof(PreprocessingType), eSettings.Attribute("PreprocessingType").Value),
-        ProtoChromosome = eSettings.Element("ProtoChromosome").Elements("Gene").Select(x => VGene.Load(x)).ToList()
-      };
-    }
-
     public DateTime TrainingStart { get { return StartDate; } }
     public DateTime TrainingEnd { get { return ValidationStart.AddDays(-1); } }
     public DateTime ValidationStart { get { return !UseValidationSet ? TestingStart : StartDate.AddMilliseconds(TestingStart.Subtract(StartDate).TotalMilliseconds * (double)ValidationSplitPct / 100).Date; } }
@@ -117,7 +68,7 @@ namespace Quqe
 
     public VersaceSettings Clone()
     {
-      return Load(ToXml());
+      return XSer.Read<VersaceSettings>(XSer.Write(this));
     }
   }
 }

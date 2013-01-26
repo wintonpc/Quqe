@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Xml.Linq;
 using System.IO;
+using PCW;
 
 namespace Quqe
 {
@@ -35,23 +36,12 @@ namespace Quqe
       if (!Directory.Exists("VersaceResults"))
         Directory.CreateDirectory("VersaceResults");
       Path = string.Format("VersaceResults\\VersaceResult-{0:yyyyMMdd}-{0:HHmmss}.xml", DateTime.Now);
-      new XElement("VersaceResult",
-        new XElement("FitnessHistory", QUtil.DoublesToBase64(FitnessHistory)),
-        new XElement("DiversityHistory", QUtil.DoublesToBase64(DiversityHistory)),
-        VersaceSettings.ToXml(),
-        BestMixture.ToXml())
-        .Save(Path);
+      XSer.Write(this).Save(Path);
     }
 
     public static VersaceResult Load(string fn)
     {
-      var vr = XElement.Load(fn);
-      return new VersaceResult(
-        VMixture.Load(vr.Element("Mixture")),
-        QUtil.DoublesFromBase64(vr.Element("FitnessHistory").Value).ToList(),
-        QUtil.DoublesFromBase64(vr.Element("DiversityHistory").Value).ToList(),
-        VersaceSettings.Load(vr.Element("VersaceSettings")),
-        fn);
+      return XSer.Read<VersaceResult>(XElement.Load(fn));
     }
   }
 }

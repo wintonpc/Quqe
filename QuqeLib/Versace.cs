@@ -249,7 +249,7 @@ namespace Quqe
                 if (!otherGood.Any())
                   otherGoodClone = new VMixture().Members.First();
                 else
-                  otherGoodClone = VMember.Load(otherGood.RandomItem().ToXml());
+                  otherGoodClone = XSer.Read<VMember>(XSer.Write(otherGood.RandomItem()));
                 mixture.Members.Add(otherGoodClone);
               }
             }
@@ -310,23 +310,8 @@ namespace Quqe
     public abstract double GetDoubleMin();
     public abstract double GetDoubleMax();
     public abstract double GetDoubleValue();
-    public abstract XElement ToXml();
 
     static List<string> DoubleNames = List.Create("TrainingOffsetPct", "TrainingSizePct", "RbfNetTolerance", "RbfGaussianSpread");
-
-    public static VGene Load(XElement eGene)
-    {
-      var name = eGene.Attribute("Name").Value;
-      var min = double.Parse(eGene.Attribute("Min").Value);
-      var max = double.Parse(eGene.Attribute("Max").Value);
-      var granularity = double.Parse(eGene.Attribute("Granularity").Value);
-      var valueString = eGene.Attribute("Value").Value;
-
-      if (DoubleNames.Contains(name))
-        return new VGene<double>(name, min, max, granularity, double.Parse(valueString));
-      else
-        return new VGene<int>(name, min, max, granularity, int.Parse(valueString));
-    }
   }
 
   public class VGene<TValue> : VGene
@@ -405,17 +390,6 @@ namespace Quqe
     public override VGene CloneAndRandomize()
     {
       return new VGene<TValue>(Name, Min, Max, Granularity);
-    }
-
-    public override XElement ToXml()
-    {
-      return new XElement("Gene",
-        new XAttribute("Name", Name),
-        new XAttribute("Value", ((IConvertible)Value).ToString(CultureInfo.InvariantCulture)),
-        new XAttribute("Min", Min),
-        new XAttribute("Max", Max),
-        new XAttribute("Granularity", Granularity)
-        );
     }
   }
 
@@ -529,22 +503,6 @@ namespace Quqe
     public double RbfGaussianSpread { get { return GetGeneValue<double>("RbfGaussianSpread"); } }
     public int ElmanHidden1NodeCount { get { return GetGeneValue<int>("ElmanHidden1NodeCount"); } }
     public int ElmanHidden2NodeCount { get { return GetGeneValue<int>("ElmanHidden2NodeCount"); } }
-
-    public XElement ToXml()
-    {
-      return new XElement("Member",
-        new XElement("Chromosome", Chromosome.Select(x => x.ToXml()).ToArray()),
-        Expert.ToXml());
-    }
-
-    public static VMember Load(XElement eMember)
-    {
-      var eChrom = eMember.Element("Chromosome");
-      var eGenes = eChrom.Elements("Gene");
-      var member = new VMember(name => VGene.Load(eGenes.First(x => x.Attribute("Name").Value == name)));
-      member.Expert = Expert.Load(eMember.Element("Expert"), member);
-      return member;
-    }
   }
 
   public enum NetworkType { RNN, RBF }
@@ -622,20 +580,6 @@ namespace Quqe
         m.Expert.Reset();
     }
 
-    public XElement ToXml()
-    {
-      return new XElement("Mixture",
-        new XAttribute("Fitness", Fitness),
-        Members.Select(x => x.ToXml()).ToArray());
-    }
-
-    public static VMixture Load(XElement eMixture)
-    {
-      var mixture = new VMixture(eMixture.Elements("Member").Select(x => VMember.Load(x)).ToList());
-      mixture.Fitness = double.Parse(eMixture.Attribute("Fitness").Value);
-      return mixture;
-    }
-
     public void Dump()
     {
       Trace.WriteLine("Mixture, fitness: " + Fitness);
@@ -669,7 +613,6 @@ namespace Quqe
   {
     double Predict(Vector<double> input);
     void Reset();
-    XElement ToXml();
   }
 
   public class Expert : IPredictor
@@ -762,46 +705,6 @@ namespace Quqe
     public void Reset()
     {
       Network.Reset();
-    }
-
-    public XElement ToXml()
-    {
-      var eExpert = new XElement("Expert",
-        new XAttribute("PreprocessingType", PreprocessingType),
-        Network.ToXml());
-      if (PrincipalComponents != null)
-        eExpert.Add(new XElement("PrincipalComponents",
-          new XAttribute("RowCount", PrincipalComponents.RowCount),
-          new XAttribute("ColumnCount", PrincipalComponents.ColumnCount),
-          QUtil.DoublesToBase64(PrincipalComponents.ToColumnWiseArray())));
-      if (TrainingInit != null)
-      {
-        if (Member.NetworkType == NetworkType.RNN)
-          eExpert.Add(new XElement("TrainingInit", QUtil.DoublesToBase64((Vector<double>)TrainingInit)));
-      }
-      return eExpert;
-    }
-
-    public static Expert Load(XElement eExpert, VMember member)
-    {
-      var ePc = eExpert.Element("PrincipalComponents");
-      var eTi = eExpert.Element("TrainingInit");
-      var eNetwork = eExpert.Element("Network");
-      var expert = new Expert(member, (PreprocessingType)Enum.Parse(typeof(PreprocessingType), eExpert.Attribute("PreprocessingType").Value)) {
-        Network = eNetwork.Attribute("Type").Value == NetworkType.RNN.ToString()
-          ? (IPredictor)RNN.Load(eNetwork) : (IPredictor)RBFNet.Load(eNetwork)
-      };
-      if (ePc != null)
-        expert.PrincipalComponents = new DenseMatrix(
-          int.Parse(ePc.Attribute("RowCount").Value),
-          int.Parse(ePc.Attribute("ColumnCount").Value),
-          QUtil.DoublesFromBase64(ePc.Value).ToArray());
-      if (eTi != null)
-      {
-        if (member.NetworkType == NetworkType.RNN)
-          expert.TrainingInit = new DenseVector(QUtil.DoublesFromBase64(eTi.Value).ToArray());
-      }
-      return expert;
     }
   }
 

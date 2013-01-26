@@ -21,19 +21,6 @@ namespace Quqe
       Center = center;
       Weight = weight;
     }
-
-    public XElement ToXml()
-    {
-      return new XElement("RadialBasis",
-        new XElement("Weight", Weight),
-        new XElement("Center", QUtil.DoublesToBase64(Center)));
-    }
-
-    public static RadialBasis Load(XElement eBasis)
-    {
-      return new RadialBasis(new DenseVector(QUtil.DoublesFromBase64(eBasis.Element("Center").Value).ToArray()),
-        double.Parse(eBasis.Element("Weight").Value));
-    }
   }
 
   public class RBFNetSolution
@@ -200,22 +187,5 @@ namespace Quqe
     }
 
     public void Reset() { }
-
-    public System.Xml.Linq.XElement ToXml()
-    {
-      return new XElement("Network", new XAttribute("Type", NetworkType.RBF),
-        new XElement("OutputBias", OutputBias),
-        new XElement("Spread", Spread),
-        new XElement("IsDegenerate", IsDegenerate),
-        new XElement("Bases", Bases.Select(x => x.ToXml()).ToArray()));
-    }
-
-    public static RBFNet Load(XElement eNetwork)
-    {
-      return new RBFNet(eNetwork.Element("Bases").Elements("RadialBasis").Select(x => RadialBasis.Load(x)).ToList(),
-        double.Parse(eNetwork.Element("OutputBias").Value),
-        double.Parse(eNetwork.Element("Spread").Value),
-        bool.Parse(eNetwork.Element("IsDegenerate").Value));
-    }
   }
 }
