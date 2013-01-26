@@ -12,7 +12,9 @@ namespace Quqe
   {
     public string Path { get; private set; }
     public VMixture BestMixture;
+    [Base64]
     public List<double> FitnessHistory;
+    [Base64]
     public List<double> DiversityHistory;
     public VersaceSettings VersaceSettings;
 

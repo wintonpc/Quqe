@@ -1,17 +1,133 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<VersaceSettings PredictedSymbol="DIA" PredictionType="NextClose" PreprocessingType="Enhanced" ExpertsPerMixture="10" PopulationSize="10" SelectionSize="4" EpochCount="100" MutationRate="0.05" MutationDamping="0" StartDate="2001-11-11T00:00:00" EndDate="2004-02-12T00:00:00" TestingSplitPct="56" UseValidationSet="true" ValidationSplitPct="78" TrainingMethod="Evolve">
-  <ProtoChromosome>
-    <Gene Name="NetworkType" Value="0" Min="0" Max="1" Granularity="1" />
-    <Gene Name="ElmanTrainingEpochs" Value="0" Min="20" Max="1000" Granularity="1" />
-    <Gene Name="DatabaseType" Value="1" Min="0" Max="1" Granularity="1" />
-    <Gene Name="TrainingOffsetPct" Value="0" Min="0" Max="1" Granularity="1E-05" />
-    <Gene Name="TrainingSizePct" Value="0" Min="0" Max="1" Granularity="1E-05" />
-    <Gene Name="UseComplementCoding" Value="0" Min="0" Max="1" Granularity="1" />
-    <Gene Name="UsePrincipalComponentAnalysis" Value="0" Min="0" Max="1" Granularity="1" />
-    <Gene Name="PrincipalComponent" Value="0" Min="0" Max="100" Granularity="1" />
-    <Gene Name="RbfNetTolerance" Value="0" Min="0" Max="1" Granularity="0.001" />
-    <Gene Name="RbfGaussianSpread" Value="0" Min="0.1" Max="10" Granularity="0.01" />
-    <Gene Name="ElmanHidden1NodeCount" Value="0" Min="3" Max="200" Granularity="1" />
-    <Gene Name="ElmanHidden2NodeCount" Value="0" Min="3" Max="200" Granularity="1" />
-  </ProtoChromosome>
-</VersaceSettings>
+<root>
+  <VersaceSettings id="1" type="Quqe.VersaceSettings, QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+    <EndDate>2004-02-12T00:00:00</EndDate>
+    <EpochCount>100</EpochCount>
+    <ExpertsPerMixture>10</ExpertsPerMixture>
+    <MutationDamping>0</MutationDamping>
+    <MutationRate>0.05</MutationRate>
+    <Path>
+      <null />
+    </Path>
+    <PopulationSize>10</PopulationSize>
+    <PredictedSymbol>DIA</PredictedSymbol>
+    <PredictionType>NextClose</PredictionType>
+    <PreprocessingType>Enhanced</PreprocessingType>
+    <ProtoChromosome>
+      <item>
+        <VGene id="2" type="Quqe.VGene`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>1</Granularity>
+          <Max>1</Max>
+          <Min>0</Min>
+          <Name>NetworkType</Name>
+          <Value>1</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="3" type="Quqe.VGene`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>1</Granularity>
+          <Max>1000</Max>
+          <Min>20</Min>
+          <Name>ElmanTrainingEpochs</Name>
+          <Value>20</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="4" type="Quqe.VGene`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>1</Granularity>
+          <Max>1</Max>
+          <Min>0</Min>
+          <Name>DatabaseType</Name>
+          <Value>1</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="5" type="Quqe.VGene`1[[System.Double, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>1E-05</Granularity>
+          <Max>1</Max>
+          <Min>0</Min>
+          <Name>TrainingOffsetPct</Name>
+          <Value>0.81102</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="6" type="Quqe.VGene`1[[System.Double, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>1E-05</Granularity>
+          <Max>1</Max>
+          <Min>0</Min>
+          <Name>TrainingSizePct</Name>
+          <Value>0.97955</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="7" type="Quqe.VGene`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>1</Granularity>
+          <Max>1</Max>
+          <Min>0</Min>
+          <Name>UseComplementCoding</Name>
+          <Value>0</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="8" type="Quqe.VGene`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>1</Granularity>
+          <Max>1</Max>
+          <Min>0</Min>
+          <Name>UsePrincipalComponentAnalysis</Name>
+          <Value>1</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="9" type="Quqe.VGene`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>1</Granularity>
+          <Max>100</Max>
+          <Min>0</Min>
+          <Name>PrincipalComponent</Name>
+          <Value>3</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="10" type="Quqe.VGene`1[[System.Double, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>0.001</Granularity>
+          <Max>1</Max>
+          <Min>0</Min>
+          <Name>RbfNetTolerance</Name>
+          <Value>0.769</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="11" type="Quqe.VGene`1[[System.Double, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>0.01</Granularity>
+          <Max>10</Max>
+          <Min>0.1</Min>
+          <Name>RbfGaussianSpread</Name>
+          <Value>3.87</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="12" type="Quqe.VGene`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>1</Granularity>
+          <Max>200</Max>
+          <Min>3</Min>
+          <Name>ElmanHidden1NodeCount</Name>
+          <Value>39</Value>
+        </VGene>
+      </item>
+      <item>
+        <VGene id="13" type="Quqe.VGene`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], QuqeLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <Granularity>1</Granularity>
+          <Max>200</Max>
+          <Min>3</Min>
+          <Name>ElmanHidden2NodeCount</Name>
+          <Value>5</Value>
+        </VGene>
+      </item>
+    </ProtoChromosome>
+    <SelectionSize>4</SelectionSize>
+    <StartDate>2001-11-11T00:00:00</StartDate>
+    <TestingSplitPct>56</TestingSplitPct>
+    <TrainingMethod>Evolve</TrainingMethod>
+    <UseValidationSet>True</UseValidationSet>
+    <ValidationSplitPct>78</ValidationSplitPct>
+  </VersaceSettings>
+</root>

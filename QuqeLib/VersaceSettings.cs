@@ -66,6 +66,13 @@ namespace Quqe
     public DateTime TestingStart { get { return StartDate.AddMilliseconds(EndDate.Subtract(StartDate).TotalMilliseconds * (double)TestingSplitPct / 100).Date; } }
     public DateTime TestingEnd { get { return EndDate; } }
 
+    public static VersaceSettings Load(string fn)
+    {
+      var s = XSer.Read<VersaceSettings>(XElement.Load(fn));
+      s.Path = fn;
+      return s;
+    }
+
     public VersaceSettings Clone()
     {
       return XSer.Read<VersaceSettings>(XSer.Write(this));
