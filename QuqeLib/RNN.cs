@@ -148,7 +148,7 @@ namespace Quqe
     }
 
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
-    public static TrainResult<Vector> TrainSCGInternal(List<LayerSpec> layerSpecs, Vector<double> weights, double epoch_max, Matrix<double> trainingData, Vector<double> outputData)
+    public static RnnTrainResult TrainSCGInternal(List<LayerSpec> layerSpecs, Vector<double> weights, double epoch_max, Matrix<double> trainingData, Vector<double> outputData)
     {
       var initialWeights = weights;
       Stopwatch sw = new Stopwatch();
@@ -327,8 +327,8 @@ namespace Quqe
       if (ShouldTrace)
         Trace.WriteLine(string.Format("Finished in {0:N2}s", (double)sw.ElapsedMilliseconds / 1000));
 
-      return new TrainResult<Vector> {
-        Params = (Vector)w,
+      return new RnnTrainResult {
+        Params = w,
         Cost = errAtW,
         CostHistory = errHistory,
         TrainingInit = initialWeights
@@ -336,7 +336,7 @@ namespace Quqe
     }
 
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
-    public static TrainResult<Vector> TrainSCG(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, Vector<double> initialWeights)
+    public static RnnTrainResult TrainSCG(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, Vector<double> initialWeights)
     {
       var scgInit = (initialWeights != null && initialWeights.Count == net.GetWeightVector().Count) ? initialWeights : net.GetWeightVector();
       var result = TrainSCGInternal(net.LayerSpecs, scgInit, epoch_max, trainingData, outputData);
@@ -344,10 +344,10 @@ namespace Quqe
       return result;
     }
 
-    public static TrainResult<Vector> TrainSCGMulti(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, int numTrials, Vector<double> initialWeights)
+    public static RnnTrainResult TrainSCGMulti(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, int numTrials, Vector<double> initialWeights)
     {
       object theLock = new object();
-      var results = new List<TrainResult<Vector>>();
+      var results = new List<RnnTrainResult>();
       Action trainOne = () => {
         var result = TrainSCGInternal(net.LayerSpecs, Optimizer.RandomVector(net.GetWeightVector().Count, -1, 1), epoch_max, trainingData, outputData);
         lock (theLock) { results.Add(result); }

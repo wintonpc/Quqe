@@ -236,13 +236,12 @@ namespace Quqe
 
         if ((epoch + 1) % 4 == 0)
         {
-          Func<VMember, bool> isGoodRbf = m => m.NetworkType == NetworkType.RBF && m.Expert.Network != null && !((RBFNet)m.Expert.Network).IsDegenerate;
           foreach (var mixture in population.ToList())
           {
-            var otherGood = oldPopulation.Except(List.Create(mixture)).SelectMany(mix => mix.Members.Where(isGoodRbf)).ToList();
+            var otherGood = oldPopulation.Except(List.Create(mixture)).SelectMany(mix => mix.Members.Where(m => !m.Expert.IsDegenerate)).ToList();
             foreach (var member in mixture.Members.ToList())
             {
-              if (!isGoodRbf(member))
+              if (member.Expert.IsDegenerate)
               {
                 mixture.Members.Remove(member);
                 VMember otherGoodClone;
@@ -320,7 +319,7 @@ namespace Quqe
     public readonly double Min;
     public readonly double Max;
     public readonly double Granularity;
-    public TValue Value { get; set; }
+    public readonly TValue Value;
 
     public override double GetDoubleMin() { return Min; }
     public override double GetDoubleMax() { return Max; }
@@ -400,7 +399,7 @@ namespace Quqe
 
     VMember()
     {
-      Expert = new Expert(this, Versace.Settings.PreprocessingType);
+      Expert = Expert.Create(this, Versace.Settings.PreprocessingType);
     }
 
     public VMember(Func<string, VGene> makeGene)
@@ -484,11 +483,6 @@ namespace Quqe
     TValue GetGeneValue<TValue>(string name) where TValue : struct
     {
       return ((VGene<TValue>)Chromosome.First(g => g.Name == name)).Value;
-    }
-
-    void SetGeneValue<TValue>(string name, TValue value) where TValue : struct
-    {
-      ((VGene<TValue>)Chromosome.First(g => g.Name == name)).Value = value;
     }
 
     public NetworkType NetworkType { get { return GetGeneValue<int>("NetworkType") == 0 ? NetworkType.RNN : NetworkType.RBF; } }
@@ -589,15 +583,7 @@ namespace Quqe
         var mi = members[i];
         var ss = new List<string>();
         ss.Add(mi.NetworkType.ToString());
-        if (mi.NetworkType == NetworkType.RNN)
-          ss.Add(string.Format("{0}-{1}-1:{2}", mi.ElmanHidden1NodeCount, mi.ElmanHidden2NodeCount, mi.ElmanTrainingEpochs));
-        else
-        {
-          ss.Add(string.Format("{0} centers, spread = {1}",
-            ((RBFNet)mi.Expert.Network).NumCenters, ((RBFNet)mi.Expert.Network).Spread));
-          if (((RBFNet)mi.Expert.Network).IsDegenerate)
-            ss.Add("!! DEGENERATE !!");
-        }
+        ss.Add(mi.Expert.ToString());
         ss.Add("Training set size = " + (int)(mi.TrainingSizePct * Versace.TrainingOutput.Count));
         if (mi.UseComplementCoding)
           ss.Add("CC");
@@ -615,19 +601,35 @@ namespace Quqe
     void Reset();
   }
 
-  public class Expert : IPredictor
+  public abstract class Expert : IPredictor
   {
-    VMember Member;
-    public IPredictor Network;
+    protected VMember Member;
     PreprocessingType PreprocessingType;
     Matrix PrincipalComponents;
-    public object TrainingInit;
 
-    public Expert(VMember member, PreprocessingType preprocessType)
+    //public abstract IPredictor Network { get; protected set; }
+    protected abstract IPredictor Network { get; }
+    public virtual bool IsDegenerate { get { return false; } }
+
+    protected Expert(VMember member, PreprocessingType preprocessType)
     {
       Member = member;
       PreprocessingType = preprocessType;
     }
+
+    public void Train()
+    {
+      int offset = Math.Min((int)(Member.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
+      // change next line to use MathEx.Clamp()
+      int size = Math.Max(1, Math.Min((int)(Member.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
+      var outputs = Versace.TrainingOutput.SubVector(offset, size);
+      var inputs = Versace.TrainingInput.Columns().Skip(offset).Take(size).ToList(); // TODO: don't call Columns
+      var preprocessedInputs = Preprocess(inputs, true);
+
+      Train(preprocessedInputs, outputs);
+    }
+
+    protected abstract void Train(List<Vector> preprocessedInputs, Vector<double> outputs);
 
     List<Vector> Preprocess(List<Vector> inputs, bool recalculatePrincipalComponents = false)
     {
@@ -651,60 +653,105 @@ namespace Quqe
       return inputs;
     }
 
-    public void Train() { TrainEx(preserveTrainingInit: true); }
-
-    public void TrainEx(int rnnTrialCount = 1, bool preserveTrainingInit = false)
+    public static Expert Create(VMember member, PreprocessingType preprocessType)
     {
-      int offset = Math.Min((int)(Member.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
-      int size = Math.Max(1, Math.Min((int)(Member.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
-      var outputs = Versace.TrainingOutput.SubVector(offset, size);
-      var inputs = Versace.TrainingInput.Columns().Skip(offset).Take(size).ToList(); // TODO: don't call Columns
-      inputs = Preprocess(inputs, true);
-
-      if (Member.NetworkType == NetworkType.RNN)
-      {
-        var rnn = new RNN(inputs.First().Count, new List<LayerSpec> {
-          new LayerSpec {
-            NodeCount = Member.ElmanHidden1NodeCount,
-            ActivationType = ActivationType.LogisticSigmoid,
-            IsRecurrent = true
-          },
-          new LayerSpec {
-            NodeCount = Member.ElmanHidden2NodeCount,
-            ActivationType = ActivationType.LogisticSigmoid,
-            IsRecurrent = true
-          },
-          new LayerSpec {
-            NodeCount = 1,
-            ActivationType = ActivationType.Linear,
-            IsRecurrent = false
-          }
-        });
-        Vector<double> trainingInit = preserveTrainingInit ? (TrainingInit as Vector<double>) : null;
-        TrainResult<Vector> trainResult;
-        if (rnnTrialCount > 1)
-          trainResult = RNN.TrainSCGMulti((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, rnnTrialCount, trainingInit);
-        else
-          trainResult = RNN.TrainSCG((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, trainingInit);
-        TrainingInit = trainResult.TrainingInit;
-        Network = rnn;
-      }
+      if (member.NetworkType == NetworkType.RNN)
+        return new RnnExpert(member, preprocessType);
+      else if (member.NetworkType == NetworkType.RBF)
+        return new RbfExpert(member, preprocessType);
       else
-      {
-        Network = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs, Member.RbfNetTolerance, Member.RbfGaussianSpread);
-      }
+        throw new Exception();
     }
 
-    public double Predict(Vector<double> input)
+    public virtual double Predict(Vector<double> input)
     {
-      if (Network is RBFNet && ((RBFNet)Network).IsDegenerate)
-        return 0;
-      return Network.Predict(Preprocess(List.Create((Vector)input)).First());
+      return Network.Predict(Preprocess(List.Create((Vector)input)).Single());
     }
 
     public void Reset()
     {
       Network.Reset();
+    }
+  }
+
+  public class RnnExpert : Expert
+  {
+    readonly int TrialCount;
+    readonly bool PreserveTrainingInit;
+    Vector<double> TrainingInit;
+
+    RNN RNNNetwork;
+    protected override IPredictor Network { get { return RNNNetwork; } }
+
+    public RnnExpert(VMember member, PreprocessingType preprocessType, int trialCount = 1, bool preserveTrainingInit = false)
+      : base(member, preprocessType)
+    {
+      TrialCount = trialCount;
+      PreserveTrainingInit = preserveTrainingInit;
+    }
+
+    protected override void Train(List<Vector> inputs, Vector<double> outputs)
+    {
+      var rnn = new RNN(inputs.First().Count, new List<LayerSpec> {
+        new LayerSpec {
+          NodeCount = Member.ElmanHidden1NodeCount,
+          ActivationType = ActivationType.LogisticSigmoid,
+          IsRecurrent = true
+        },
+        new LayerSpec {
+          NodeCount = Member.ElmanHidden2NodeCount,
+          ActivationType = ActivationType.LogisticSigmoid,
+          IsRecurrent = true
+        },
+        new LayerSpec {
+          NodeCount = 1,
+          ActivationType = ActivationType.Linear,
+          IsRecurrent = false
+        }
+      });
+      Vector<double> trainingInit = PreserveTrainingInit ? TrainingInit : null;
+      RnnTrainResult trainResult;
+      if (TrialCount > 1)
+        trainResult = RNN.TrainSCGMulti((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, TrialCount, trainingInit);
+      else
+        trainResult = RNN.TrainSCG((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, trainingInit);
+      TrainingInit = trainResult.TrainingInit;
+      RNNNetwork = rnn;
+    }
+
+    public override string ToString()
+    {
+      return string.Format("{0}-{1}-1:{2}", Member.ElmanHidden1NodeCount, Member.ElmanHidden2NodeCount, Member.ElmanTrainingEpochs);
+    }
+  }
+
+  public class RbfExpert : Expert
+  {
+    RBFNet RBFNetwork;
+    protected override IPredictor Network { get { return RBFNetwork; } }
+
+    public RbfExpert(VMember member, PreprocessingType preprocessType)
+      : base(member, preprocessType)
+    {
+    }
+
+    protected override void Train(List<Vector> inputs, Vector<double> outputs)
+    {
+      RBFNetwork = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs, Member.RbfNetTolerance, Member.RbfGaussianSpread);
+    }
+
+    public override double Predict(Vector<double> input)
+    {
+      return RBFNetwork.IsDegenerate ? 0 : base.Predict(input);
+    }
+
+    public override string ToString()
+    {
+      var sb = new StringBuilder();
+      sb.AppendFormat("{0} centers, spread = {1}", RBFNetwork.NumCenters, RBFNetwork.Spread);
+      if (RBFNetwork.IsDegenerate)
+        sb.Append(" !! DEGENERATE !!");
+      return sb.ToString();
     }
   }
 
