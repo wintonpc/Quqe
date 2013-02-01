@@ -21,17 +21,18 @@ WeightContext::WeightContext(const Matrix &trainingInput, const Vector &training
 
 WeightContext::~WeightContext()
 {
-  for (int l = 0; l < NumLayers; l++)
-  {
-    delete Frames[0]->Layers[l]->W;
-    delete Frames[0]->Layers[l]->Bias;
-    if (Frames[0]->Layers[l]->Wr != NULL)
-      delete Frames[0]->Layers[l]->Wr;
-  }
-  int t_max = TrainingInput->ColumnCount;
-  for (int t = 0; t < t_max; t++)
-    delete Frames[t];
-  delete [] Frames;
+  //for (int l = 0; l < NumLayers; l++)
+  //{
+  //  delete Frames[0]->Layers[l]->W;
+  //  delete Frames[0]->Layers[l]->Bias;
+  //  if (Frames[0]->Layers[l]->Wr != NULL)
+  //    delete Frames[0]->Layers[l]->Wr;
+  //}
+  //int t_max = TrainingInput->ColumnCount;
+  //for (int t = 0; t < t_max; t++)
+  //  delete Frames[t];
+  //delete [] Frames;
+  DeleteFrames(Frames, TrainingInput->ColumnCount);
   delete [] LayerSpecs;
   delete TrainingInput;
   delete TrainingOutput;
@@ -88,6 +89,49 @@ QUQEMATH_API void* CreateWeightContext(
   int nInputs, int nSamples)
 {
   Layer** protoLayers = SpecsToLayers(nInputs, layerSpecs, nLayers);
+  //Frame** frames = new Frame*[nSamples];
+  //for (int t = 0; t < nSamples; t++)
+  //{
+  //  Layer** layers = new Layer*[nLayers];
+  //  for (int l = 0; l < nLayers; l++)
+  //  {
+  //    Layer* pl = protoLayers[l];
+  //    layers[l] = new Layer(pl->W, pl->Wr, pl->Bias, pl->IsRecurrent, pl->ActivationType,
+  //      pl->ActivationFunction, pl->ActivationFunctionPrime);
+  //  }
+  //  frames[t] = new Frame(layers, nLayers);
+  //}
+  Frame** frames = LayersToFrames(protoLayers, nLayers, nSamples);
+
+  for (int l = 0; l < nLayers; l++)
+    delete protoLayers[l];
+  delete [] protoLayers;
+
+  return new WeightContext(Matrix(nInputs, nSamples, trainingData), Vector(nSamples, outputData), frames, nLayers, layerSpecs);
+}
+
+QUQEMATH_API void* CreatePropagationContext(LayerSpec* layerSpecs, int nLayers, int nInputs, double* weights, int nWeights)
+{
+	Layer** protoLayers = SpecsToLayers(nInputs, layerSpecs, nLayers);
+	Frame** frames = LayersToFrames(protoLayers, nLayers, 1);
+	Frame* theFrame = frames[0];
+
+	SetWeights(theFrame->Layers, nLayers, weights, nWeights);
+
+	for (int l = 0; l < nLayers; l++)
+    delete protoLayers[l];
+  delete [] protoLayers;
+
+	return theFrame;
+}
+
+QUQEMATH_API void DestroyPropagationContext(void* context)
+{
+	DeleteFrames((Frame**)&context, 1);
+}
+
+Frame** LayersToFrames(Layer** protoLayers, int nLayers, int nSamples)
+{
   Frame** frames = new Frame*[nSamples];
   for (int t = 0; t < nSamples; t++)
   {
@@ -100,13 +144,23 @@ QUQEMATH_API void* CreateWeightContext(
     }
     frames[t] = new Frame(layers, nLayers);
   }
+  return frames;
+}
 
+void DeleteFrames(Frame** frames, int nSamples)
+{
+	int nLayers = frames[0]->NumLayers;
   for (int l = 0; l < nLayers; l++)
-    delete protoLayers[l];
-  delete [] protoLayers;
-
-  return new WeightContext(Matrix(nInputs, nSamples, trainingData), Vector(nSamples, outputData), frames, nLayers,
-    layerSpecs);
+  {
+    delete frames[0]->Layers[l]->W;
+    delete frames[0]->Layers[l]->Bias;
+    if (frames[0]->Layers[l]->Wr != NULL)
+      delete frames[0]->Layers[l]->Wr;
+  }
+  int t_max = nSamples;
+  for (int t = 0; t < t_max; t++)
+    delete frames[t];
+  delete [] frames;
 }
 
 Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
@@ -149,6 +203,13 @@ QUQEMATH_API void DestroyWeightContext(void* context)
   delete ((WeightContext*)context);
 }
 
+QUQEMATH_API void PropagateInput(Frame* frame, double* input, double* output)
+{
+	Propagate(input, 1, frame->NumLayers, frame->Layers, frame->Layers);
+	Layer* lastLayer = frame->Layers[frame->NumLayers-1];
+  memcpy(output, lastLayer->z->Data, lastLayer->NodeCount * sizeof(double));
+}
+
 QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeights, double* output, double* error, double* gradient)
 {
   int netNumInputs = c->Frames[0]->Layers[0]->W->ColumnCount;
@@ -162,10 +223,8 @@ QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeight
 
   // propagate inputs forward
   SetWeights(time[0]->Layers, numLayers, weights, nWeights); // time[0] is sufficient since all share the same weight matrices/vectors
-  //Vector* input = c->GetTempVec(trainingInput->RowCount);
   for (int t = 0; t <= t_max; t++)
   {
-    //trainingInput->GetColumn(t, input);
     Propagate(GetColumnPtr(trainingInput, t), trainingInput->ColumnCount, numLayers,
       time[t]->Layers, t > 0 ? time[t-1]->Layers : NULL);
   }

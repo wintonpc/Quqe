@@ -45,7 +45,7 @@ namespace Quqe
     {
       var pair = sParams.FirstOrDefault(sp => sp.Name == name);
       double value = pair == null ? 0 : pair.Value;
-      return (T)Convert.ChangeType(value, typeof(T));
+      return value.As<T>();
     }
   }
 

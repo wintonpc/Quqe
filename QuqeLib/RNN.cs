@@ -45,11 +45,6 @@ namespace Quqe
       public int InputCount { get { return W.ColumnCount; } }
     }
 
-    class Frame
-    {
-      public List<Layer> Layers;
-    }
-
     class WeightEvalInfo
     {
       public Vector<double> Output;
@@ -61,91 +56,6 @@ namespace Quqe
     List<LayerSpec> LayerSpecs;
     List<Layer> Layers;
     const double TimeZeroRecurrentInputValue = 0.5;
-
-    static WeightEvalInfo EvaluateWeights(RNN net, Vector<double> weights, Matrix<double> trainingData, Vector<double> outputData)
-    {
-      var time = new List<Frame>();
-      var oldWeights = net.GetWeightVector();
-      net.SetWeightVector(weights);
-      double totalOutputError = 0;
-
-      // propagate inputs forward
-      for (int t = 0; t < trainingData.ColumnCount; t++)
-      {
-        time.Add(new Frame { Layers = SpecsToLayers(net.NumInputs, net.LayerSpecs, true) });
-        SetWeightVector(time[t].Layers, weights);
-
-        Propagate(trainingData.Column(t), time[t].Layers, l => t == 0 ? MakeTimeZeroRecurrentInput(net.Layers[l].NodeCount)
-          : time[t - 1].Layers[l].z);
-      }
-
-      // propagate error backward
-      int t_max = trainingData.ColumnCount - 1;
-      for (int t = t_max; t >= 0; t--)
-      {
-        int l_max = time[t].Layers.Count - 1;
-        for (int l = l_max; l >= 0; l--)
-        {
-          var layer = time[t].Layers[l];
-          for (int i = 0; i < layer.NodeCount; i++)
-          {
-            double err;
-
-            // calculate error propagated to next layer
-            if (l == l_max)
-            {
-              err = (outputData[t] - layer.z[i]);
-              totalOutputError += 0.5 * Math.Pow(err, 2);
-            }
-            else
-            {
-              var subsequentLayer = time[t].Layers[l + 1];
-              err = (subsequentLayer.W.Column(i) * subsequentLayer.d);
-            }
-
-            // calculate error propagated forward in time (recurrently)
-            if (t < t_max && layer.IsRecurrent)
-            {
-              var nextLayerInTime = time[t + 1].Layers[l];
-              err += nextLayerInTime.Wr.Column(i) * nextLayerInTime.d;
-            }
-
-            layer.d[i] = err * layer.ActivationFunctionPrime(layer.a[i]);
-          }
-        }
-      }
-
-      // calculate gradient
-      var gradientLayers = SpecsToLayers(net.NumInputs, net.LayerSpecs);
-      for (int t = 0; t < time.Count; t++)
-      {
-        for (int l = 0; l < gradientLayers.Count; l++)
-        {
-          // W
-          for (int i = 0; i < gradientLayers[l].NodeCount; i++)
-            for (int j = 0; j < gradientLayers[l].InputCount; j++)
-              gradientLayers[l].W[i, j] += -1 * time[t].Layers[l].d[i] * time[t].Layers[l].x[j];
-
-          // Wr
-          if (t > 0 && gradientLayers[l].IsRecurrent)
-            for (int i = 0; i < gradientLayers[l].NodeCount; i++)
-              for (int j = 0; j < gradientLayers[l].NodeCount; j++)
-                gradientLayers[l].Wr[i, j] += -1 * time[t].Layers[l].d[i] * time[t - 1].Layers[l].z[j];
-
-          // Bias
-          for (int i = 0; i < gradientLayers[l].NodeCount; i++)
-            gradientLayers[l].Bias[i] += -1 * time[t].Layers[l].d[i]; // (bias input is always 1)
-        }
-      }
-
-      net.SetWeightVector(oldWeights);
-
-      return new WeightEvalInfo {
-        Output = time.Last().Layers.Last().z,
-        Error = totalOutputError,
-        Gradient = GetWeightVector(gradientLayers)
-      };
-    }
 
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
     public static RnnTrainResult TrainSCGInternal(List<LayerSpec> layerSpecs, Vector<double> weights, double epoch_max, Matrix<double> trainingData, Vector<double> outputData)
@@ -176,34 +86,7 @@ namespace Quqe
       double lambda = 1;
       double pi = 0.05;
 
-      //var wei2 = EvaluateWeights(net, w, trainingData, outputData);
       var wei = EvaluateWeightsFast(context, w.ToArray(), 1);
-
-      //#region test
-
-      //var specs = net.LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray();
-      //while (true)
-      //{
-      //  IntPtr context2 = QMCreateWeightContext(specs, net.LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
-      //    trainingData.RowCount, trainingData.ColumnCount);
-      //  QMDestroyWeightContext(context2);
-      //}
-
-      //Trace.WriteLine("--- .NET ------");
-      //Trace.WriteLine("Output:   " + wei2.Output.Join(" "));
-      //Trace.WriteLine("Error:    " + wei2.Error);
-      //Trace.WriteLine("Gradient: " + wei2.Gradient.Take(10).Join(" ") + " ...");
-      //Trace.WriteLine("-- .C++ ------");
-      //Trace.WriteLine("Output:   " + wei.Output.Join(" "));
-      //Trace.WriteLine("Error:    " + wei.Error);
-      //Trace.WriteLine("Gradient: " + wei.Gradient.Take(10).Join(" ") + " ...");
-      //Trace.WriteLine("--- Diff ------");
-      //Trace.WriteLine("Output:   " + (wei.Output - wei2.Output).Norm(2));
-      //Trace.WriteLine("Error:    " + Math.Abs(wei.Error - wei2.Error));
-      //Trace.WriteLine("Gradient: " + (wei.Gradient - wei2.Gradient).Norm(2));
-      //Trace.WriteLine("--------------");
-
-      //#endregion
 
       var errAtW = wei.Error;
       List<double> errHistory = new List<double> { errAtW };
@@ -249,7 +132,6 @@ namespace Quqe
         double epsilon1 = epsilon * Math.Pow(alpha / sigma, pi);
 
         // 5. calculate the comparison ratio
-        //double rho = 2 * (EvaluateWeights(net, w + alpha * s, trainingData, outputData).Error - errAtW) / (alpha * mu);
         double rho = 2 * (EvaluateWeightsFast(context, (w + alpha * s).ToArray(), 1).Error - errAtW) / (alpha * mu);
         success = rho >= 0;
 
@@ -269,7 +151,6 @@ namespace Quqe
         if (success)
         {
           w1 = w + alpha * s;
-          //var ei1 = EvaluateWeights(net, w1, trainingData, outputData);
           var ei1 = EvaluateWeightsFast(context, w1.ToArray(), 1);
           errAtW1 = ei1.Error;
           g1 = ei1.Gradient;
@@ -388,15 +269,24 @@ namespace Quqe
       };
     }
 
-    [DllImport("QuqeMath.dll", EntryPoint = "EvaluateWeights", CallingConvention = CallingConvention.Cdecl)]
-    extern static void QMEvaluateWeights(IntPtr context, double[] weights, int nWeights, double[] output, out double error, double[] gradient);
-
     [DllImport("QuqeMath.dll", EntryPoint = "CreateWeightContext", CallingConvention = CallingConvention.Cdecl)]
     extern static IntPtr QMCreateWeightContext(QMLayerSpec[] layerSpecs, int numLayers, double[] trainingData, double[] outputData,
       int nInputs, int nSamples);
 
+    [DllImport("QuqeMath.dll", EntryPoint = "EvaluateWeights", CallingConvention = CallingConvention.Cdecl)]
+    extern static void QMEvaluateWeights(IntPtr context, double[] weights, int nWeights, double[] output, out double error, double[] gradient);
+
     [DllImport("QuqeMath.dll", EntryPoint = "DestroyWeightContext", CallingConvention = CallingConvention.Cdecl)]
     extern static IntPtr QMDestroyWeightContext(IntPtr context);
+
+    [DllImport("QuqeMath.dll", EntryPoint = "CreatePropagationContext", CallingConvention = CallingConvention.Cdecl)]
+    extern static IntPtr QMCreatePropagationContext(QMLayerSpec[] layerSpecs, int numLayers, int nInputs, double[] weights, double nWeights);
+
+    [DllImport("QuqeMath.dll", EntryPoint = "PropagateInput", CallingConvention = CallingConvention.Cdecl)]
+    extern static void QMPropagateInput(IntPtr context, double[] input, double[] output);
+
+    [DllImport("QuqeMath.dll", EntryPoint = "DestroPropagationContext", CallingConvention = CallingConvention.Cdecl)]
+    extern static IntPtr QMDestroyPropagationContext(IntPtr context);
 
     public RNN(int numInputs, List<LayerSpec> layerSpecs)
     {
@@ -414,7 +304,14 @@ namespace Quqe
 
     public Vector<double> Propagate(Vector<double> input)
     {
-      return Propagate(input, Layers, l => Layers[l].z); // recursive inputs are previous outputs (z)
+
+
+      IntPtr context = QMCreateWeightContext(LayerSpecs.Select(spec => new QMLayerSpec(spec)).ToArray(),
+        LayerSpecs.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
+        trainingData.RowCount, trainingData.ColumnCount);
+
+      var wei = EvaluateWeightsFast(context, w.ToArray(), 1);
+      
     }
 
     static Vector<double> Propagate(Vector<double> input, List<Layer> layers, GetRecurrentInputFunc getRecurrentInput)

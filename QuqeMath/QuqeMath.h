@@ -97,21 +97,40 @@ inline Vector* WeightContext::GetTempVec(int size)
 extern "C" {
   
 QUQEMATH_API void* CreateWeightContext(
-LayerSpec* layerSpecs, int nLayers,
-double* trainingData, double* outputData,
-int nInputs, int nSamples);
-
-QUQEMATH_API void DestroyWeightContext(void* context);
+	LayerSpec* layerSpecs, int nLayers,
+	double* trainingData, double* outputData,
+	int nInputs, int nSamples);
 
 QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeights,
   double* output, double* error, double* gradient);
 
-QUQEMATH_API void* CreateOrthoContext(int basisDimension, int maxBasisCount);
-QUQEMATH_API void DestroyOrthoContext(void* context);
-
-QUQEMATH_API void Orthogonalize(OrthoContext* c, double* p, int numBases, double* orthonormalBases);
+QUQEMATH_API void DestroyWeightContext(void* context);
 
 }
+
+extern "C" {
+
+QUQEMATH_API void* CreatePropagationContext(
+	LayerSpec* layerSpecs, int nLayers,
+	int nInputs,
+	double* weights, int nWeights);
+
+QUQEMATH_API void PropagateInput(Frame* frame, double* input, double* output);
+
+QUQEMATH_API void DestroyPropagationContext(void* context);
+
+}
+
+extern "C" {
+
+QUQEMATH_API void* CreateOrthoContext(int basisDimension, int maxBasisCount);
+QUQEMATH_API void Orthogonalize(OrthoContext* c, double* p, int numBases, double* orthonormalBases);
+QUQEMATH_API void DestroyOrthoContext(void* context);
+
+}
+
+Frame** LayersToFrames(Layer** protoLayers, int nLayers, int nSamples);
+void DeleteFrames(Frame** frames, int nSamples);
 
 void Propagate(double* input, int inputStride, int numLayers, Layer** currLayers, Layer** prevLayers);
 void PropagateLayer(double* input, int inputStride, Layer* layer, Vector* recurrentInput);
@@ -129,7 +148,6 @@ double* GetMatrixWeights(Matrix* m, double* weights);
 
 double Linear(double x);
 double LinearPrime(double x);
-//double LogisticSigmoid(double x);
 double LogisticSigmoidPrime(double x);
 
 inline double Linear(double x)

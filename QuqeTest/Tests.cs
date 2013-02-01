@@ -220,16 +220,6 @@ namespace QuqeTest
     }
 
     [TestMethod]
-    public void TestBase64Doubles()
-    {
-      var ds1 = Optimizer.RandomVector(100, double.MinValue, double.MaxValue).ToList();
-      var s1 = QUtil.DoublesToBase64(ds1);
-      var ds2 = QUtil.DoublesFromBase64(s1);
-      var s2 = QUtil.DoublesToBase64(ds2);
-      Assert.IsTrue(s1 == s2);
-    }
-
-    [TestMethod]
     public void OrthoTest()
     {
       var w = RBFNet.Orthogonalize(new DenseVector(new double[] { 1, 1, 0 }), new List<Vector> {

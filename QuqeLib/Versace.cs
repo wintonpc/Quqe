@@ -244,11 +244,11 @@ namespace Quqe
               if (member.Expert.IsDegenerate)
               {
                 mixture.Members.Remove(member);
-                VMember otherGoodClone;
+                VChromosome otherGoodClone;
                 if (!otherGood.Any())
                   otherGoodClone = new VMixture().Members.First();
                 else
-                  otherGoodClone = XSer.Read<VMember>(XSer.Write(otherGood.RandomItem()));
+                  otherGoodClone = XSer.Read<VChromosome>(XSer.Write(otherGood.RandomItem()));
                 mixture.Members.Add(otherGoodClone);
               }
             }
@@ -298,112 +298,13 @@ namespace Quqe
     public Vector Outputs;
   }
 
-  public abstract class VGene
+  public class VChromosome
   {
-    public readonly string Name;
-    public VGene(string name) { Name = name; }
-    public abstract string RangeString { get; }
-    public abstract VGene Clone();
-    public abstract VGene CloneAndRandomize();
-    public abstract VGene Mutate(double dampingFactor);
-    public abstract double GetDoubleMin();
-    public abstract double GetDoubleMax();
-    public abstract double GetDoubleValue();
-
-    static List<string> DoubleNames = List.Create("TrainingOffsetPct", "TrainingSizePct", "RbfNetTolerance", "RbfGaussianSpread");
-  }
-
-  public class VGene<TValue> : VGene
-    where TValue : struct
-  {
-    public readonly double Min;
-    public readonly double Max;
-    public readonly double Granularity;
-    public readonly TValue Value;
-
-    public override double GetDoubleMin() { return Min; }
-    public override double GetDoubleMax() { return Max; }
-    public override double GetDoubleValue() { return (double)Convert.ChangeType(Value, typeof(double)); }
-
-    public VGene(string name, double min, double max, double granularity, TValue? initialValue = null)
-      : base(name)
-    {
-      Min = min;
-      Max = max;
-      Granularity = granularity;
-      Value = initialValue ?? RandomValue();
-    }
-
-    public override string RangeString
-    {
-      get
-      {
-        if (Value is int)
-        {
-          if (Min == Max)
-            return Min.ToString();
-          else if (Min == 0 && Max == 1 && Granularity == 1)
-            return "0/1";
-          else
-            return string.Format("{0} - {1}", Min, Max);
-        }
-        else
-          return string.Format("{0:N1} - {1:N1}", Min, Max);
-      }
-    }
-
-    TValue RandomValue()
-    {
-      return (TValue)Convert.ChangeType(
-          Optimizer.Quantize(Optimizer.RandomDouble(Min, Max), Min, Granularity),
-          typeof(TValue));
-    }
-
-    static Random Random = new Random();
-    public override VGene Mutate(double dampingFactor)
-    {
-      //return new VGene<TValue>(Name, Min, Max, Granularity, RandomValue());
-      var doubleValue = (double)Convert.ChangeType(Value, typeof(double));
-      if (Min == 0 && Max == 1 && Value is int)
-      {
-        if (dampingFactor == 0 || Optimizer.WithProb(1 / dampingFactor))
-          doubleValue = 1 - doubleValue;
-        return new VGene<TValue>(Name, Min, Max, Granularity, (TValue)Convert.ChangeType(doubleValue, typeof(TValue)));
-      }
-      else
-      {
-        var rand = Optimizer.RandomDouble(Min, Max);
-        var weighted = (dampingFactor * doubleValue + rand) / (dampingFactor + 1);
-        var quantized = (TValue)Convert.ChangeType(
-            Optimizer.Quantize(weighted, Min, Granularity),
-            typeof(TValue));
-        return new VGene<TValue>(Name, Min, Max, Granularity, quantized);
-      }
-    }
-
-    public override VGene Clone()
-    {
-      return new VGene<TValue>(Name, Min, Max, Granularity, Value);
-    }
-
-    public override VGene CloneAndRandomize()
-    {
-      return new VGene<TValue>(Name, Min, Max, Granularity);
-    }
-  }
-
-  public class VMember
-  {
+    static readonly Random Random = new Random();
+    
     public List<VGene> Chromosome;
-    public Expert Expert { get; private set; }
 
-    VMember()
-    {
-      Expert = Expert.Create(this, Versace.Settings.PreprocessingType);
-    }
-
-    public VMember(Func<string, VGene> makeGene)
-      : this()
+    public VChromosome(Func<string, VGene> makeGene)
     {
       Chromosome = new List<VGene> {
         makeGene("NetworkType"),
@@ -421,31 +322,19 @@ namespace Quqe
       };
     }
 
-    VMember(List<VGene> genes, object trainingInit)
-      : this()
+    VChromosome(List<VGene> genes)
     {
       Chromosome = genes;
-      Expert.TrainingInit = trainingInit;
     }
 
-    static Random Random = new Random();
-    //public List<VMember> CrossoverAndMutate(VMember other)
-    //{
-    //  var a = Chromosome.ToList();
-    //  var b = other.Chromosome.ToList();
-    //  Crossover(a, b);
-
-    //  return List.Create(new VMember(Mutate(a)), new VMember(Mutate(b)));
-    //}
-
-    public List<VMember> Crossover(VMember other)
+    public List<VChromosome> Crossover(VChromosome other)
     {
       var children = Crossover(Chromosome, other.Chromosome);
       var a = children[0];
       var b = children[1];
       return List.Create(
-        new VMember(children[0], this.Expert.TrainingInit),
-        new VMember(children[1], other.Expert.TrainingInit));
+        new VChromosome(children[0]),
+        new VChromosome(children[1]));
     }
 
     static List<List<VGene>> Crossover(IEnumerable<VGene> x, IEnumerable<VGene> y)
@@ -462,7 +351,7 @@ namespace Quqe
       return List.Create(a, b);
     }
 
-    public VMember Mutate(double? mutationRate = null, double? dampingFactor = null)
+    public VChromosome Mutate(double? mutationRate = null, double? dampingFactor = null)
     {
       mutationRate = mutationRate ?? Versace.Settings.MutationRate;
       dampingFactor = dampingFactor ?? Versace.Settings.MutationDamping;
@@ -470,7 +359,7 @@ namespace Quqe
       if (trainingInit != null && NetworkType == NetworkType.RNN && Expert.Network != null)
         if (Optimizer.WithProb(mutationRate.Value))
           trainingInit = Optimizer.RandomVector(((RNN)Expert.Network).GetWeightVector().Count, -1, 1);
-      return new VMember(Mutate(Chromosome, mutationRate.Value, dampingFactor.Value), trainingInit);
+      return new VChromosome(Mutate(Chromosome, mutationRate.Value, dampingFactor.Value), trainingInit);
     }
 
     static List<VGene> Mutate(IEnumerable<VGene> genes, double? mutationRate = null, double? dampingFactor = null)
@@ -504,26 +393,18 @@ namespace Quqe
 
   public class VMixture : IPredictor
   {
-    public List<VMember> Members { get; private set; }
+    public List<VChromosome> Members { get; private set; }
 
     public VMixture()
     {
       Members = List.Repeat(Versace.Settings.ExpertsPerMixture, n =>
-        new VMember(name => Versace.Settings.ProtoChromosome.First(x => x.Name == name).CloneAndRandomize()));
+        new VChromosome(name => Versace.Settings.ProtoChromosome.First(x => x.Name == name).CloneAndRandomize()));
     }
 
-    VMixture(List<VMember> members)
+    VMixture(List<VChromosome> members)
     {
       Members = members;
     }
-
-    //public List<VMixture> CrossoverAndMutate(VMixture other)
-    //{
-    //  var q = Members.Zip(other.Members, (a, b) => a.CrossoverAndMutate(b));
-    //  return List.Create(
-    //    new VMixture(q.Select(x => x[0]).ToList()),
-    //    new VMixture(q.Select(x => x[1]).ToList()));
-    //}
 
     public List<VMixture> Crossover(VMixture other)
     {
@@ -603,25 +484,24 @@ namespace Quqe
 
   public abstract class Expert : IPredictor
   {
-    protected VMember Member;
-    PreprocessingType PreprocessingType;
+    public readonly VChromosome Chromosome;
+    protected PreprocessingType PreprocessingType { get; private set; }
     Matrix PrincipalComponents;
 
-    //public abstract IPredictor Network { get; protected set; }
     protected abstract IPredictor Network { get; }
     public virtual bool IsDegenerate { get { return false; } }
 
-    protected Expert(VMember member, PreprocessingType preprocessType)
+    protected Expert(VChromosome chromosome, PreprocessingType preprocessType)
     {
-      Member = member;
+      Chromosome = chromosome;
       PreprocessingType = preprocessType;
     }
 
     public void Train()
     {
-      int offset = Math.Min((int)(Member.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
+      int offset = Math.Min((int)(Chromosome.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
       // change next line to use MathEx.Clamp()
-      int size = Math.Max(1, Math.Min((int)(Member.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
+      int size = Math.Max(1, Math.Min((int)(Chromosome.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
       var outputs = Versace.TrainingOutput.SubVector(offset, size);
       var inputs = Versace.TrainingInput.Columns().Skip(offset).Take(size).ToList(); // TODO: don't call Columns
       var preprocessedInputs = Preprocess(inputs, true);
@@ -634,31 +514,33 @@ namespace Quqe
     List<Vector> Preprocess(List<Vector> inputs, bool recalculatePrincipalComponents = false)
     {
       // database selection
-      if (Member.DatabaseType == DatabaseType.A)
+      if (Chromosome.DatabaseType == DatabaseType.A)
         inputs = inputs.Select(x => (Vector)x.SubVector(0, Versace.DatabaseAInputLength[PreprocessingType])).ToList();
 
       // complement coding
-      if (Member.UseComplementCoding)
+      if (Chromosome.UseComplementCoding)
         inputs = inputs.Select(x => Versace.ComplementCode(x)).ToList();
 
       // PCA
-      if (Member.UsePrincipalComponentAnalysis)
+      if (Chromosome.UsePrincipalComponentAnalysis)
       {
         if (recalculatePrincipalComponents)
           PrincipalComponents = Versace.PrincipleComponents(Versace.MatrixFromColumns(inputs));
-        var pcNumber = Math.Min(Member.PrincipalComponent, PrincipalComponents.ColumnCount - 1);
+        var pcNumber = Math.Min(Chromosome.PrincipalComponent, PrincipalComponents.ColumnCount - 1);
         inputs = inputs.Select(x => Versace.NthPrincipleComponent(PrincipalComponents, pcNumber, x)).ToList();
       }
 
       return inputs;
     }
 
-    public static Expert Create(VMember member, PreprocessingType preprocessType)
+    public abstract List<Expert> Crossover(Expert other);
+
+    public static Expert Create(VChromosome chromosome, PreprocessingType preprocessType)
     {
-      if (member.NetworkType == NetworkType.RNN)
-        return new RnnExpert(member, preprocessType);
-      else if (member.NetworkType == NetworkType.RBF)
-        return new RbfExpert(member, preprocessType);
+      if (chromosome.NetworkType == NetworkType.RNN)
+        return new RnnExpert(chromosome, preprocessType);
+      else if (chromosome.NetworkType == NetworkType.RBF)
+        return new RbfExpert(chromosome, preprocessType);
       else
         throw new Exception();
     }
@@ -678,50 +560,56 @@ namespace Quqe
   {
     readonly int TrialCount;
     readonly bool PreserveTrainingInit;
-    Vector<double> TrainingInit;
+    readonly Vector<double> TrainingInit;
 
     RNN RNNNetwork;
     protected override IPredictor Network { get { return RNNNetwork; } }
 
-    public RnnExpert(VMember member, PreprocessingType preprocessType, int trialCount = 1, bool preserveTrainingInit = false)
-      : base(member, preprocessType)
+    public RnnExpert(VChromosome chromosome, PreprocessingType preprocessType, Vector<double> trainingInit = null, int trialCount = 1)
+      : base(chromosome, preprocessType)
     {
       TrialCount = trialCount;
-      PreserveTrainingInit = preserveTrainingInit;
+      TrainingInit = trainingInit;
     }
 
+    bool IsTrained;
     protected override void Train(List<Vector> inputs, Vector<double> outputs)
     {
+      if (IsTrained)
+        throw new Exception("Expert has already been trained.");
+
+      Func<int, LayerSpec> logisticSigmoidRecurrent = nodeCount =>
+        new LayerSpec { NodeCount = nodeCount, ActivationType = ActivationType.LogisticSigmoid, IsRecurrent = true };
+
       var rnn = new RNN(inputs.First().Count, new List<LayerSpec> {
-        new LayerSpec {
-          NodeCount = Member.ElmanHidden1NodeCount,
-          ActivationType = ActivationType.LogisticSigmoid,
-          IsRecurrent = true
-        },
-        new LayerSpec {
-          NodeCount = Member.ElmanHidden2NodeCount,
-          ActivationType = ActivationType.LogisticSigmoid,
-          IsRecurrent = true
-        },
-        new LayerSpec {
-          NodeCount = 1,
-          ActivationType = ActivationType.Linear,
-          IsRecurrent = false
-        }
+        logisticSigmoidRecurrent(Chromosome.ElmanHidden1NodeCount),
+        logisticSigmoidRecurrent(Chromosome.ElmanHidden2NodeCount),
+        new LayerSpec { NodeCount = 1, ActivationType = ActivationType.Linear, IsRecurrent = false }
       });
-      Vector<double> trainingInit = PreserveTrainingInit ? TrainingInit : null;
+
+      Vector<double> trainingInit = TrainingInit ?? Optimizer.RandomVector(rnn.GetWeightVector().Count, 
       RnnTrainResult trainResult;
       if (TrialCount > 1)
-        trainResult = RNN.TrainSCGMulti((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, TrialCount, trainingInit);
+        trainResult = RNN.TrainSCGMulti((RNN)rnn, Chromosome.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, TrialCount, trainingInit);
       else
-        trainResult = RNN.TrainSCG((RNN)rnn, Member.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, trainingInit);
+        trainResult = RNN.TrainSCG((RNN)rnn, Chromosome.ElmanTrainingEpochs, Versace.MatrixFromColumns(inputs), outputs, trainingInit);
       TrainingInit = trainResult.TrainingInit;
       RNNNetwork = rnn;
     }
 
+    public override List<Expert> Crossover(Expert other)
+    {
+      var crossedGenes = this.Chromosome.Crossover(other.Chromosome);
+      var a = crossedGenes[0];
+      var b = crossedGenes[1];
+      Debug.Assert(this.PreprocessingType == other.PreprocessingType);
+      return List.Create(
+        new RnnExpert(a, this.PreprocessingType,
+    }
+
     public override string ToString()
     {
-      return string.Format("{0}-{1}-1:{2}", Member.ElmanHidden1NodeCount, Member.ElmanHidden2NodeCount, Member.ElmanTrainingEpochs);
+      return string.Format("{0}-{1}-1:{2}", Chromosome.ElmanHidden1NodeCount, Chromosome.ElmanHidden2NodeCount, Chromosome.ElmanTrainingEpochs);
     }
   }
 
@@ -730,14 +618,14 @@ namespace Quqe
     RBFNet RBFNetwork;
     protected override IPredictor Network { get { return RBFNetwork; } }
 
-    public RbfExpert(VMember member, PreprocessingType preprocessType)
-      : base(member, preprocessType)
+    public RbfExpert(VChromosome chromosome, PreprocessingType preprocessType)
+      : base(chromosome, preprocessType)
     {
     }
 
     protected override void Train(List<Vector> inputs, Vector<double> outputs)
     {
-      RBFNetwork = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs, Member.RbfNetTolerance, Member.RbfGaussianSpread);
+      RBFNetwork = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs, Chromosome.RbfNetTolerance, Chromosome.RbfGaussianSpread);
     }
 
     public override double Predict(Vector<double> input)
