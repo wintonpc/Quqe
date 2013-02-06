@@ -476,10 +476,9 @@ namespace Quqe
     }
   }
 
-  public interface IPredictor
+  public interface IPredictor : IDisposable
   {
     double Predict(Vector<double> input);
-    void Reset();
   }
 
   public abstract class Expert : IPredictor
@@ -553,6 +552,11 @@ namespace Quqe
     public void Reset()
     {
       Network.Reset();
+    }
+
+    public void Dispose()
+    {
+      Network.Dispose();
     }
   }
 
