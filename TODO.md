@@ -1,0 +1,12 @@
+- clean up code
+  - make the model functional; no mutation
+  - fix Expert/Member relationship
+  - separate stateless neural net specs from stateful networks
+  - remove IPredictor.Reset()
+  - remove old C# propagation code
+    - make IPredictor inherit IDisposable,
+    - Reset() destroys the old c++ propagation context, if any, and creates a new on
+    - Dispose() destroys the propagation context, if any
+  - remove "V" type name prefixes
+  - organize files into folders
+    - move types out of Versace.cs as appropriate
