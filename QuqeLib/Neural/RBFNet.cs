@@ -187,5 +187,10 @@ namespace Quqe
     }
 
     public void Reset() { }
+
+    public void Dispose()
+    {
+      //
+    }
   }
 }

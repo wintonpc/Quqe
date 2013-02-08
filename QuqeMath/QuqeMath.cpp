@@ -41,8 +41,7 @@ WeightContext::~WeightContext()
   delete [] TempVecs;
 }
 
-Layer::Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, int activationType,
-  ActivationFunc activation, ActivationFunc activationPrime)
+Layer::Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, int activationType)
 {
   W = w;
   Wr = wr;
@@ -55,8 +54,6 @@ Layer::Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, int activati
   d = new Vector(NodeCount);
   IsRecurrent = isRecurrent;
   ActivationType = activationType;
-  ActivationFunction = activation;
-  ActivationFunctionPrime = activationPrime;
 }
 
 Layer::~Layer()
@@ -103,9 +100,7 @@ QUQEMATH_API void* CreateWeightContext(
   //}
   Frame** frames = LayersToFrames(protoLayers, nLayers, nSamples);
 
-  for (int l = 0; l < nLayers; l++)
-    delete protoLayers[l];
-  delete [] protoLayers;
+	DeleteLayers(protoLayers, nLayers);
 
   return new WeightContext(Matrix(nInputs, nSamples, trainingData), Vector(nSamples, outputData), frames, nLayers, layerSpecs);
 }
@@ -118,16 +113,14 @@ QUQEMATH_API void* CreatePropagationContext(LayerSpec* layerSpecs, int nLayers, 
 
 	SetWeights(theFrame->Layers, nLayers, weights, nWeights);
 
-	for (int l = 0; l < nLayers; l++)
-    delete protoLayers[l];
-  delete [] protoLayers;
+	DeleteLayers(protoLayers, nLayers);
 
-	return theFrame;
+	return frames;
 }
 
 QUQEMATH_API void DestroyPropagationContext(void* context)
 {
-	DeleteFrames((Frame**)&context, 1);
+	DeleteFrames((Frame**)context, 1);
 }
 
 Frame** LayersToFrames(Layer** protoLayers, int nLayers, int nSamples)
@@ -139,8 +132,7 @@ Frame** LayersToFrames(Layer** protoLayers, int nLayers, int nSamples)
     for (int l = 0; l < nLayers; l++)
     {
       Layer* pl = protoLayers[l];
-      layers[l] = new Layer(pl->W, pl->Wr, pl->Bias, pl->IsRecurrent, pl->ActivationType,
-        pl->ActivationFunction, pl->ActivationFunctionPrime);
+      layers[l] = new Layer(pl->W, pl->Wr, pl->Bias, pl->IsRecurrent, pl->ActivationType);
     }
     frames[t] = new Frame(layers, nLayers);
   }
@@ -159,8 +151,19 @@ void DeleteFrames(Frame** frames, int nSamples)
   }
   int t_max = nSamples;
   for (int t = 0; t < t_max; t++)
+	{
+		DeleteLayers(frames[t]->Layers, frames[t]->NumLayers);
     delete frames[t];
+	}
   delete [] frames;
+}
+
+// delete everything but the weights. those are deleted by DeleteFrames()
+void DeleteLayers(Layer** layers, int nLayers)
+{
+	for (int l = 0; l < nLayers; l++)
+    delete layers[l];
+  delete [] layers;
 }
 
 Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
@@ -169,19 +172,6 @@ Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
   for (int l = 0; l < numLayers; l++)
   {
     LayerSpec* s = &specs[l];
-
-    ActivationFunc activation;
-    ActivationFunc activationPrime;
-    if (s->ActivationType == ACTIVATION_LOGSIG)
-    {
-      activation = NULL; //LogisticSigmoid;
-      activationPrime = LogisticSigmoidPrime;
-    }
-    else if (s->ActivationType == ACTIVATION_PURELIN)
-    {
-      activation = Linear;
-      activationPrime = LinearPrime;
-    }
 
     Matrix* w = new Matrix(s->NodeCount, l > 0 ? specs[l-1].NodeCount : numInputs);
     w->Zero();
@@ -193,7 +183,7 @@ Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
     }
     Vector* bias = new Vector(s->NodeCount);
     bias->Zero();
-    layers[l] = new Layer(w, wr, bias, s->IsRecurrent, s->ActivationType, activation, activationPrime);
+    layers[l] = new Layer(w, wr, bias, s->IsRecurrent, s->ActivationType);
   }
   return layers;
 }
@@ -203,10 +193,11 @@ QUQEMATH_API void DestroyWeightContext(void* context)
   delete ((WeightContext*)context);
 }
 
-QUQEMATH_API void PropagateInput(Frame* frame, double* input, double* output)
+QUQEMATH_API void PropagateInput(Frame** frames, double* input, double* output)
 {
-	Propagate(input, 1, frame->NumLayers, frame->Layers, frame->Layers);
-	Layer* lastLayer = frame->Layers[frame->NumLayers-1];
+	Frame* theFrame = frames[0];
+	Propagate(input, 1, theFrame->NumLayers, theFrame->Layers, theFrame->Layers);
+	Layer* lastLayer = theFrame->Layers[theFrame->NumLayers-1];
   memcpy(output, lastLayer->z->Data, lastLayer->NodeCount * sizeof(double));
 }
 
@@ -382,7 +373,16 @@ double* SetMatrixWeights(Matrix* m, double* weights)
   return weights + len;
 }
 
-void GetWeights(Layer** layers, int numLayers, double* weights, int nWeights)
+int GetWeightCount(LayerSpec* layerSpecs, int nLayers,	int nInputs)
+{
+	Layer** layers = SpecsToLayers(nInputs, layerSpecs, nLayers);
+	Frame** frames = LayersToFrames(layers, nLayers, 1);
+	int nWeights = GetWeights(layers, nLayers, new double[1024*1024], -1);
+	DeleteFrames(frames, 1);
+	return nWeights;
+}
+
+int GetWeights(Layer** layers, int numLayers, double* weights, int nWeights)
 {
   double* dp = weights;
   for (int layer = 0; layer < numLayers; layer++)
@@ -393,7 +393,12 @@ void GetWeights(Layer** layers, int numLayers, double* weights, int nWeights)
       dp = GetMatrixWeights(l->Wr, dp);
     dp = GetVectorWeights(l->Bias, dp);
   }
-  assert(weights + nWeights == dp);
+	if (nWeights != -1)
+	{
+		assert(weights + nWeights == dp);
+		assert(nWeights == (dp - weights));
+	}
+	return dp - weights;
 }
 
 double* GetVectorWeights(Vector* v, double* weights)

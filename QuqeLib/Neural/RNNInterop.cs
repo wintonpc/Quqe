@@ -9,7 +9,7 @@ using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace Quqe
 {
-  public partial class RNN
+  public static class RNNInterop
   {
     const int ACTIVATION_LOGSIG = 0;
     const int ACTIVATION_PURELIN = 1;
@@ -28,14 +28,38 @@ namespace Quqe
       int ActivationType;
     };
 
-    class WeightEvalInfo
+    public class WeightEvalInfo
     {
       public Vector<double> Output;
       public double Error;
       public Vector<double> Gradient;
     }
 
-    static WeightEvalInfo EvaluateWeightsFast(IntPtr context, double[] weights, int numOutputs)
+    interface IContext
+    {
+      IntPtr Ptr { get; }
+    }
+
+    public class PropagationContext : IDisposable, IContext
+    {
+      readonly IntPtr _Ptr;
+      public IntPtr Ptr { get { return _Ptr; } }
+
+      public PropagationContext(IntPtr context)
+      {
+        _Ptr = context;
+      }
+
+      bool IsDiposed;
+      public void Dispose()
+      {
+        if (IsDiposed) return;
+        IsDiposed = true;
+        QMDestroyPropagationContext(_Ptr);
+      }
+    }
+
+    public static WeightEvalInfo EvaluateWeightsFast(IntPtr context, double[] weights, int numOutputs)
     {
       double error;
       double[] grad = new double[weights.Length];
@@ -48,6 +72,19 @@ namespace Quqe
       };
     }
 
+    public static PropagationContext CreatePropagationContext(RNNSpec spec)
+    {
+      return new PropagationContext(QMCreatePropagationContext(spec.Layers.Select(x => new QMLayerSpec(x)).ToArray(), spec.Layers.Count,
+        spec.NumInputs, spec.Weights.ToArray(), spec.Weights.Count));
+    }
+
+    public static double[] PropagateInput(PropagationContext context, double[] input, int numOutputs)
+    {
+      var outputs = new double[numOutputs];
+      QMPropagateInput(context.Ptr, input, outputs);
+      return outputs;
+    }
+
     [DllImport("QuqeMath.dll", EntryPoint = "CreateWeightContext", CallingConvention = CallingConvention.Cdecl)]
     extern static IntPtr QMCreateWeightContext(QMLayerSpec[] layerSpecs, int numLayers, double[] trainingData, double[] outputData,
       int nInputs, int nSamples);
@@ -56,7 +93,7 @@ namespace Quqe
     extern static void QMEvaluateWeights(IntPtr context, double[] weights, int nWeights, double[] output, out double error, double[] gradient);
 
     [DllImport("QuqeMath.dll", EntryPoint = "DestroyWeightContext", CallingConvention = CallingConvention.Cdecl)]
-    extern static IntPtr QMDestroyWeightContext(IntPtr context);
+    extern static void QMDestroyWeightContext(IntPtr context);
 
     [DllImport("QuqeMath.dll", EntryPoint = "CreatePropagationContext", CallingConvention = CallingConvention.Cdecl)]
     extern static IntPtr QMCreatePropagationContext(QMLayerSpec[] layerSpecs, int numLayers, int nInputs, double[] weights, double nWeights);
@@ -64,7 +101,7 @@ namespace Quqe
     [DllImport("QuqeMath.dll", EntryPoint = "PropagateInput", CallingConvention = CallingConvention.Cdecl)]
     extern static void QMPropagateInput(IntPtr context, double[] input, double[] output);
 
-    [DllImport("QuqeMath.dll", EntryPoint = "DestroPropagationContext", CallingConvention = CallingConvention.Cdecl)]
-    extern static IntPtr QMDestroyPropagationContext(IntPtr context);
+    [DllImport("QuqeMath.dll", EntryPoint = "DestroyPropagationContext", CallingConvention = CallingConvention.Cdecl)]
+    extern static void QMDestroyPropagationContext(IntPtr context);
   }
 }

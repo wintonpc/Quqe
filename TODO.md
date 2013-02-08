@@ -1,4 +1,5 @@
 - clean up code
+  - Test QuqeMath changes for memory leaks
   - make the model functional; no mutation
   - fix Expert/Member relationship
   - separate stateless neural net specs from stateful networks
@@ -8,5 +9,5 @@
     - Reset() destroys the old c++ propagation context, if any, and creates a new on
     - Dispose() destroys the propagation context, if any
   - remove "V" type name prefixes
-  - organize files into folders
+  - organize files into folders (done)
     - move types out of Versace.cs as appropriate

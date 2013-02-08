@@ -549,11 +549,6 @@ namespace Quqe
       return Network.Predict(Preprocess(List.Create((Vector)input)).Single());
     }
 
-    public void Reset()
-    {
-      Network.Reset();
-    }
-
     public void Dispose()
     {
       Network.Dispose();

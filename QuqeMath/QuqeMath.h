@@ -37,13 +37,10 @@ public:
   Vector* d;
   bool IsRecurrent;
   int ActivationType;
-  ActivationFunc ActivationFunction;
-  ActivationFunc ActivationFunctionPrime;
   int NodeCount;
   int InputCount;
 
-  Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, int activationType,
-    ActivationFunc activation, ActivationFunc activationPrime);
+  Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, int activationType);
   ~Layer();
 };
 
@@ -71,7 +68,6 @@ private:
 
 public:
   WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers, LayerSpec* specs);
-  Vector* GetTempVec(int size);
   ~WeightContext();
 };
 
@@ -85,14 +81,6 @@ public:
   OrthoContext(int basisDimension, int maxBasisCount);
   ~OrthoContext();
 };
-
-inline Vector* WeightContext::GetTempVec(int size)
-{
-  Vector* v = TempVecs[size];
-  if (v != NULL)
-    return v;
-  return TempVecs[size] = new Vector(size);
-}
 
 extern "C" {
   
@@ -129,8 +117,11 @@ QUQEMATH_API void DestroyOrthoContext(void* context);
 
 }
 
+extern "C" int GetWeightCount(LayerSpec* layerSpecs, int nLayers,	int nInputs);
+
 Frame** LayersToFrames(Layer** protoLayers, int nLayers, int nSamples);
 void DeleteFrames(Frame** frames, int nSamples);
+void DeleteLayers(Layer** layers, int nLayers);
 
 void Propagate(double* input, int inputStride, int numLayers, Layer** currLayers, Layer** prevLayers);
 void PropagateLayer(double* input, int inputStride, Layer* layer, Vector* recurrentInput);
@@ -142,7 +133,7 @@ void SetWeights(Layer** layers, int numLayers, double* weights, int nWeights);
 double* SetVectorWeights(Vector* v, double* weights);
 double* SetMatrixWeights(Matrix* m, double* weights);
 
-void GetWeights(Layer** layers, int numLayers, double* weights, int nWeights);
+int GetWeights(Layer** layers, int numLayers, double* weights, int nWeights);
 double* GetVectorWeights(Vector* v, double* weights);
 double* GetMatrixWeights(Matrix* m, double* weights);
 

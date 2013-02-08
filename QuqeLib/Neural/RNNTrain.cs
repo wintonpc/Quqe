@@ -21,18 +21,23 @@ namespace Quqe
       return result;
     }
 
-    public static RnnTrainResult TrainSCGMulti(RNN net, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, int numTrials, Vector<double> initialWeights)
+    public static RnnTrainResult TrainSCG(List<LayerSpec> layers, Vector<double> initialWeights, double epoch_max, Matrix<double> trainingData, Vector<double> outputData)
+    {
+      return TrainSCGInternal(layers, initialWeights, epoch_max, trainingData, outputData);
+    }
+
+    public static RnnTrainResult TrainSCGMulti(List<LayerSpec> layers, double epoch_max, Matrix<double> trainingData, Vector<double> outputData, int numTrials)
     {
       object theLock = new object();
-      var results = new List<RnnTrainResult>();
+      var candidates = new List<RNNSpec>();
       Action trainOne = () => {
-        var result = TrainSCGInternal(net.LayerSpecs, Optimizer.RandomVector(net.GetWeightVector().Count, -1, 1), epoch_max, trainingData, outputData);
-        lock (theLock) { results.Add(result); }
+        var candidateResult = TrainSCGInternal(layers, Optimizer.RandomVector(net.GetWeightVector().Count, -1, 1), epoch_max, trainingData, outputData);
+        lock (theLock) { candidates.Add(candidateResult); }
       };
       //Parallel.For(0, numTrials, n => trainOne());
       for (int i = 0; i < numTrials; i++)
         trainOne();
-      return results.OrderBy(r => r.Cost).First();
+      return candidates.OrderBy(r => r.Cost).First();
     }
 
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>

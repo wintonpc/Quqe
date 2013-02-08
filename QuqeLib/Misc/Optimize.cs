@@ -344,8 +344,13 @@ namespace Quqe
     public TInit TrainingInit;
     public double Cost;
     public List<double> CostHistory;
-    public List<double> AcceptRatioHistory;
   }
 
-  public class RnnTrainResult : TrainResult<Vector<double>, Vector<double>> { }
+  public class RnnTrainResult
+  {
+    public Vector<double> InitialWeights;
+    public RNNSpec RNNSpec;
+    public double Cost;
+    public List<double> CostHistory;
+  }
 }

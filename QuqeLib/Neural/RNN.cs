@@ -39,39 +39,32 @@ namespace Quqe
   public partial class RNN : IPredictor
   {
     public readonly RNNSpec Spec;
-    readonly IntPtr PropagationContext;
+    readonly RNNInterop.PropagationContext PropagationContext;
 
     public RNN(RNNSpec spec)
     {
       Spec = spec;
-      PropagationContext = QMCreatePropagationContext(LayerSpecsToQMLayerSpecs(spec.Layers), spec.Layers.Count, spec.NumInputs,
-        spec.Weights.ToArray(), spec.Weights.Count);
+      PropagationContext = RNNInterop.CreatePropagationContext(spec);
     }
 
-    bool IsDisposed;
     public void Dispose()
     {
-      if (IsDisposed) return;
-      IsDisposed = true;
-      QMDestroyPropagationContext(PropagationContext);
+      PropagationContext.Dispose();
     }
 
     public double Predict(Vector<double> input)
     {
-      return Propagate(input)[0];
+      return Propagate(input).Single();
     }
 
     Vector<double> Propagate(Vector<double> input)
     {
-      var numOutputs = Spec.Layers.Last().NodeCount;
-      var outputs = new double[numOutputs];
-      QMPropagateInput(PropagationContext, input.ToArray(), outputs);
-      return new DenseVector(outputs);
+      return new DenseVector(RNNInterop.PropagateInput(PropagationContext, input.ToArray(), Spec.Layers.Last().NodeCount));
     }
 
-    static QMLayerSpec[] LayerSpecsToQMLayerSpecs(List<LayerSpec> layers)
+    public static int GetWeightCount(int numInputs, List<LayerSpec> layers)
     {
-      return layers.Select(x => new QMLayerSpec(x)).ToArray();
+
     }
   }
 }
