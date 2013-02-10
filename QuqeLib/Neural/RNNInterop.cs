@@ -40,14 +40,27 @@ namespace Quqe
       IntPtr Ptr { get; }
     }
 
-    public class PropagationContext : IDisposable, IContext
+    public class PropagationContext : ContextBase
+    {
+      internal PropagationContext(IntPtr ptr) : base(ptr) { }
+      protected override void DestroyContext() { QMDestroyPropagationContext(Ptr); }
+    }
+
+    public class TrainingContext : ContextBase
+    {
+      public readonly int NumOutputs;
+      internal TrainingContext(IntPtr ptr, int numOutputs) : base(ptr) { NumOutputs = numOutputs; }
+      protected override void DestroyContext() { QMDestroyTrainingContext(Ptr); }
+    }
+
+    public abstract class ContextBase : IDisposable, IContext
     {
       readonly IntPtr _Ptr;
       public IntPtr Ptr { get { return _Ptr; } }
 
-      public PropagationContext(IntPtr context)
+      protected ContextBase(IntPtr ptr)
       {
-        _Ptr = context;
+        _Ptr = ptr;
       }
 
       bool IsDiposed;
@@ -55,16 +68,31 @@ namespace Quqe
       {
         if (IsDiposed) return;
         IsDiposed = true;
-        QMDestroyPropagationContext(_Ptr);
+        DestroyContext();
       }
+
+      protected abstract void DestroyContext();
     }
 
-    public static WeightEvalInfo EvaluateWeightsFast(IntPtr context, double[] weights, int numOutputs)
+    public static int GetWeightCount(List<LayerSpec> layers, int numInputs)
     {
+      return QMGetWeightCount(Structify(layers), layers.Count, numInputs);
+    }
+
+    public static TrainingContext CreateTrainingContext(List<LayerSpec> layers, Matrix<double> trainingData, Vector<double> outputData)
+    {
+      var ptr = QMCreateTrainingContext(Structify(layers), layers.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
+        trainingData.RowCount, trainingData.ColumnCount);
+      return new TrainingContext(ptr, outputData.Count);
+    }
+
+    public static WeightEvalInfo EvaluateWeights(this TrainingContext trainingContext, Vector<double> weights)
+    {
+      var weightArray = weights.ToArray();
       double error;
-      double[] grad = new double[weights.Length];
-      double[] output = new double[numOutputs];
-      QMEvaluateWeights(context, weights, weights.Length, output, out error, grad);
+      double[] grad = new double[weightArray.Length];
+      double[] output = new double[trainingContext.NumOutputs];
+      QMEvaluateWeights(trainingContext.Ptr, weightArray, weightArray.Length, output, out error, grad);
       return new WeightEvalInfo {
         Output = new DenseVector(output),
         Error = error,
@@ -74,7 +102,7 @@ namespace Quqe
 
     public static PropagationContext CreatePropagationContext(RNNSpec spec)
     {
-      return new PropagationContext(QMCreatePropagationContext(spec.Layers.Select(x => new QMLayerSpec(x)).ToArray(), spec.Layers.Count,
+      return new PropagationContext(QMCreatePropagationContext(Structify(spec.Layers), spec.Layers.Count,
         spec.NumInputs, spec.Weights.ToArray(), spec.Weights.Count));
     }
 
@@ -85,21 +113,29 @@ namespace Quqe
       return outputs;
     }
 
-    [DllImport("QuqeMath.dll", EntryPoint = "CreateWeightContext", CallingConvention = CallingConvention.Cdecl)]
-    extern static IntPtr QMCreateWeightContext(QMLayerSpec[] layerSpecs, int numLayers, double[] trainingData, double[] outputData,
+    static QMLayerSpec[] Structify(IEnumerable<LayerSpec> layers)
+    {
+      return layers.Select(x => new QMLayerSpec(x)).ToArray();
+    }
+
+    [DllImport("QuqeMath.dll", EntryPoint = "GetWeightCount", CallingConvention = CallingConvention.Cdecl)]
+    extern static int QMGetWeightCount(QMLayerSpec[] layerSpecs, int numLayers, int nInputs);
+
+    [DllImport("QuqeMath.dll", EntryPoint = "CreateTrainingContext", CallingConvention = CallingConvention.Cdecl)]
+    extern static IntPtr QMCreateTrainingContext(QMLayerSpec[] layerSpecs, int numLayers, double[] trainingData, double[] outputData,
       int nInputs, int nSamples);
 
     [DllImport("QuqeMath.dll", EntryPoint = "EvaluateWeights", CallingConvention = CallingConvention.Cdecl)]
-    extern static void QMEvaluateWeights(IntPtr context, double[] weights, int nWeights, double[] output, out double error, double[] gradient);
+    extern static void QMEvaluateWeights(IntPtr trainingContext, double[] weights, int nWeights, double[] output, out double error, double[] gradient);
 
-    [DllImport("QuqeMath.dll", EntryPoint = "DestroyWeightContext", CallingConvention = CallingConvention.Cdecl)]
-    extern static void QMDestroyWeightContext(IntPtr context);
+    [DllImport("QuqeMath.dll", EntryPoint = "DestroyTrainingContext", CallingConvention = CallingConvention.Cdecl)]
+    extern static void QMDestroyTrainingContext(IntPtr context);
 
     [DllImport("QuqeMath.dll", EntryPoint = "CreatePropagationContext", CallingConvention = CallingConvention.Cdecl)]
     extern static IntPtr QMCreatePropagationContext(QMLayerSpec[] layerSpecs, int numLayers, int nInputs, double[] weights, double nWeights);
 
     [DllImport("QuqeMath.dll", EntryPoint = "PropagateInput", CallingConvention = CallingConvention.Cdecl)]
-    extern static void QMPropagateInput(IntPtr context, double[] input, double[] output);
+    extern static void QMPropagateInput(IntPtr propagationContext, double[] input, double[] output);
 
     [DllImport("QuqeMath.dll", EntryPoint = "DestroyPropagationContext", CallingConvention = CallingConvention.Cdecl)]
     extern static void QMDestroyPropagationContext(IntPtr context);

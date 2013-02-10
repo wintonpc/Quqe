@@ -186,7 +186,7 @@ namespace Quqe
       return Propagate(input);
     }
 
-    public void Reset() { }
+    public IPredictor Reset() { return this; } // RBFs are stateless
 
     public void Dispose()
     {

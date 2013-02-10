@@ -62,9 +62,19 @@ namespace Quqe
       return new DenseVector(RNNInterop.PropagateInput(PropagationContext, input.ToArray(), Spec.Layers.Last().NodeCount));
     }
 
-    public static int GetWeightCount(int numInputs, List<LayerSpec> layers)
+    public static int GetWeightCount(List<LayerSpec> layers, int numInputs)
     {
+      return RNNInterop.GetWeightCount(layers, numInputs);
+    }
 
+    public static Vector<double> MakeRandomWeights(int size)
+    {
+      return Optimizer.RandomVector(size, -1, 1);
+    }
+
+    public IPredictor Reset()
+    {
+      return new RNN(Spec);
     }
   }
 }

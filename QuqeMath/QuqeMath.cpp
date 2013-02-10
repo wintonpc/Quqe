@@ -5,7 +5,7 @@
 #include "QuqeMath.h"
 #include "LinReg.h"
 
-WeightContext::WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers,
+TrainingContext::TrainingContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers,
   LayerSpec* specs)
 {
   TrainingInput = new Matrix(trainingInput);
@@ -19,7 +19,7 @@ WeightContext::WeightContext(const Matrix &trainingInput, const Vector &training
   memset(TempVecs, 0, TempVecCount * sizeof(Vector*));
 }
 
-WeightContext::~WeightContext()
+TrainingContext::~TrainingContext()
 {
   //for (int l = 0; l < NumLayers; l++)
   //{
@@ -80,7 +80,7 @@ Frame::~Frame()
   }
 }
 
-QUQEMATH_API void* CreateWeightContext(
+QUQEMATH_API void* CreateTrainingContext(
   LayerSpec* layerSpecs, int nLayers,
   double* trainingData, double* outputData,
   int nInputs, int nSamples)
@@ -102,10 +102,10 @@ QUQEMATH_API void* CreateWeightContext(
 
 	DeleteLayers(protoLayers, nLayers);
 
-  return new WeightContext(Matrix(nInputs, nSamples, trainingData), Vector(nSamples, outputData), frames, nLayers, layerSpecs);
+  return new TrainingContext(Matrix(nInputs, nSamples, trainingData), Vector(nSamples, outputData), frames, nLayers, layerSpecs);
 }
 
-QUQEMATH_API void* CreatePropagationContext(LayerSpec* layerSpecs, int nLayers, int nInputs, double* weights, int nWeights)
+QUQEMATH_API void* CreateTrainingContext(LayerSpec* layerSpecs, int nLayers, int nInputs, double* weights, int nWeights)
 {
 	Layer** protoLayers = SpecsToLayers(nInputs, layerSpecs, nLayers);
 	Frame** frames = LayersToFrames(protoLayers, nLayers, 1);
@@ -188,9 +188,9 @@ Layer** SpecsToLayers(int numInputs, LayerSpec* specs, int numLayers)
   return layers;
 }
 
-QUQEMATH_API void DestroyWeightContext(void* context)
+QUQEMATH_API void DestroyTrainingContext(void* context)
 {
-  delete ((WeightContext*)context);
+  delete ((TrainingContext*)context);
 }
 
 QUQEMATH_API void PropagateInput(Frame** frames, double* input, double* output)
@@ -201,7 +201,7 @@ QUQEMATH_API void PropagateInput(Frame** frames, double* input, double* output)
   memcpy(output, lastLayer->z->Data, lastLayer->NodeCount * sizeof(double));
 }
 
-QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeights, double* output, double* error, double* gradient)
+QUQEMATH_API void EvaluateWeights(TrainingContext* c, double* weights, int nWeights, double* output, double* error, double* gradient)
 {
   int netNumInputs = c->Frames[0]->Layers[0]->W->ColumnCount;
   int t_max = c->TrainingInput->ColumnCount - 1;

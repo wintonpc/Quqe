@@ -54,7 +54,7 @@ public:
   ~Frame();
 };
 
-class WeightContext
+class TrainingContext
 {
 public:
   Matrix* TrainingInput;
@@ -67,8 +67,8 @@ private:
   int TempVecCount;
 
 public:
-  WeightContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers, LayerSpec* specs);
-  ~WeightContext();
+  TrainingContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers, LayerSpec* specs);
+  ~TrainingContext();
 };
 
 class OrthoContext
@@ -84,15 +84,15 @@ public:
 
 extern "C" {
   
-QUQEMATH_API void* CreateWeightContext(
+QUQEMATH_API void* CreateTrainingContext(
 	LayerSpec* layerSpecs, int nLayers,
 	double* trainingData, double* outputData,
 	int nInputs, int nSamples);
 
-QUQEMATH_API void EvaluateWeights(WeightContext* c, double* weights, int nWeights,
+QUQEMATH_API void EvaluateWeights(TrainingContext* c, double* weights, int nWeights,
   double* output, double* error, double* gradient);
 
-QUQEMATH_API void DestroyWeightContext(void* context);
+QUQEMATH_API void DestroyTrainingContext(void* context);
 
 }
 

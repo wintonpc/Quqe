@@ -17,7 +17,8 @@ namespace Quqe
     public string Path { get; private set; }
 
     public string PredictedSymbol = "DIA";
-    public int ExpertsPerMixture = 10;
+    public int RnnExpertsPerMixture = 5;
+    public int RbfExpertsPerMixture = 5;
     public int PopulationSize = 10;
     public int SelectionSize = 4;
     public int EpochCount = 2;
@@ -34,7 +35,6 @@ namespace Quqe
     public int ValidationSplitPct = 0;
 
     public List<VGene> ProtoChromosome = new List<VGene> {
-        new VGene<int>("NetworkType", 0, 1, 1),
         new VGene<int>("ElmanTrainingEpochs", 20, 20, 1),
         new VGene<int>("DatabaseType", 1, 1, 1),
         new VGene<double>("TrainingOffsetPct", 0, 1, 0.00001),

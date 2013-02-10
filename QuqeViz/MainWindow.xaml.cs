@@ -263,38 +263,6 @@ namespace QuqeViz
 
     private void GrillButton_Click(object sender, RoutedEventArgs e)
     {
-      var ch = new EqPlotWindow();
-      ch.Show();
-      var mainSync = SyncContext.Current;
-      Action<List<double>> updateHistoryWindow = history => {
-        mainSync.Post(() => {
-          ch.EqPlot.Clear(Colors.White);
-          ch.EqPlot.Bounds = new Rect(0, history.Min(), history.Count, history.Max() - history.Min());
-          ch.EqPlot.DrawLine(List.Repeat(history.Count, i => new Point(i, history[i])), Colors.Blue);
-        });
-      };
-
-
-      var vr = VersaceResult.Load("VersaceResults/VersaceResult-20121015-065326.xml");
-      Thread t = new Thread(() => {
-        RNN.ShouldTrace = false;
-        RBFNet.ShouldTrace = false;
-        Trace.WriteLine("Original fitness: " + vr.BestMixture.Fitness);
-        VMixture m = vr.BestMixture;
-        var fitnessHistory = new List<double> { m.Fitness };
-        updateHistoryWindow(fitnessHistory);
-        for (int i = 0; i < 100; i++)
-        {
-          Parallel.ForEach(m.Members, member => {
-            member.Expert.TrainEx(rnnTrialCount: 4);
-          });
-          m.ComputeAndSetFitness();
-          Trace.WriteLine("[" + i + "] Fitness: " + m.Fitness);
-          fitnessHistory.Add(m.Fitness);
-          updateHistoryWindow(fitnessHistory);
-        }
-      });
-      t.Start();
     }
   }
 }
