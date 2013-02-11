@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe
 {
@@ -30,9 +32,9 @@ namespace Quqe
 
     public class WeightEvalInfo
     {
-      public Vector<double> Output;
+      public Vec Output;
       public double Error;
-      public Vector<double> Gradient;
+      public Vec Gradient;
     }
 
     interface IContext
@@ -79,14 +81,14 @@ namespace Quqe
       return QMGetWeightCount(Structify(layers), layers.Count, numInputs);
     }
 
-    public static TrainingContext CreateTrainingContext(List<LayerSpec> layers, Matrix<double> trainingData, Vector<double> outputData)
+    public static TrainingContext CreateTrainingContext(List<LayerSpec> layers, Mat trainingData, Vec outputData)
     {
       var ptr = QMCreateTrainingContext(Structify(layers), layers.Count, trainingData.ToRowWiseArray(), outputData.ToArray(),
         trainingData.RowCount, trainingData.ColumnCount);
       return new TrainingContext(ptr, outputData.Count);
     }
 
-    public static WeightEvalInfo EvaluateWeights(this TrainingContext trainingContext, Vector<double> weights)
+    public static WeightEvalInfo EvaluateWeights(this TrainingContext trainingContext, Vec weights)
     {
       var weightArray = weights.ToArray();
       double error;

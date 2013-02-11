@@ -8,15 +8,17 @@ using PCW;
 using System.Diagnostics;
 using System.Xml.Linq;
 using System.Runtime.InteropServices;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe
 {
   public class RadialBasis
   {
     /// <summary>Null if output bias weight</summary>
-    public readonly Vector Center;
+    public readonly Vec Center;
     public readonly double Weight;
-    public RadialBasis(Vector center, double weight)
+    public RadialBasis(Vec center, double weight)
     {
       Center = center;
       Weight = weight;
@@ -39,7 +41,6 @@ namespace Quqe
     List<RadialBasis> Bases;
     double OutputBias;
     public readonly double Spread;
-    public static bool ShouldTrace = true;
     public bool IsDegenerate { get; private set; }
     public int NumCenters { get { return Bases.Count; } }
 
@@ -51,52 +52,52 @@ namespace Quqe
       IsDegenerate = isDegenerate;
     }
 
-    public static RBFNet Train(Matrix trainingData, Vector outputData, double tolerance, double spread)
+    public static RBFNet Train(Mat trainingData, Vec outputData, double tolerance, double spread)
     {
       var solution = SolveOLS(trainingData.Columns(), outputData.ToList(), tolerance, spread); // TODO: don't call Columns
       return new RBFNet(solution.Bases.Where(b => b.Center != null).ToList(), solution.Bases.Single(b => b.Center == null).Weight, spread, solution.IsDegenerate);
     }
 
-    static double Phi(Vector x, Vector c, double spread)
+    static double Phi(Vec x, Vec c, double spread)
     {
-      return RBFNet.Gaussian(spread, (x - c).Norm(2));
+      return Gaussian(spread, (x - c).Norm(2));
     }
 
-    public double Propagate(Vector<double> x)
+    public double Propagate(Vec x)
     {
-      return OutputBias + Bases.Sum(b => b.Weight * Phi((Vector)x, b.Center, Spread));
+      return OutputBias + Bases.Sum(b => b.Weight * Phi(x, b.Center, Spread));
     }
 
-    public static Vector SolveLS(Matrix H, Vector yHat, Action<Matrix, string> showMatrix = null)
+    public static Vec SolveLS(Mat H, Vec yHat, Action<Mat, string> showMatrix = null)
     {
       if (showMatrix != null) showMatrix(H, "H");
-      Matrix Ht = (Matrix)H.Transpose();
+      var Ht = H.Transpose();
       if (showMatrix != null) showMatrix(Ht, "Ht");
-      Matrix HtH = (Matrix)(Ht * H);
+      var HtH = (Ht * H);
       if (showMatrix != null) showMatrix(HtH, "HtH");
-      Matrix Ainv = (Matrix)HtH.Inverse();
+      var Ainv = HtH.Inverse();
       if (showMatrix != null) showMatrix(Ainv, "Ainv");
-      Matrix proj = (Matrix)(Ainv * Ht);
+      var proj = (Ainv * Ht);
       if (showMatrix != null) showMatrix(proj, "proj");
-      return (Vector)(proj * yHat);
+      return proj * yHat;
     }
 
-    public static RBFNetSolution SolveOLS(List<Vector> xs, List<double> ys, double tolerance, double spread)
+    public static RBFNetSolution SolveOLS(List<Vec> xs, List<double> ys, double tolerance, double spread)
     {
-      Func<Vector, Vector, double> phi = (x, c) => Phi(x, c, spread);
+      Func<Vec, Vec, double> phi = (x, c) => Phi(x, c, spread);
       var maxCenters = (int)Math.Min(xs.Count, Math.Max(1, 4 * Math.Sqrt(xs.Count)));
-      var centers = new List<Vector>(xs);
+      var centers = new List<Vec>(xs);
       var n = xs.Count;
       var m = centers.Count;
 
-      Matrix P = new DenseMatrix(n, m);
+      Mat P = new DenseMatrix(n, m);
       for (int i = 0; i < n; i++)
         for (int j = 0; j < m; j++)
           P[i, j] = phi(xs[i], centers[j]);
 
-      Vector dOrig = new DenseVector(ys.ToArray());
-      Vector d = (Vector)dOrig.Subtract(dOrig.Average());
-      Vector dNorm = (Vector)d.Normalize(2);
+      Vec dOrig = new DenseVector(ys.ToArray());
+      Vec d = dOrig.Subtract(dOrig.Average());
+      Vec dNorm = d.Normalize(2);
 
       var candidateBases = centers.Zip(P.Columns(), (ci, pi) => new { Center = ci, Basis = pi }).ToList();
       var selectedBases = candidateBases.Select(cb => new { Center = cb.Center, Basis = cb.Basis, OrthoBasis = cb.Basis }).Take(0).ToList();
@@ -113,10 +114,10 @@ namespace Quqe
 
         var best = candidateBases.Select(cb => {
           var pi = cb.Basis;
-          Vector w;
+          Vec w;
           if (!selectedBases.Any())
           {
-            w = (Vector)pi.Normalize(2);
+            w = pi.Normalize(2);
           }
           else
           {
@@ -126,7 +127,7 @@ namespace Quqe
             QMOrthogonalize(context, pis, selectedBases.Count, sobs);
             w = new DenseVector(pis.ToList().ToArray());
           }
-          //Vector wCheck = (Vector)Orthogonalize(pi, selectedBases.Select(b => b.OrthoBasis).ToList()).Normalize(2);
+          //Vec wCheck = Orthogonalize(pi, selectedBases.Select(b => b.OrthoBasis).ToList()).Normalize(2);
           //var w = wCheck;
           //Debug.Assert(w.Subtract(wCheck).Norm(2) < 0.0001);
           var err = Math.Pow(w.DotProduct(dNorm), 2);
@@ -140,17 +141,15 @@ namespace Quqe
       }
       QMDestroyOrthoContext(context);
 
-      if (ShouldTrace)
-        Trace.WriteLine(string.Format("Centers: {0}, Spread: {1}, Tolerance: {2}", selectedBases.Count, spread, tolerance));
+      Trace.WriteLine(string.Format("Centers: {0}, Spread: {1}, Tolerance: {2}", selectedBases.Count, spread, tolerance));
 
       var weights = SolveLS(
-        Versace.MatrixFromColumns(new Vector[] { new DenseVector(n, 1) }.Concat(selectedBases.Select(sb => sb.Basis)).ToList()),
+        new Vec[] { new DenseVector(n, 1) }.Concat(selectedBases.Select(sb => sb.Basis)).ColumnsToMatrix(),
         new DenseVector(ys.ToArray()));
       bool isDegenerate = false;
       if (weights.Any(w => double.IsNaN(w)))
       {
-        if (ShouldTrace)
-          Trace.WriteLine("! Degenerate RBF network !");
+        Trace.WriteLine("! Degenerate RBF network !");
         isDegenerate = true;
       }
       var allBases = selectedBases.ToList();
@@ -168,11 +167,11 @@ namespace Quqe
     [DllImport("QuqeMath.dll", EntryPoint = "Orthogonalize", CallingConvention = CallingConvention.Cdecl)]
     extern static void QMOrthogonalize(IntPtr c, double[] p, int n, double[] orthonormalBases);
 
-    public static Vector Orthogonalize(Vector pi, List<Vector> withRespectToNormalizedBases)
+    public static Vec Orthogonalize(Vec pi, List<Vec> withRespectToNormalizedBases)
     {
-      Vector result = pi;
+      Vec result = pi;
       foreach (var v in withRespectToNormalizedBases)
-        result = (Vector)(result - v.DotProduct(pi) * v);
+        result = result - v.DotProduct(pi) * v;
       return result;
     }
 
@@ -181,7 +180,7 @@ namespace Quqe
       return Math.Exp(-Math.Pow(x / stdDev, 2));
     }
 
-    public double Predict(Vector<double> input)
+    public double Predict(Vec input)
     {
       return Propagate(input);
     }

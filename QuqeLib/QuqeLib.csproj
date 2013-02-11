@@ -67,6 +67,7 @@
     <Compile Include="Data\DataImport.cs" />
     <Compile Include="Data\DataSeries.cs" />
     <Compile Include="Data\Indicators.cs" />
+    <Compile Include="Misc\MatrixExtensions.cs" />
     <Compile Include="Misc\Optimize.cs" />
     <Compile Include="Misc\Orphans.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

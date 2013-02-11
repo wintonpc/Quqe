@@ -1,13 +1,14 @@
-- clean up code
+- fix Evolve(), get it compiling
+- Add Tests
   - Test QuqeMath changes for memory leaks
-  - make the model functional; no mutation
-  - fix Expert/Member relationship
-  - separate stateless neural net specs from stateful networks
-  - remove IPredictor.Reset()
-  - remove old C# propagation code
-    - make IPredictor inherit IDisposable,
-    - Reset() destroys the old c++ propagation context, if any, and creates a new on
-    - Dispose() destroys the propagation context, if any
-  - remove "V" type name prefixes
-  - organize files into folders (done)
-    - move types out of Versace.cs as appropriate
+  - RNN tests
+  - RBF tests
+- support training of a single expert via xml/cmdline
+- distributed evolution
+- finish implementing backtesting
+- improve evolution algorithm
+  - make mutation smarter
+- implement risk management strategy
+- experiment with running on Mono
+- hook to real-time data feed; run 24/7
+- implement emailer

@@ -5,22 +5,23 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra.Generic;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe
 {
   public partial class RNN
   {
     static RNN() { MathNet.Numerics.Control.DisableParallelization = true; }
-    public static bool ShouldTrace = true;
 
-    public static RnnTrainResult TrainSCGMulti(List<LayerSpec> layers, double epoch_max, Matrix<double> trainingData, Vector<double> outputData,
+    public static RnnTrainResult TrainSCGMulti(List<LayerSpec> layers, double epoch_max, Mat trainingData, Vec outputData,
       int numTrials)
     {
       object theLock = new object();
       var candidates = new List<RnnTrainResult>();
       Action trainOne = () => {
         int numWeights = GetWeightCount(layers, trainingData.RowCount);
-        Vector<double> initialWeights = RNN.MakeRandomWeights(numWeights);
+        Vec initialWeights = RNN.MakeRandomWeights(numWeights);
         var candidateResult = TrainSCG(layers, initialWeights, epoch_max, trainingData, outputData);
         lock (theLock) { candidates.Add(candidateResult); }
       };
@@ -31,13 +32,13 @@ namespace Quqe
     }
 
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
-    public static RnnTrainResult TrainSCG(List<LayerSpec> layerSpecs, Vector<double> weights, double epoch_max, Matrix<double> trainingData,
-      Vector<double> outputData)
+    public static RnnTrainResult TrainSCG(List<LayerSpec> layerSpecs, Vec weights, double epoch_max, Mat trainingData,
+      Vec outputData)
     {
       var initialWeights = weights;
       using (var context = RNNInterop.CreateTrainingContext(layerSpecs, trainingData, outputData))
       {
-        Func<Vector<double>, Vector<double>, Vector<double>, double, Vector<double>> approximateCurvature =
+        Func<Vec, Vec, Vec, double, Vec> approximateCurvature =
           (w1, gradientAtW1, searchDirection, sig) => {
             var w2 = w1 + sig * searchDirection;
             var gradientAtW2 = context.EvaluateWeights(w2).Gradient;
@@ -59,8 +60,8 @@ namespace Quqe
 
         var errAtW = wei.Error;
         List<double> errHistory = new List<double> { errAtW };
-        Vector<double> g = wei.Gradient;
-        Vector<double> s = -g;
+        Vec g = wei.Gradient;
+        Vec s = -g;
         bool success = true;
         int S = 0;
 
@@ -114,9 +115,9 @@ namespace Quqe
             lambda1 = lambda;
 
           // 7. if success == true, adjust weights
-          Vector<double> w1;
+          Vec w1;
           double errAtW1;
-          Vector<double> g1;
+          Vec g1;
           if (success)
           {
             w1 = w + alpha * s;
@@ -133,7 +134,7 @@ namespace Quqe
           }
 
           // 8. choose the new search direction
-          Vector<double> s1;
+          Vec s1;
           if (S == S_max || (S >= 2 && g.DotProduct(g1) >= 0.2 * g1.DotProduct(g1))) // Powell-Beale restarts
           {
             //Trace.WriteLine("*** RESTARTED ***");
@@ -166,7 +167,7 @@ namespace Quqe
 
           n++;
           bool done = n == epoch_max || n > 10 && g.Norm(2) < tau;
-          if (ShouldTrace && (n == 1 || n % 50 == 0 || done))
+          if (n == 1 || n % 50 == 0 || done)
             Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
 
           if (done) break;

@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -26,9 +28,9 @@ namespace Quqe
   {
     public readonly int NumInputs;
     public readonly List<LayerSpec> Layers;
-    public readonly Vector<double> Weights;
+    public readonly Vec Weights;
 
-    public RNNSpec(int numInputs, List<LayerSpec> layers, Vector<double> weights)
+    public RNNSpec(int numInputs, List<LayerSpec> layers, Vec weights)
     {
       NumInputs = numInputs;
       Layers = layers;
@@ -52,12 +54,12 @@ namespace Quqe
       PropagationContext.Dispose();
     }
 
-    public double Predict(Vector<double> input)
+    public double Predict(Vec input)
     {
       return Propagate(input).Single();
     }
 
-    Vector<double> Propagate(Vector<double> input)
+    Vec Propagate(Vec input)
     {
       return new DenseVector(RNNInterop.PropagateInput(PropagationContext, input.ToArray(), Spec.Layers.Last().NodeCount));
     }
@@ -67,7 +69,7 @@ namespace Quqe
       return RNNInterop.GetWeightCount(layers, numInputs);
     }
 
-    public static Vector<double> MakeRandomWeights(int size)
+    public static Vec MakeRandomWeights(int size)
     {
       return Optimizer.RandomVector(size, -1, 1);
     }

@@ -5,12 +5,14 @@ using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe
 {
   public static class VersaceBacktest
   {
-    public static BacktestReport Backtest(PredictionType predictionType, IPredictor predictor, Account account, Matrix preInputs, Matrix inputs, DataSeries<Bar> bars)
+    public static BacktestReport Backtest(PredictionType predictionType, IPredictor predictor, Account account, Mat preInputs, Mat inputs, DataSeries<Bar> bars)
     {
       double maxAccountLossPct = 0.025;
 
@@ -26,7 +28,7 @@ namespace Quqe
       return report;
     }
 
-    static List<SignalValue> MakeSignalNextClose(IPredictor predictor, List<Vector> inputs, DataSeries<Bar> bars, double maxAccountLossPct)
+    static List<SignalValue> MakeSignalNextClose(IPredictor predictor, List<Vec> inputs, DataSeries<Bar> bars, double maxAccountLossPct)
     {
       var signal = new List<SignalValue>();
       DataSeries<Value> buySell = inputs.Select(x => (double)Math.Sign(predictor.Predict(x))).ToDataSeries(bars);

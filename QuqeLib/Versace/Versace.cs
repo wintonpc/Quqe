@@ -20,6 +20,8 @@ using System.Reflection;
 using System.Threading;
 using MathNet.Numerics.Statistics;
 using System.Globalization;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe
 {
@@ -32,22 +34,23 @@ namespace Quqe
   public class PreprocessedData
   {
     public DataSeries<Bar> Predicted;
-    public Matrix Inputs;
-    public Vector Outputs;
+    public Mat Inputs;
+    public Vec Outputs;
   }
 
-  public enum NetworkType { RNN, RBF }
   public enum DatabaseType { A, B }
 
   public interface IPredictor : IDisposable
   {
-    double Predict(Vector<double> input);
+    double Predict(Vec input);
     IPredictor Reset();
   }
 
   public static partial class Versace
   {
-    static VersaceSettings _Settings;
+    static Random Random = new Random();
+    public static Dictionary<PreprocessingType, int> DatabaseAInputLength = new Dictionary<PreprocessingType, int>();
+    static VersaceSettings _Settings = new VersaceSettings();
     public static VersaceSettings Settings
     {
       get { return _Settings; }
@@ -66,92 +69,17 @@ namespace Quqe
       }
     }
 
-    static Versace()
-    {
-      Settings = new VersaceSettings();
-    }
-
-    public static Dictionary<PreprocessingType, int> DatabaseAInputLength = new Dictionary<PreprocessingType, int>();
+    public static Mat TrainingInput { get; private set; }
+    public static Mat ValidationInput { get; private set; }
+    public static Mat TestingInput { get; private set; }
+    public static Vec TrainingOutput { get; private set; }
+    public static Vec ValidationOutput { get; private set; }
+    public static Vec TestingOutput { get; private set; }
 
     public static List<string> GetTickers(string predictedSymbol)
     {
       return List.Create(predictedSymbol, "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP",
         "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/ "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU");
-    }
-
-    public static Matrix TrainingInput { get; private set; }
-    public static Matrix ValidationInput { get; private set; }
-    public static Matrix TestingInput { get; private set; }
-    public static Vector TrainingOutput { get; private set; }
-    public static Vector ValidationOutput { get; private set; }
-    public static Vector TestingOutput { get; private set; }
-
-    public static Func<DataSeries<Bar>, double> GetIdealSignalFunc(PredictionType pt)
-    {
-      if (pt == PredictionType.NextClose)
-        return s => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close);
-      else
-        throw new Exception("Unexpected PredictionType: " + pt);
-    }
-
-
-    public static Matrix MatrixFromColumns(List<Vector> columns)
-    {
-      var m = columns.First().Count;
-      var n = columns.Count;
-
-      Matrix X = new DenseMatrix(m, n);
-
-      for (int i = 0; i < m; i++)
-        for (int j = 0; j < n; j++)
-          X[i, j] = columns[j][i];
-
-      return X;
-    }
-
-    public static List<Vector> Columns(this Matrix m)
-    {
-      return List.Repeat(m.ColumnCount, j => (Vector)m.Column(j));
-    }
-
-    public static List<Vector> Rows(this Matrix m)
-    {
-      return List.Repeat(m.RowCount, j => (Vector)m.Row(j));
-    }
-
-    public static Matrix SeriesToMatrix(List<DataSeries<Value>> series)
-    {
-      var m = series.Count;
-      var n = series.First().Length;
-
-      Matrix X = new DenseMatrix(m, n);
-      for (int i = 0; i < m; i++)
-        for (int j = 0; j < n; j++)
-          X[i, j] = series[i][j];
-
-      return X;
-    }
-
-    public static Vector ComplementCode(Vector input)
-    {
-      return new DenseVector(input.Concat(input.Select(x => 1.0 - x)).ToArray());
-    }
-
-    public static Matrix PrincipleComponents(Matrix data)
-    {
-      var rows = data.Rows();
-      var meanAdjustedRows = rows.Select(x => (Vector)x.Subtract(x.Average())).ToList();
-      var X = MatrixFromColumns(meanAdjustedRows); // we needed to transpose it anyway
-
-      var svd = X.Svd(true);
-      var V = (Matrix)svd.VT().Transpose();
-      return V;
-    }
-
-    public static Vector NthPrincipleComponent(Matrix principleComponents, int n, Vector x)
-    {
-      var pc = principleComponents.Column(n);
-      return (Vector)(x.DotProduct(pc) * pc);
     }
 
     public static void Train(Action<List<PopulationInfo>> historyChanged, Action<VersaceResult> whenDone)
@@ -160,7 +88,7 @@ namespace Quqe
       Thread t = new Thread(() => {
         if (Settings.TrainingMethod == TrainingMethod.Evolve)
         {
-          var result = Versace.Evolve(historyChanged);
+          var result = Evolve(historyChanged);
           sync.Post(() => whenDone(result));
         }
       });
@@ -168,7 +96,6 @@ namespace Quqe
       t.Start();
     }
 
-    static Random Random = new Random();
     public static VersaceResult Evolve(Action<List<PopulationInfo>> historyChanged = null)
     {
       GCSettings.LatencyMode = GCLatencyMode.Batch;
@@ -195,8 +122,6 @@ namespace Quqe
 
         if (!parallelize)
         {
-          RBFNet.ShouldTrace = true;
-          RNN.ShouldTrace = true;
           foreach (var expert in population.Where(mixture => mixture.Fitness == 0)
             .SelectMany(mixture => mixture.Chromosomes).Select(m => m.Expert))
           {
@@ -206,8 +131,6 @@ namespace Quqe
         }
         else
         {
-          RBFNet.ShouldTrace = false;
-          RNN.ShouldTrace = false;
           // optimize training order to keep the most load on the CPUs
           var allUntrainedExperts = population.Where(mixture => mixture.Fitness == 0).SelectMany(mixture => mixture.Chromosomes).ToList();
           var rnnExperts = allUntrainedExperts.Where(x => x.NetworkType == NetworkType.RNN).OrderByDescending(x => {

@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra.Double;
 using MathNet.Numerics.LinearAlgebra.Generic;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 using PCW;
 
 namespace Quqe
@@ -14,7 +16,7 @@ namespace Quqe
   {
     public readonly VChromosome Chromosome;
     public readonly PreprocessingType PreprocessingType;
-    Matrix PrincipalComponents;
+    Mat PrincipalComponents;
 
     protected abstract IPredictor Network { get; }
     public virtual bool IsDegenerate { get { return false; } }
@@ -37,13 +39,13 @@ namespace Quqe
       Train(preprocessedInputs, outputs);
     }
 
-    protected abstract void Train(List<Vector> preprocessedInputs, Vector<double> outputs);
+    protected abstract void Train(List<Vec> preprocessedInputs, Vec outputs);
 
-    List<Vector> Preprocess(List<Vector> inputs, bool recalculatePrincipalComponents = false)
+    List<Vec> Preprocess(List<Vec> inputs, bool recalculatePrincipalComponents = false)
     {
       // database selection
       if (Chromosome.DatabaseType == DatabaseType.A)
-        inputs = inputs.Select(x => (Vector)x.SubVector(0, Versace.DatabaseAInputLength[PreprocessingType])).ToList();
+        inputs = inputs.Select(x => x.SubVector(0, Versace.DatabaseAInputLength[PreprocessingType])).ToList();
 
       // complement coding
       if (Chromosome.UseComplementCoding)
@@ -53,7 +55,7 @@ namespace Quqe
       if (Chromosome.UsePrincipalComponentAnalysis)
       {
         if (recalculatePrincipalComponents)
-          PrincipalComponents = Versace.PrincipleComponents(Versace.MatrixFromColumns(inputs));
+          PrincipalComponents = Versace.PrincipleComponents(inputs.ColumnsToMatrix());
         var pcNumber = Math.Min(Chromosome.PrincipalComponent, PrincipalComponents.ColumnCount - 1);
         inputs = inputs.Select(x => Versace.NthPrincipleComponent(PrincipalComponents, pcNumber, x)).ToList();
       }
@@ -63,9 +65,9 @@ namespace Quqe
 
     public abstract double RelativeComplexity { get; }
 
-    public virtual double Predict(Vector<double> input)
+    public virtual double Predict(Vec input)
     {
-      return Network.Predict(Preprocess(List.Create((Vector)input)).Single());
+      return Network.Predict(Preprocess(List.Create(input)).Single());
     }
 
     public abstract IPredictor Reset();
@@ -81,12 +83,12 @@ namespace Quqe
   {
     readonly int TrialCount;
     readonly bool PreserveTrainingInit;
-    Vector<double> InitialWeights;
+    Vec InitialWeights;
 
     RNN RNNNetwork;
     protected override IPredictor Network { get { return RNNNetwork; } }
 
-    public RnnExpert(VChromosome chromosome, PreprocessingType preprocessType, Vector<double> initialWeights = null, int trialCount = 1)
+    public RnnExpert(VChromosome chromosome, PreprocessingType preprocessType, Vec initialWeights = null, int trialCount = 1)
       : base(chromosome, preprocessType)
     {
       TrialCount = trialCount;
@@ -94,7 +96,7 @@ namespace Quqe
     }
 
     bool IsTrained;
-    protected override void Train(List<Vector> inputs, Vector<double> outputs)
+    protected override void Train(List<Vec> inputs, Vec outputs)
     {
       if (IsTrained)
         throw new Exception("Expert has already been trained.");
@@ -107,7 +109,7 @@ namespace Quqe
         logisticSigmoidRecurrent(Chromosome.ElmanHidden2NodeCount),
         new LayerSpec { NodeCount = 1, ActivationType = ActivationType.Linear, IsRecurrent = false }
       };
-      var trainingData = Versace.MatrixFromColumns(inputs);
+      var trainingData = inputs.ColumnsToMatrix();
       var epochMax = Chromosome.ElmanTrainingEpochs;
 
       RnnTrainResult trainResult;
@@ -161,7 +163,7 @@ namespace Quqe
       return new RnnExpert((RNN)RNNNetwork.Reset(), Chromosome, PreprocessingType, InitialWeights, TrialCount);
     }
 
-    RnnExpert(RNN net, VChromosome chromosome, PreprocessingType preprocessType, Vector<double> initialWeights = null, int trialCount = 1)
+    RnnExpert(RNN net, VChromosome chromosome, PreprocessingType preprocessType, Vec initialWeights = null, int trialCount = 1)
       : base(chromosome, preprocessType)
     {
       RNNNetwork = net;
@@ -186,9 +188,9 @@ namespace Quqe
     {
     }
 
-    protected override void Train(List<Vector> inputs, Vector<double> outputs)
+    protected override void Train(List<Vec> inputs, Vec outputs)
     {
-      RBFNetwork = RBFNet.Train(Versace.MatrixFromColumns(inputs), (Vector)outputs, Chromosome.RbfNetTolerance, Chromosome.RbfGaussianSpread);
+      RBFNetwork = RBFNet.Train(inputs.ColumnsToMatrix(), outputs, Chromosome.RbfNetTolerance, Chromosome.RbfGaussianSpread);
     }
 
     public override double RelativeComplexity
@@ -202,7 +204,7 @@ namespace Quqe
       }
     }
 
-    public override double Predict(Vector<double> input)
+    public override double Predict(Vec input)
     {
       return RBFNetwork.IsDegenerate ? 0 : base.Predict(input);
     }

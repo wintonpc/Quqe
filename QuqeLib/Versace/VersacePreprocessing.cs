@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 using PCW;
 
 namespace Quqe
@@ -30,12 +32,49 @@ namespace Quqe
       TestingOutput = testingData.Outputs;
     }
 
+    static Func<DataSeries<Bar>, double> GetIdealSignalFunc(PredictionType pt)
+    {
+      if (pt == PredictionType.NextClose)
+        return s => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close);
+      else
+        throw new Exception("Unexpected PredictionType: " + pt);
+    }
+
     public static PreprocessedData GetPreprocessedValues(PreprocessingType preprocessType, string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal = null)
     {
       if (preprocessType == PreprocessingType.Enhanced)
         return PreprocessEnhanced(predictedSymbol, startDate, endDate, includeOutputs, idealSignal);
       else
         throw new Exception("Unexpected PreprocessingType: " + preprocessType);
+    }
+
+    public static List<DataSeries<Bar>> GetCleanSeries(string predictedSymbol, List<string> tickers)
+    {
+      var raw = tickers.Select(t => DataImport.LoadVersace(t)).ToList();
+      var dia = raw.First(s => s.Symbol == predictedSymbol);
+      var supp = raw.Where(s => s != dia).ToList();
+
+      // fill in missing data in supplemental instruments
+      var supp2 = supp.Select(s => {
+        var q = (from d in dia
+                 join x in s on d.Timestamp equals x.Timestamp into joined
+                 from j in joined.DefaultIfEmpty()
+                 select new { Timestamp = d.Timestamp, X = j }).ToList();
+        List<Bar> newElements = new List<Bar>();
+        for (int i = 0; i < q.Count; i++)
+        {
+          if (q[i].X != null)
+            newElements.Add(q[i].X);
+          else
+          {
+            var prev = newElements.Last();
+            newElements.Add(new Bar(q[i].Timestamp, prev.Open, prev.Low, prev.High, prev.Close, prev.Volume));
+          }
+        }
+        return new DataSeries<Bar>(s.Symbol, newElements);
+      }).ToList();
+
+      return supp2.Concat(List.Create(dia)).ToList();
     }
 
     static PreprocessedData PreprocessEnhanced(string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal)
@@ -132,7 +171,7 @@ namespace Quqe
 
       DatabaseAInputLength[PreprocessingType.Enhanced] = aOnly.Count;
 
-      var unalignedData = SeriesToMatrix(aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList());
+      var unalignedData = aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).SeriesToMatrix();
       if (!includeOutputs)
       {
         return new PreprocessedData {
@@ -142,10 +181,10 @@ namespace Quqe
         };
       }
       //var unalignedOutput = SeriesToMatrix(List.Create(predicted.MapElements<Value>((s, _) => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close))));
-      var unalignedOutput = SeriesToMatrix(List.Create(predicted.MapElements<Value>((s, _) => idealSignal(s))));
+      var unalignedOutput = List.Create(predicted.MapElements<Value>((s, _) => idealSignal(s))).SeriesToMatrix();
 
-      var data = MatrixFromColumns(unalignedData.Columns().Take(unalignedData.ColumnCount - 1).ToList());
-      var output = MatrixFromColumns(unalignedOutput.Columns().Skip(1).ToList());
+      var data = unalignedData.Columns().Take(unalignedData.ColumnCount - 1).ColumnsToMatrix();
+      var output = unalignedOutput.Columns().Skip(1).ColumnsToMatrix();
       return new PreprocessedData {
         Predicted = predicted,
         Inputs = data,
@@ -153,33 +192,26 @@ namespace Quqe
       };
     }
 
-    public static List<DataSeries<Bar>> GetCleanSeries(string predictedSymbol, List<string> tickers)
+    public static Vec ComplementCode(Vec input)
     {
-      var raw = tickers.Select(t => DataImport.LoadVersace(t)).ToList();
-      var dia = raw.First(s => s.Symbol == predictedSymbol);
-      var supp = raw.Where(s => s != dia).ToList();
+      return new DenseVector(input.Concat(input.Select(x => 1.0 - x)).ToArray());
+    }
 
-      // fill in missing data in supplemental instruments
-      var supp2 = supp.Select(s => {
-        var q = (from d in dia
-                 join x in s on d.Timestamp equals x.Timestamp into joined
-                 from j in joined.DefaultIfEmpty()
-                 select new { Timestamp = d.Timestamp, X = j }).ToList();
-        List<Bar> newElements = new List<Bar>();
-        for (int i = 0; i < q.Count; i++)
-        {
-          if (q[i].X != null)
-            newElements.Add(q[i].X);
-          else
-          {
-            var prev = newElements.Last();
-            newElements.Add(new Bar(q[i].Timestamp, prev.Open, prev.Low, prev.High, prev.Close, prev.Volume));
-          }
-        }
-        return new DataSeries<Bar>(s.Symbol, newElements);
-      }).ToList();
+    public static Mat PrincipleComponents(Mat data)
+    {
+      var rows = data.Rows();
+      var meanAdjustedRows = rows.Select(x => x.Subtract(x.Average())).ToList();
+      var X = meanAdjustedRows.ColumnsToMatrix(); // we needed to transpose it anyway
 
-      return supp2.Concat(List.Create(dia)).ToList();
+      var svd = X.Svd(true);
+      var V = svd.VT().Transpose();
+      return V;
+    }
+
+    public static Vec NthPrincipleComponent(Mat principleComponents, int n, Vec x)
+    {
+      var pc = principleComponents.Column(n);
+      return x.DotProduct(pc) * pc;
     }
   }
 }

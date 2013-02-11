@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra.Generic;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 using PCW;
 
 namespace Quqe
@@ -61,7 +63,7 @@ namespace Quqe
       return Fitness = ComputePredictorFitness(this);
     }
 
-    public double Predict(Vector<double> input)
+    public double Predict(Vec input)
     {
       return Math.Sign(RnnExperts.Concat<Expert>(RbfExperts).Average(x => {
         double prediction = x.Predict(input);

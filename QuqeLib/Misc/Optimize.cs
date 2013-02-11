@@ -10,6 +10,8 @@ using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra.Generic;
 using MathNet.Numerics.LinearAlgebra.Double;
 using MathNet.Numerics.Distributions;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe
 {
@@ -146,35 +148,6 @@ namespace Quqe
   {
     public static bool ShowTrace = true;
 
-    static Genome TransitionGenome(Genome genome, double temperature)
-    {
-      return new Genome {
-        Genes = genome.Genes.Select(g => Clip(GeneMin, GeneMax, g + RandomDouble(-temperature, temperature))).ToList()
-      };
-    }
-
-    static Vector TransitionVector(Vector v, double temperature, double maxWeightMagnitude)
-    {
-      var d = (Vector)(RandomVector(v.Count, -1, 1).Normalize(2).Multiply(temperature * maxWeightMagnitude));
-      return (Vector)(v + d);
-      //var next = v + d;
-      //return new DenseVector(next.Select(x => Clip(-maxWeightMagnitude, maxWeightMagnitude, x)).ToArray());
-    }
-
-    static List<StrategyParameter> TransitionSParams(IEnumerable<StrategyParameter> sParams, IEnumerable<OptimizerParameter> oParams, double temperature)
-    {
-      return sParams.Select(p => {
-        var op = oParams.First(x => x.Name == p.Name);
-        if (op.Low == op.High)
-          return new StrategyParameter(op.Name, op.Low);
-        else
-        {
-          var halfRange = (op.High - op.Low) / 2;
-          return new StrategyParameter(p.Name, Quantize(Clip(op.Low, op.High, p.Value + temperature * RandomDouble(-halfRange, halfRange)), op.Low, op.Granularity));
-        }
-      }).ToList();
-    }
-
     public static double Quantize(double v, double min, double step)
     {
       return Math.Round((v - min) / step) * step + min;
@@ -221,9 +194,9 @@ namespace Quqe
       return Math.Sqrt(xs.Select(x => Math.Pow(x - avg, 2)).Sum() / xs.Count());
     }
 
-    public static Vector RandomVector(int size, double min, double max)
+    public static Vec RandomVector(int size, double min, double max)
     {
-      return (Vector)new DenseVector(size).Random(size, new ContinuousUniform(min, max));
+      return new DenseVector(size).Random(size, new ContinuousUniform(min, max));
     }
 
     static double Clip(double min, double max, double x)
@@ -348,7 +321,7 @@ namespace Quqe
 
   public class RnnTrainResult
   {
-    public Vector<double> InitialWeights;
+    public Vec InitialWeights;
     public RNNSpec RNNSpec;
     public double Cost;
     public List<double> CostHistory;
