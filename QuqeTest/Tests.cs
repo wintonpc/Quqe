@@ -8,6 +8,8 @@ using PCW;
 using System.Diagnostics;
 using MathNet.Numerics.LinearAlgebra.Double;
 using System.Threading.Tasks;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace QuqeTest
 {
@@ -222,10 +224,10 @@ namespace QuqeTest
     [TestMethod]
     public void OrthoTest()
     {
-      var w = RBFNet.Orthogonalize(new DenseVector(new double[] { 1, 1, 0 }), new List<Vector> {
+      var w = RBFNet.Orthogonalize(new DenseVector(new double[] { 1, 1, 0 }), new List<Vec> {
         new DenseVector(new double[] { 1, 0, 0 })
       });
-      var w2 = RBFNet.Orthogonalize(new DenseVector(new double[] { 1, 1, 1 }), new List<Vector> {
+      var w2 = RBFNet.Orthogonalize(new DenseVector(new double[] { 1, 1, 1 }), new List<Vec> {
         new DenseVector(new double[] { 1, 0, 0 }),
         w
       });

@@ -106,53 +106,28 @@ namespace Quqe
       {
         Trace.WriteLine(string.Format("Epoch {0} started {1}", epoch, DateTime.Now));
 
-        int numTrained = 0;
-        object trainLock = new object();
-        Action trainedOne = () => {
-          lock (trainLock)
-          {
-            numTrained++;
-            Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, Settings.TotalExpertsPerMixture * Settings.PopulationSize));
-            if (numTrained % 10 == 0)
-              GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
-          }
-        };
+        // train
+        var trainer = new ParallelTrainer();
+        trainer.Train(population.SelectMany(mixture => mixture.AllExperts), numTrained => {
+          Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, Settings.TotalExpertsPerMixture * Settings.PopulationSize));
+        });
 
-        const bool parallelize = true;
+        // compute fitness
+        trainer.ComputeFitness(population);
 
-        if (!parallelize)
-        {
-          foreach (var expert in population.Where(mixture => mixture.Fitness == 0)
-            .SelectMany(mixture => mixture.Chromosomes).Select(m => m.Expert))
-          {
-            expert.Train();
-            trainedOne();
-          }
-        }
-        else
-        {
-          var orderedExperts = population.SelectMany(mixture => mixture.AllExperts).OrderByDescending(x => x.RelativeComplexity).ToList();
-
-          Parallel.Invoke(new ParallelOptions { MaxDegreeOfParallelism = 8 },
-            reordered
-            .Select(m => m.Expert).Select(expert => new Action(() => {
-              expert.Train();
-              //expert.TrainEx(rnnTrialCount: 3);
-              trainedOne();
-            })).ToArray());
-        }
-
-        foreach (var mixture in population.Where(mixture => mixture.Fitness == 0))
-          mixture.ComputeAndSetFitness();
+        // select
         var oldPopulation = population.ToList();
         var rankedPopulation = population.OrderByDescending(m => m.Fitness).ToList();
         var selected = rankedPopulation.Take(Settings.SelectionSize).Shuffle().ToList();
-        population = rankedPopulation.Take(Settings.PopulationSize - Settings.SelectionSize).ToList();
-        //population = new List<VMixture>();
+        var newPopulation = rankedPopulation.Take(Settings.PopulationSize - Settings.SelectionSize).ToList();
 
+        // crossover
         Debug.Assert(selected.Count % 2 == 0);
         for (int i = 0; i < selected.Count; i += 2)
-          population.AddRange(selected[i].Crossover(selected[i + 1]));
+          newPopulation.AddRange(selected[i].Crossover(selected[i + 1]));
+
+        // mutate
+        population = newPopulation.Select(x => x.Mutate()).ToList();
 
         //for (int i = 0; i < Settings.PopulationSize / 2; i++)
         //{
@@ -168,43 +143,40 @@ namespace Quqe
         //for (int i = SELECTION_SIZE / 2; i < population.Count; i++)
         //  population[i] = population[i].Mutate(dampingFactor: 0);
 
-        population = population.Select(x => x.Mutate(dampingFactor: 0)).ToList();
+        //population = population.Select(x => x.Mutate(dampingFactor: 0)).ToList();
 
-        if ((epoch + 1) % 4 == 0)
-        {
-          foreach (var mixture in population.ToList())
-          {
-            var otherGood = oldPopulation.Except(List.Create(mixture)).SelectMany(mix => mix.Chromosomes.Where(m => !m.Expert.IsDegenerate)).ToList();
-            foreach (var chrom in mixture.Chromosomes.ToList())
-            {
-              if (chrom.Expert.IsDegenerate)
-              {
-                mixture.Chromosomes.Remove(chrom);
-                VChromosome otherGoodClone;
-                if (!otherGood.Any())
-                  otherGoodClone = new VMixture().Chromosomes.First();
-                else
-                  otherGoodClone = XSer.Read<VChromosome>(XSer.Write(otherGood.RandomItem()));
-                mixture.Chromosomes.Add(otherGoodClone);
-              }
-            }
-          }
-        }
+        //if ((epoch + 1) % 4 == 0)
+        //{
+        //  foreach (var mixture in population.ToList())
+        //  {
+        //    var otherGood = oldPopulation.Except(List.Create(mixture)).SelectMany(mix => mix.Chromosomes.Where(m => !m.Expert.IsDegenerate)).ToList();
+        //    foreach (var chrom in mixture.Chromosomes.ToList())
+        //    {
+        //      if (chrom.Expert.IsDegenerate)
+        //      {
+        //        mixture.Chromosomes.Remove(chrom);
+        //        VChromosome otherGoodClone;
+        //        if (!otherGood.Any())
+        //          otherGoodClone = new VMixture().Chromosomes.First();
+        //        else
+        //          otherGoodClone = XSer.Read<VChromosome>(XSer.Write(otherGood.RandomItem()));
+        //        mixture.Chromosomes.Add(otherGoodClone);
+        //      }
+        //    }
+        //  }
+        //}
 
+        // remember the best
         var bestThisEpoch = rankedPopulation.First();
         if (bestMixture == null || bestThisEpoch.Fitness > bestMixture.Fitness)
           bestMixture = bestThisEpoch;
-        var diversity = Diversity(oldPopulation);
+
+        var diversity = double.NaN;// Diversity(oldPopulation);
         history.Add(new PopulationInfo { Fitness = bestThisEpoch.Fitness, Diversity = diversity });
         if (historyChanged != null)
           historyChanged(history);
         Trace.WriteLine(string.Format("Epoch {0} fitness:  {1:N1}%   (Best: {2:N1}%)   Diversity: {3:N4}", epoch, bestThisEpoch.Fitness * 100.0, bestMixture.Fitness * 100.0, diversity));
-        var oldChromosomes = oldPopulation.SelectMany(m => m.Chromosomes).ToList();
-        Trace.WriteLine(string.Format("Epoch {0} composition:   Elman {1:N1}%   RBF {2:N1}%", epoch,
-          (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.RNN) / oldChromosomes.Count * 100,
-          (double)oldChromosomes.Count(x => x.NetworkType == NetworkType.RBF) / oldChromosomes.Count * 100));
         Trace.WriteLine(string.Format("Epoch {0} ended {1}", epoch, DateTime.Now));
-        GC.Collect();
         Trace.WriteLine("===========================================================================");
       }
       var result = new VersaceResult(bestMixture, history, Versace.Settings);
@@ -212,12 +184,12 @@ namespace Quqe
       return result;
     }
 
-    static double Diversity(List<VMixture> population)
-    {
-      var d = new DenseMatrix(Settings.ExpertsPerMixture * population.First().Chromosomes.First().Genes.Count, Settings.PopulationSize);
-      for (int m = 0; m < population.Count; m++)
-        d.SetColumn(m, population[m].Chromosomes.SelectMany(mem => mem.Genes.Select(x => (x.GetDoubleValue() - x.GetDoubleMin()) / (x.GetDoubleMax() - x.GetDoubleMin()))).ToArray());
-      return d.Rows().Sum(r => Statistics.Variance(r));
-    }
+    //static double Diversity(List<VMixture> population)
+    //{
+    //  var d = new DenseMatrix(Settings.TotalExpertsPerMixture * population.First().Chromosomes.First().Genes.Count, Settings.PopulationSize);
+    //  for (int m = 0; m < population.Count; m++)
+    //    d.SetColumn(m, population[m].Chromosomes.SelectMany(mem => mem.Genes.Select(x => (x.GetDoubleValue() - x.GetDoubleMin()) / (x.GetDoubleMax() - x.GetDoubleMin()))).ToArray());
+    //  return d.Rows().Sum(r => Statistics.Variance(r));
+    //}
   }
 }

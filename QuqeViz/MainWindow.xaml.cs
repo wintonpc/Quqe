@@ -215,7 +215,7 @@ namespace QuqeViz
       //var vr = VersaceResult.Load(fn);
       var vr = VersaceResult.Load("VersaceResults/VersaceResult-20121015-065326.xml");
       var m = vr.BestMixture;
-      m.Dump();
+      //m.Dump();
 
       var ch = new EqPlotWindow();
       ch.EqPlot.Bounds = new Rect(0, vr.FitnessHistory.Min(), vr.FitnessHistory.Count, vr.FitnessHistory.Max() - vr.FitnessHistory.Min());

@@ -281,7 +281,7 @@ namespace QuqeViz
 
     internal void OnDump()
     {
-      SelectedMixture.Dump();
+      //SelectedMixture.Dump();
     }
   }
 
