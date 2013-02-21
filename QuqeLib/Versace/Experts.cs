@@ -12,14 +12,11 @@ using PCW;
 
 namespace Quqe
 {
-  public abstract class Expert : IPredictor
+  public abstract class Expert
   {
     public readonly VChromosome Chromosome;
     public readonly PreprocessingType PreprocessingType;
     Mat PrincipalComponents;
-
-    protected abstract IPredictor Network { get; }
-    public virtual bool IsDegenerate { get { return false; } }
 
     protected Expert(VChromosome chromosome, PreprocessingType preprocessType)
     {
@@ -65,18 +62,7 @@ namespace Quqe
 
     public abstract double RelativeComplexity { get; }
 
-    public virtual double Predict(Vec input)
-    {
-      return Network.Predict(Preprocess(List.Create(input)).Single());
-    }
-
-    public abstract IPredictor Reset();
-
-    public void Dispose()
-    {
-      if (Network != null)
-        Network.Dispose();
-    }
+    public abstract IPredictor MakePredictor();
   }
 
   public class RnnExpert : Expert
@@ -85,8 +71,7 @@ namespace Quqe
     readonly bool PreserveTrainingInit;
     Vec InitialWeights;
 
-    RNN RNNNetwork;
-    protected override IPredictor Network { get { return RNNNetwork; } }
+    RNNSpec RNNSpec;
 
     public RnnExpert(VChromosome chromosome, PreprocessingType preprocessType, Vec initialWeights = null, int trialCount = 1)
       : base(chromosome, preprocessType)
@@ -122,7 +107,7 @@ namespace Quqe
       }
 
       InitialWeights = trainResult.InitialWeights;
-      RNNNetwork = new RNN(trainResult.RNNSpec);
+      RNNSpec = trainResult.RNNSpec;
       IsTrained = true;
     }
 
@@ -158,18 +143,9 @@ namespace Quqe
       return new RnnExpert(Chromosome, PreprocessingType, null, TrialCount);
     }
 
-    public override IPredictor Reset()
+    public override IPredictor MakePredictor()
     {
-      return new RnnExpert((RNN)RNNNetwork.Reset(), Chromosome, PreprocessingType, InitialWeights, TrialCount);
-    }
-
-    RnnExpert(RNN net, VChromosome chromosome, PreprocessingType preprocessType, Vec initialWeights = null, int trialCount = 1)
-      : base(chromosome, preprocessType)
-    {
-      RNNNetwork = net;
-      IsTrained = true;
-      TrialCount = trialCount;
-      InitialWeights = initialWeights;
+      return new RNN(RNNSpec);
     }
 
     public override string ToString()
@@ -181,7 +157,6 @@ namespace Quqe
   public class RbfExpert : Expert
   {
     RBFNet RBFNetwork;
-    protected override IPredictor Network { get { return RBFNetwork; } }
 
     public RbfExpert(VChromosome chromosome, PreprocessingType preprocessType)
       : base(chromosome, preprocessType)
@@ -202,11 +177,6 @@ namespace Quqe
           * (x.DatabaseType == DatabaseType.A ? Versace.DatabaseAInputLength[Versace.Settings.PreprocessingType] : Versace.TrainingInput.RowCount);
         return x.TrainingSizePct * inputFactor;
       }
-    }
-
-    public override double Predict(Vec input)
-    {
-      return RBFNetwork.IsDegenerate ? 0 : base.Predict(input);
     }
 
     public List<RbfExpert> Crossover(RbfExpert other)
@@ -234,20 +204,9 @@ namespace Quqe
       return sb.ToString();
     }
 
-    public override bool IsDegenerate
+    public override IPredictor MakePredictor()
     {
-      get { return RBFNetwork.IsDegenerate; }
-    }
-
-    public override IPredictor Reset()
-    {
-      return new RbfExpert((RBFNet)RBFNetwork.Reset(), Chromosome, PreprocessingType);
-    }
-
-    RbfExpert(RBFNet net, VChromosome chromosome, PreprocessingType preprocessType)
-      : base(chromosome, preprocessType)
-    {
-      RBFNetwork = net;
+      return RBFNetwork;
     }
   }
 }

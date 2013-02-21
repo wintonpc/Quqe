@@ -112,13 +112,13 @@ namespace Quqe
           lock (trainLock)
           {
             numTrained++;
-            Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, Settings.ExpertsPerMixture * Settings.PopulationSize));
+            Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, Settings.TotalExpertsPerMixture * Settings.PopulationSize));
             if (numTrained % 10 == 0)
               GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
           }
         };
 
-        bool parallelize = true;
+        const bool parallelize = true;
 
         if (!parallelize)
         {
@@ -131,17 +131,8 @@ namespace Quqe
         }
         else
         {
-          // optimize training order to keep the most load on the CPUs
-          var allUntrainedExperts = population.Where(mixture => mixture.Fitness == 0).SelectMany(mixture => mixture.Chromosomes).ToList();
-          var rnnExperts = allUntrainedExperts.Where(x => x.NetworkType == NetworkType.RNN).OrderByDescending(x => {
-            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseAInputLength[Settings.PreprocessingType] : TrainingInput.RowCount);
-            return x.ElmanHidden1NodeCount * x.ElmanHidden2NodeCount * x.ElmanTrainingEpochs * inputFactor;
-          }).ToList();
-          var rbfExperts = allUntrainedExperts.Where(x => x.NetworkType == NetworkType.RBF).OrderByDescending(x => {
-            var inputFactor = (x.UseComplementCoding ? 2 : 1) * (x.DatabaseType == DatabaseType.A ? DatabaseAInputLength[Settings.PreprocessingType] : TrainingInput.RowCount);
-            return x.TrainingSizePct * inputFactor;
-          }).ToList();
-          var reordered = rnnExperts.Concat(rbfExperts).ToList();
+          var orderedExperts = population.SelectMany(mixture => mixture.AllExperts).OrderByDescending(x => x.RelativeComplexity).ToList();
+
           Parallel.Invoke(new ParallelOptions { MaxDegreeOfParallelism = 8 },
             reordered
             .Select(m => m.Expert).Select(expert => new Action(() => {

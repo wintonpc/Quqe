@@ -15,6 +15,8 @@ namespace Quqe
   {
     public readonly List<RnnExpert> RnnExperts;
     public readonly List<RbfExpert> RbfExperts;
+    public List<Expert> AllExperts { get { return RnnExperts.Concat<Expert>(RbfExperts).ToList(); } }
+    List<IPredictor> Predictors;
 
     public static VMixture CreateRandom()
     {
@@ -65,7 +67,7 @@ namespace Quqe
 
     public double Predict(Vec input)
     {
-      return Math.Sign(RnnExperts.Concat<Expert>(RbfExperts).Average(x => {
+      return Math.Sign(Predictors.Average(x => {
         double prediction = x.Predict(input);
         return double.IsNaN(prediction) ? 0 : prediction;
       }));
@@ -73,7 +75,8 @@ namespace Quqe
 
     public IPredictor Reset()
     {
-      return new VMixture(RnnExperts.Select(x => x.Reset()).Cast<RnnExpert>().ToList(), RbfExperts.Select(x => x.Reset()).Cast<RbfExpert>().ToList());
+      Predictors = AllExperts.Select(x => x.MakePredictor()).ToList();
+      return this;
     }
 
     bool IsDisposed;
@@ -81,8 +84,8 @@ namespace Quqe
     {
       if (IsDisposed) return;
       IsDisposed = true;
-      foreach (var expert in RnnExperts.Concat<Expert>(RbfExperts))
-        expert.Dispose();
+      foreach (var p in Predictors)
+        p.Dispose();
     }
   }
 }

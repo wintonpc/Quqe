@@ -182,7 +182,7 @@ namespace Quqe
 
     public double Predict(Vec input)
     {
-      return Propagate(input);
+      return IsDegenerate ? 0 : Propagate(input);
     }
 
     public IPredictor Reset() { return this; } // RBFs are stateless

@@ -17,7 +17,7 @@ namespace Quqe
       double maxAccountLossPct = 0.025;
 
       // run through the preTesting values so the RNNs can build up state
-      predictor.Reset();
+      predictor.Reset(); // return value ??
       foreach (var input in preInputs.Columns())
         predictor.Predict(input);
 

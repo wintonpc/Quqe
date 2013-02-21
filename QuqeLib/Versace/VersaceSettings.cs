@@ -19,6 +19,7 @@ namespace Quqe
     public string PredictedSymbol = "DIA";
     public int RnnExpertsPerMixture = 5;
     public int RbfExpertsPerMixture = 5;
+    public int TotalExpertsPerMixture { get { return RnnExpertsPerMixture + RbfExpertsPerMixture; } }
     public int PopulationSize = 10;
     public int SelectionSize = 4;
     public int EpochCount = 2;
