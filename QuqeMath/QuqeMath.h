@@ -103,7 +103,7 @@ QUQEMATH_API void* CreatePropagationContext(
 	int nInputs,
 	double* weights, int nWeights);
 
-QUQEMATH_API void PropagateInput(Frame* frame, double* input, double* output);
+QUQEMATH_API void PropagateInput(Frame** frame, double* input, double* output);
 
 QUQEMATH_API void DestroyPropagationContext(void* context);
 
@@ -117,7 +117,7 @@ QUQEMATH_API void DestroyOrthoContext(void* context);
 
 }
 
-extern "C" int GetWeightCount(LayerSpec* layerSpecs, int nLayers,	int nInputs);
+extern "C" QUQEMATH_API int GetWeightCount(LayerSpec* layerSpecs, int nLayers,	int nInputs);
 
 Frame** LayersToFrames(Layer** protoLayers, int nLayers, int nSamples);
 void DeleteFrames(Frame** frames, int nSamples);

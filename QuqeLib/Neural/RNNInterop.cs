@@ -134,7 +134,7 @@ namespace Quqe
     extern static void QMDestroyTrainingContext(IntPtr context);
 
     [DllImport("QuqeMath.dll", EntryPoint = "CreatePropagationContext", CallingConvention = CallingConvention.Cdecl)]
-    extern static IntPtr QMCreatePropagationContext(QMLayerSpec[] layerSpecs, int numLayers, int nInputs, double[] weights, double nWeights);
+    extern static IntPtr QMCreatePropagationContext(QMLayerSpec[] layerSpecs, int numLayers, int nInputs, double[] weights, int nWeights);
 
     [DllImport("QuqeMath.dll", EntryPoint = "PropagateInput", CallingConvention = CallingConvention.Cdecl)]
     extern static void QMPropagateInput(IntPtr propagationContext, double[] input, double[] output);

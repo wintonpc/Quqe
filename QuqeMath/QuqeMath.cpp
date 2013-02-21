@@ -73,11 +73,12 @@ Frame::Frame(Layer** layers, int numLayers)
 Frame::~Frame()
 {
   if (Layers != NULL)
-  {
-    for (int l = 0; l < NumLayers; l++)
-      delete Layers[l];
-    delete [] Layers;
-  }
+  //{
+		DeleteLayers(Layers, NumLayers);
+    //for (int l = 0; l < NumLayers; l++)
+    //  delete Layers[l];
+    //delete [] Layers;
+  //}
 }
 
 QUQEMATH_API void* CreateTrainingContext(
@@ -105,7 +106,7 @@ QUQEMATH_API void* CreateTrainingContext(
   return new TrainingContext(Matrix(nInputs, nSamples, trainingData), Vector(nSamples, outputData), frames, nLayers, layerSpecs);
 }
 
-QUQEMATH_API void* CreateTrainingContext(LayerSpec* layerSpecs, int nLayers, int nInputs, double* weights, int nWeights)
+QUQEMATH_API void* CreatePropagationContext(LayerSpec* layerSpecs, int nLayers, int nInputs, double* weights, int nWeights)
 {
 	Layer** protoLayers = SpecsToLayers(nInputs, layerSpecs, nLayers);
 	Frame** frames = LayersToFrames(protoLayers, nLayers, 1);
@@ -151,10 +152,7 @@ void DeleteFrames(Frame** frames, int nSamples)
   }
   int t_max = nSamples;
   for (int t = 0; t < t_max; t++)
-	{
-		DeleteLayers(frames[t]->Layers, frames[t]->NumLayers);
     delete frames[t];
-	}
   delete [] frames;
 }
 
@@ -375,10 +373,12 @@ double* SetMatrixWeights(Matrix* m, double* weights)
 
 int GetWeightCount(LayerSpec* layerSpecs, int nLayers,	int nInputs)
 {
+	double* tmp = new double[1024*1024];
 	Layer** layers = SpecsToLayers(nInputs, layerSpecs, nLayers);
 	Frame** frames = LayersToFrames(layers, nLayers, 1);
-	int nWeights = GetWeights(layers, nLayers, new double[1024*1024], -1);
+	int nWeights = GetWeights(layers, nLayers, tmp, -1);
 	DeleteFrames(frames, 1);
+	delete [] tmp;
 	return nWeights;
 }
 
@@ -398,7 +398,8 @@ int GetWeights(Layer** layers, int numLayers, double* weights, int nWeights)
 		assert(weights + nWeights == dp);
 		assert(nWeights == (dp - weights));
 	}
-	return dp - weights;
+	int result = dp - weights;
+	return result;
 }
 
 double* GetVectorWeights(Vector* v, double* weights)

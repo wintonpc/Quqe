@@ -141,7 +141,7 @@ namespace Quqe
       }
       QMDestroyOrthoContext(context);
 
-      Trace.WriteLine(string.Format("Centers: {0}, Spread: {1}, Tolerance: {2}", selectedBases.Count, spread, tolerance));
+      //Trace.WriteLine(string.Format("Centers: {0}, Spread: {1}, Tolerance: {2}", selectedBases.Count, spread, tolerance));
 
       var weights = SolveLS(
         new Vec[] { new DenseVector(n, 1) }.Concat(selectedBases.Select(sb => sb.Basis)).ColumnsToMatrix(),

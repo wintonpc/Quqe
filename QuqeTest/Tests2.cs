@@ -29,5 +29,12 @@ namespace QuqeTest
       List.Repeat(1000, () => XSer.Read<VersaceSettings>(written));
       Trace.WriteLine(string.Format("{0}ms to read 1000", sw.ElapsedMilliseconds));
     }
+
+    [Test]
+    public void VersaceSettingsBootstrap()
+    {
+      var s = new VersaceSettings();
+      XSer.Write(s).Save("VersaceSettings/default.xml");
+    }
   }
 }

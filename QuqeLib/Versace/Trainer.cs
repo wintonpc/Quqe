@@ -25,6 +25,12 @@ namespace Quqe
           onTrainedOne(numTrained);
       }
     }
+
+    public void ComputeFitness(IEnumerable<VMixture> mixtures)
+    {
+      foreach (var x in mixtures)
+        x.ComputeFitness();
+    }
   }
 
   public class ParallelTrainer : ITrainer

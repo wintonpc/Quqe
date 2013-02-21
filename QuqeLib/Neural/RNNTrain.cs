@@ -167,8 +167,8 @@ namespace Quqe
 
           n++;
           bool done = n == epoch_max || n > 10 && g.Norm(2) < tau;
-          if (n == 1 || n % 50 == 0 || done)
-            Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
+          //if (n == 1 || n % 50 == 0 || done)
+          //  Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
 
           if (done) break;
         }
