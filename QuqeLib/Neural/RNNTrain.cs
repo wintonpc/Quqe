@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MathNet.Numerics.Algorithms.LinearAlgebra.Mkl;
 using MathNet.Numerics.LinearAlgebra.Generic;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
@@ -12,8 +13,6 @@ namespace Quqe
 {
   public partial class RNN
   {
-    static RNN() { MathNet.Numerics.Control.DisableParallelization = true; }
-
     public static RnnTrainResult TrainSCGMulti(List<LayerSpec> layers, double epoch_max, Mat trainingData, Vec outputData,
       int numTrials)
     {
@@ -35,7 +34,6 @@ namespace Quqe
     public static RnnTrainResult TrainSCG(List<LayerSpec> layerSpecs, Vec weights, double epoch_max, Mat trainingData,
       Vec outputData)
     {
-      var initialWeights = weights;
       using (var context = RNNInterop.CreateTrainingContext(layerSpecs, trainingData, outputData))
       {
         Func<Vec, Vec, Vec, double, Vec> approximateCurvature =
@@ -174,7 +172,6 @@ namespace Quqe
         }
 
         return new RnnTrainResult {
-          InitialWeights = initialWeights,
           RNNSpec = new RNNSpec(trainingData.RowCount, layerSpecs, w),
           Cost = errAtW,
           CostHistory = errHistory

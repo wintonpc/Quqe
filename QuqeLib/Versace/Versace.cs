@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using MathNet.Numerics.Algorithms.LinearAlgebra.Mkl;
 using PCW;
 using System.IO;
 using System.Net;
@@ -48,6 +49,12 @@ namespace Quqe
 
   public static partial class Versace
   {
+    static Versace()
+    {
+      MathNet.Numerics.Control.DisableParallelization = true;
+      MathNet.Numerics.Control.LinearAlgebraProvider = new MklLinearAlgebraProvider();
+    }
+
     static Random Random = new Random();
     public static Dictionary<PreprocessingType, int> DatabaseAInputLength = new Dictionary<PreprocessingType, int>();
     static VersaceSettings _Settings = new VersaceSettings();

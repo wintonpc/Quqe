@@ -16,6 +16,7 @@ namespace Quqe
   {
     public readonly VChromosome Chromosome;
     public readonly PreprocessingType PreprocessingType;
+    [Base64]
     Mat PrincipalComponents;
 
     protected Expert(VChromosome chromosome, PreprocessingType preprocessType)
@@ -38,7 +39,7 @@ namespace Quqe
 
     protected abstract void Train(List<Vec> preprocessedInputs, Vec outputs);
 
-    List<Vec> Preprocess(List<Vec> inputs, bool recalculatePrincipalComponents = false)
+    List<Vec> Preprocess(List<Vec> inputs, bool recalculatePrincipalComponents)
     {
       // database selection
       if (Chromosome.DatabaseType == DatabaseType.A)
@@ -60,15 +61,46 @@ namespace Quqe
       return inputs;
     }
 
-    public abstract double RelativeComplexity { get; }
+    public IPredictor MakePredictor()
+    {
+      return new PredictorWithPreprocessing(MakePredictorInternal(), input => Preprocess(List.Create(input), false).First());
+    }
 
-    public abstract IPredictor MakePredictor();
+    protected abstract IPredictor MakePredictorInternal();
+
+    class PredictorWithPreprocessing : IPredictor
+    {
+      readonly IPredictor Predictor;
+      readonly Func<Vec, Vec> Preprocess;
+      public PredictorWithPreprocessing(IPredictor predictor, Func<Vec, Vec> preprocess)
+      {
+        Predictor = predictor;
+        Preprocess = preprocess;
+      }
+
+      public double Predict(Vec input)
+      {
+        return Predictor.Predict(Preprocess(input));
+      }
+
+      public IPredictor Reset()
+      {
+        return new PredictorWithPreprocessing(Predictor.Reset(), Preprocess);
+      }
+
+      public void Dispose()
+      {
+        Predictor.Dispose();
+      }
+    }
+
+    public abstract double RelativeComplexity { get; }
   }
 
   public class RnnExpert : Expert
   {
     readonly int TrialCount;
-    readonly bool PreserveTrainingInit;
+    [Base64]
     Vec InitialWeights;
 
     RNNSpec RNNSpec;
@@ -102,11 +134,12 @@ namespace Quqe
         trainResult = RNN.TrainSCGMulti(layers, epochMax, trainingData, outputs, TrialCount);
       else
       {
-        var initialWeights = InitialWeights ?? RNN.MakeRandomWeights(RNN.GetWeightCount(layers, inputs.First().Count));
-        trainResult = RNN.TrainSCG(layers, initialWeights, epochMax, trainingData, outputs);
+        var rnnWeightCount = RNN.GetWeightCount(layers, inputs.First().Count);
+        if (InitialWeights == null || InitialWeights.Count != rnnWeightCount)
+          InitialWeights = RNN.MakeRandomWeights(rnnWeightCount);
+        trainResult = RNN.TrainSCG(layers, InitialWeights, epochMax, trainingData, outputs);
       }
 
-      InitialWeights = trainResult.InitialWeights;
       RNNSpec = trainResult.RNNSpec;
       IsTrained = true;
     }
@@ -143,7 +176,7 @@ namespace Quqe
       return new RnnExpert(Chromosome, PreprocessingType, null, TrialCount);
     }
 
-    public override IPredictor MakePredictor()
+    protected override IPredictor MakePredictorInternal()
     {
       return new RNN(RNNSpec);
     }
@@ -204,7 +237,7 @@ namespace Quqe
       return sb.ToString();
     }
 
-    public override IPredictor MakePredictor()
+    protected override IPredictor MakePredictorInternal()
     {
       return RBFNetwork;
     }

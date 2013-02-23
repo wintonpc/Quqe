@@ -67,16 +67,21 @@ namespace Quqe
 
     public double Predict(Vec input)
     {
+      EnsurePredictors();
       return Math.Sign(Predictors.Average(x => {
         double prediction = x.Predict(input);
         return double.IsNaN(prediction) ? 0 : prediction;
       }));
     }
 
+    void EnsurePredictors()
+    {
+      Predictors = Predictors ?? AllExperts.Select(x => x.MakePredictor()).ToList();
+    }
+
     public IPredictor Reset()
     {
-      Predictors = AllExperts.Select(x => x.MakePredictor()).ToList();
-      return this;
+      return new VMixture(RnnExperts, RbfExperts);
     }
 
     bool IsDisposed;

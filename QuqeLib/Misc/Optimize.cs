@@ -196,7 +196,7 @@ namespace Quqe
 
     public static Vec RandomVector(int size, double min, double max)
     {
-      return new DenseVector(size).Random(size, new ContinuousUniform(min, max));
+      return DenseVector.CreateRandom(size, new ContinuousUniform(min, max));
     }
 
     static double Clip(double min, double max, double x)
@@ -321,7 +321,6 @@ namespace Quqe
 
   public class RnnTrainResult
   {
-    public Vec InitialWeights;
     public RNNSpec RNNSpec;
     public double Cost;
     public List<double> CostHistory;
