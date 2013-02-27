@@ -10,6 +10,8 @@ using Machine.Specifications;
 using NUnit.Framework;
 using System.Diagnostics;
 using List = PCW.List;
+using MathNet.Numerics.LinearAlgebra.Double;
+using MathNet.Numerics.LinearAlgebra.Generic;
 
 namespace QuqeTest
 {
@@ -35,6 +37,24 @@ namespace QuqeTest
     {
       var s = new VersaceSettings();
       XSer.Write(s).Save("VersaceSettings/default.xml");
+    }
+
+    [Test]
+    public void VectorSerialization()
+    {
+      XSer.LoadMarshalers(typeof(RNN).Assembly);
+      Vector<double> v = new DenseVector(new double[] { 1, 2, 3, 4, 5 });
+      var e = XSer.Write(v);
+      var z = XSer.Read<Vector<double>>(e);
+    }
+
+    [Test]
+    public void MatrixSerialization()
+    {
+      XSer.LoadMarshalers(typeof(RNN).Assembly);
+      Matrix<double> m = new DenseMatrix(new double[,] { { 1, 2, 3 }, { 4, 5, 6 }, { 7, 8, 9 } });
+      var e = XSer.Write(m);
+      var z = XSer.Read<Matrix<double>>(e);
     }
   }
 }

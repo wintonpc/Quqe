@@ -28,7 +28,6 @@ namespace Quqe
   {
     public readonly int NumInputs;
     public readonly List<LayerSpec> Layers;
-    [Base64]
     public readonly Vec Weights;
 
     public RNNSpec(int numInputs, List<LayerSpec> layers, Vec weights)

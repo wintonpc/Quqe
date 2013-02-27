@@ -16,7 +16,6 @@ namespace Quqe
   {
     public readonly VChromosome Chromosome;
     public readonly PreprocessingType PreprocessingType;
-    [Base64]
     Mat PrincipalComponents;
 
     protected Expert(VChromosome chromosome, PreprocessingType preprocessType)
@@ -100,7 +99,6 @@ namespace Quqe
   public class RnnExpert : Expert
   {
     readonly int TrialCount;
-    [Base64]
     Vec InitialWeights;
 
     RNNSpec RNNSpec;

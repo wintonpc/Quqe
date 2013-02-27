@@ -114,7 +114,7 @@ namespace Quqe
         Trace.WriteLine(string.Format("Epoch {0} started {1}", epoch, DateTime.Now));
 
         // train
-        var trainer = new SequentialTrainer();
+        var trainer = new ParallelTrainer();
         trainer.Train(population.SelectMany(mixture => mixture.AllExperts), numTrained => {
           Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, Settings.TotalExpertsPerMixture * Settings.PopulationSize));
         });
