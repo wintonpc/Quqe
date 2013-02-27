@@ -1,4 +1,3 @@
-- fix Evolve(), get it compiling
 - Add Tests
   - Test QuqeMath changes for memory leaks
   - RNN tests

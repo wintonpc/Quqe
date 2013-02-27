@@ -1,28 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
-using System.Text;
+using System.Runtime;
+using System.Threading;
 using MathNet.Numerics.Algorithms.LinearAlgebra.Mkl;
 using PCW;
-using System.IO;
-using System.Net;
-using System.Text.RegularExpressions;
-using System.Web;
-using MathNet.Numerics.LinearAlgebra.Generic;
-using MathNet.Numerics.LinearAlgebra.Double;
-using System.Diagnostics;
-using YamlDotNet.RepresentationModel.Serialization;
-using System.Xml.Serialization;
-using System.Xml.Linq;
-using System.Xml;
-using System.Threading.Tasks;
-using System.Runtime;
-using System.Reflection;
-using System.Threading;
-using MathNet.Numerics.Statistics;
-using System.Globalization;
-using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 
 namespace Quqe
 {
@@ -135,43 +120,6 @@ namespace Quqe
 
         // mutate
         population = newPopulation.Select(x => x.Mutate()).ToList();
-
-        //for (int i = 0; i < Settings.PopulationSize / 2; i++)
-        //{
-        //  var a = selected.RandomItem();
-        //  var b = selected.Except(List.Create(a)).RandomItem();
-        //  population.AddRange(a.CrossoverAndMutate(b));
-        //}
-
-        //// mutate the very best just a little bit for some variation
-        //for (int i = 0; i < SELECTION_SIZE / 2; i++)
-        //  population[i] = population[i].Mutate(mutationRate: 0.5, dampingFactor: 4);
-        //// mutate the rest entirely randomly
-        //for (int i = SELECTION_SIZE / 2; i < population.Count; i++)
-        //  population[i] = population[i].Mutate(dampingFactor: 0);
-
-        //population = population.Select(x => x.Mutate(dampingFactor: 0)).ToList();
-
-        //if ((epoch + 1) % 4 == 0)
-        //{
-        //  foreach (var mixture in population.ToList())
-        //  {
-        //    var otherGood = oldPopulation.Except(List.Create(mixture)).SelectMany(mix => mix.Chromosomes.Where(m => !m.Expert.IsDegenerate)).ToList();
-        //    foreach (var chrom in mixture.Chromosomes.ToList())
-        //    {
-        //      if (chrom.Expert.IsDegenerate)
-        //      {
-        //        mixture.Chromosomes.Remove(chrom);
-        //        VChromosome otherGoodClone;
-        //        if (!otherGood.Any())
-        //          otherGoodClone = new VMixture().Chromosomes.First();
-        //        else
-        //          otherGoodClone = XSer.Read<VChromosome>(XSer.Write(otherGood.RandomItem()));
-        //        mixture.Chromosomes.Add(otherGoodClone);
-        //      }
-        //    }
-        //  }
-        //}
 
         // remember the best
         var bestThisEpoch = rankedPopulation.First();
