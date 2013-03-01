@@ -5,9 +5,11 @@ using System.Linq;
 using System.Runtime;
 using System.Threading;
 using MathNet.Numerics.Algorithms.LinearAlgebra.Mkl;
+using MathNet.Numerics.Statistics;
 using PCW;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace Quqe
 {
@@ -40,7 +42,6 @@ namespace Quqe
       MathNet.Numerics.Control.LinearAlgebraProvider = new MklLinearAlgebraProvider();
     }
 
-    static Random Random = new Random();
     public static Dictionary<PreprocessingType, int> DatabaseAInputLength = new Dictionary<PreprocessingType, int>();
     static VersaceSettings _Settings = new VersaceSettings();
     public static VersaceSettings Settings
@@ -126,7 +127,7 @@ namespace Quqe
         if (bestMixture == null || bestThisEpoch.Fitness > bestMixture.Fitness)
           bestMixture = bestThisEpoch;
 
-        var diversity = double.NaN;// Diversity(oldPopulation);
+        var diversity = Diversity(oldPopulation);
         history.Add(new PopulationInfo { Fitness = bestThisEpoch.Fitness, Diversity = diversity });
         if (historyChanged != null)
           historyChanged(history);
@@ -139,12 +140,19 @@ namespace Quqe
       return result;
     }
 
-    //static double Diversity(List<VMixture> population)
-    //{
-    //  var d = new DenseMatrix(Settings.TotalExpertsPerMixture * population.First().Chromosomes.First().Genes.Count, Settings.PopulationSize);
-    //  for (int m = 0; m < population.Count; m++)
-    //    d.SetColumn(m, population[m].Chromosomes.SelectMany(mem => mem.Genes.Select(x => (x.GetDoubleValue() - x.GetDoubleMin()) / (x.GetDoubleMax() - x.GetDoubleMin()))).ToArray());
-    //  return d.Rows().Sum(r => Statistics.Variance(r));
-    //}
+    static double Diversity(List<VMixture> population)
+    {
+      var d = new DenseMatrix(Settings.TotalExpertsPerMixture * population.First().AllExperts.First().Chromosome.Genes.Count, Settings.PopulationSize);
+      for (int m = 0; m < population.Count; m++)
+      {
+        var chromosomes = population[m].AllExperts.Select(x => x.Chromosome);
+        Func<VGene, double> valuePercent = x => {
+          var range = x.GetDoubleMax() - x.GetDoubleMin();
+          return range == 0 ? 0 : (x.GetDoubleValue() - x.GetDoubleMin()) / range;
+        };
+        d.SetColumn(m, chromosomes.SelectMany(mem => mem.Genes.Select(valuePercent)).ToArray());
+      }
+      return d.Rows().Sum(r => r.Variance());
+    }
   }
 }

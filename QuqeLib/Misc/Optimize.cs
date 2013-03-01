@@ -1,15 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
-using PCW;
-using System.IO;
 using System.Text.RegularExpressions;
-using System.Diagnostics;
 using System.Threading.Tasks;
-using MathNet.Numerics.LinearAlgebra.Generic;
-using MathNet.Numerics.LinearAlgebra.Double;
 using MathNet.Numerics.Distributions;
+using MathNet.Numerics.LinearAlgebra.Double;
+using PCW;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 

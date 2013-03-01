@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using MathNet.Numerics.LinearAlgebra.Generic;
-using MathNet.Numerics.LinearAlgebra.Double;
-using PCW;
 using System.Diagnostics;
-using System.Xml.Linq;
+using System.Linq;
 using System.Runtime.InteropServices;
+using MathNet.Numerics.LinearAlgebra.Double;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 

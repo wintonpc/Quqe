@@ -56,6 +56,14 @@ Layer::Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, int activati
   ActivationType = activationType;
 }
 
+void Layer::DeleteWeights()
+{
+	delete W;
+	if (Wr != NULL)
+		delete Wr;
+	delete Bias;
+}
+
 Layer::~Layer()
 {
   delete x;
@@ -74,7 +82,7 @@ Frame::~Frame()
 {
   if (Layers != NULL)
   //{
-		DeleteLayers(Layers, NumLayers);
+		DeleteLayers(Layers, NumLayers, false);
     //for (int l = 0; l < NumLayers; l++)
     //  delete Layers[l];
     //delete [] Layers;
@@ -101,7 +109,7 @@ QUQEMATH_API void* CreateTrainingContext(
   //}
   Frame** frames = LayersToFrames(protoLayers, nLayers, nSamples);
 
-	DeleteLayers(protoLayers, nLayers);
+	DeleteLayers(protoLayers, nLayers, false);
 
   return new TrainingContext(Matrix(nInputs, nSamples, trainingData), Vector(nSamples, outputData), frames, nLayers, layerSpecs);
 }
@@ -114,7 +122,7 @@ QUQEMATH_API void* CreatePropagationContext(LayerSpec* layerSpecs, int nLayers, 
 
 	SetWeights(theFrame->Layers, nLayers, weights, nWeights);
 
-	DeleteLayers(protoLayers, nLayers);
+	DeleteLayers(protoLayers, nLayers, false);
 
 	return frames;
 }
@@ -129,6 +137,7 @@ Frame** LayersToFrames(Layer** protoLayers, int nLayers, int nSamples)
   Frame** frames = new Frame*[nSamples];
   for (int t = 0; t < nSamples; t++)
   {
+		
     Layer** layers = new Layer*[nLayers];
     for (int l = 0; l < nLayers; l++)
     {
@@ -145,10 +154,11 @@ void DeleteFrames(Frame** frames, int nSamples)
 	int nLayers = frames[0]->NumLayers;
   for (int l = 0; l < nLayers; l++)
   {
-    delete frames[0]->Layers[l]->W;
-    delete frames[0]->Layers[l]->Bias;
-    if (frames[0]->Layers[l]->Wr != NULL)
-      delete frames[0]->Layers[l]->Wr;
+		frames[0]->Layers[l]->DeleteWeights();
+    //delete frames[0]->Layers[l]->W;
+    //delete frames[0]->Layers[l]->Bias;
+    //if (frames[0]->Layers[l]->Wr != NULL)
+    //  delete frames[0]->Layers[l]->Wr;
   }
   int t_max = nSamples;
   for (int t = 0; t < t_max; t++)
@@ -157,10 +167,14 @@ void DeleteFrames(Frame** frames, int nSamples)
 }
 
 // delete everything but the weights. those are deleted by DeleteFrames()
-void DeleteLayers(Layer** layers, int nLayers)
+void DeleteLayers(Layer** layers, int nLayers, bool deleteWeights)
 {
 	for (int l = 0; l < nLayers; l++)
+	{
+		if (deleteWeights)
+			layers[l]->DeleteWeights();
     delete layers[l];
+	}
   delete [] layers;
 }
 
@@ -292,9 +306,10 @@ QUQEMATH_API void EvaluateWeights(TrainingContext* c, double* weights, int nWeig
   for (int l = 0; l < numLayers; l++)
   {
     Layer* layer = gradLayers[l];
-    delete layer->W;
-    delete layer->Wr;
-    delete layer->Bias;
+		layer->DeleteWeights();
+    //delete layer->W;
+    //delete layer->Wr;
+    //delete layer->Bias;
     delete layer;
   }
   delete [] gradLayers;
@@ -371,14 +386,14 @@ double* SetMatrixWeights(Matrix* m, double* weights)
   return weights + len;
 }
 
-int GetWeightCount(LayerSpec* layerSpecs, int nLayers,	int nInputs)
+double* BigNonThreadsafeTempArray = new double[1024*1024];
+int GetWeightCount(LayerSpec* layerSpecs, int nLayers, int nInputs)
 {
-	double* tmp = new double[1024*1024];
 	Layer** layers = SpecsToLayers(nInputs, layerSpecs, nLayers);
-	Frame** frames = LayersToFrames(layers, nLayers, 1);
-	int nWeights = GetWeights(layers, nLayers, tmp, -1);
-	DeleteFrames(frames, 1);
-	delete [] tmp;
+	//Frame** frames = LayersToFrames(layers, nLayers, 1);
+	int nWeights = GetWeights(layers, nLayers, BigNonThreadsafeTempArray, -1);
+	//DeleteFrames(frames, 1);
+	DeleteLayers(layers, nLayers, true);
 	return nWeights;
 }
 

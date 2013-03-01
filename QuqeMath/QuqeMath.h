@@ -41,6 +41,7 @@ public:
   int InputCount;
 
   Layer(Matrix* w, Matrix* wr, Vector* bias, bool isRecurrent, int activationType);
+	void DeleteWeights();
   ~Layer();
 };
 
@@ -117,11 +118,11 @@ QUQEMATH_API void DestroyOrthoContext(void* context);
 
 }
 
-extern "C" QUQEMATH_API int GetWeightCount(LayerSpec* layerSpecs, int nLayers,	int nInputs);
+extern "C" QUQEMATH_API int GetWeightCount(LayerSpec* layerSpecs, int nLayers, int nInputs);
 
 Frame** LayersToFrames(Layer** protoLayers, int nLayers, int nSamples);
 void DeleteFrames(Frame** frames, int nSamples);
-void DeleteLayers(Layer** layers, int nLayers);
+void DeleteLayers(Layer** layers, int nLayers, bool deleteWeights);
 
 void Propagate(double* input, int inputStride, int numLayers, Layer** currLayers, Layer** prevLayers);
 void PropagateLayer(double* input, int inputStride, Layer* layer, Vector* recurrentInput);
