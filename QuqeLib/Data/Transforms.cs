@@ -26,7 +26,7 @@ namespace Quqe
     public static DataSeries<Value> NormalizeSma10(this DataSeries<Value> values)
     {
       var sma10 = values.SMA(10);
-      return values.ZipElements<Value, Value>(sma10, (v, ma, _) => (v[0] - ma[0]) / ma[0] * 100.0);
+      return values.ZipElements<Value, Value>(sma10, (v, ma, _) => ma[0] == 0 ? 0 : (v[0] - ma[0]) / ma[0] * 100.0);
     }
 
     public static DataSeries<Value> NormalizeSma10(this DataSeries<Bar> values, Func<Bar, Value> getValue)

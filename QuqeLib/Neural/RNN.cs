@@ -62,7 +62,7 @@ namespace Quqe
 
     public static Vec MakeRandomWeights(int size)
     {
-      return Optimizer.RandomVector(size, -1, 1);
+      return QuqeUtil.MakeRandomVector(size, -1, 1);
     }
 
     public IPredictor Reset()

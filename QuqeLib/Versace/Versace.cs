@@ -21,7 +21,8 @@ namespace Quqe
 
   public class PreprocessedData
   {
-    public DataSeries<Bar> Predicted;
+    public DataSeries<Bar> PredictedSeries;
+    public List<DataSeries<Value>> AllInputSeries;
     public Mat Inputs;
     public Vec Outputs;
   }
@@ -72,7 +73,7 @@ namespace Quqe
     public static List<string> GetTickers(string predictedSymbol)
     {
       return List.Create(predictedSymbol, "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP",
-        "^GDAX", "^FTSE", /*"^CJJ", "USDCHF"*/ "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU");
+        "^GDAXI", "^FTSE", /*"^CJJ", "USDCHF"*/ "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU");
     }
 
     public static void Train(Action<List<PopulationInfo>> historyChanged, Action<VersaceResult> whenDone)

@@ -193,17 +193,10 @@ namespace Quqe
       return Math.Sqrt(xs.Select(x => Math.Pow(x - avg, 2)).Sum() / xs.Count());
     }
 
-    public static Vec RandomVector(int size, double min, double max)
-    {
-      return DenseVector.CreateRandom(size, new ContinuousUniform(min, max));
-    }
-
     static double Clip(double min, double max, double x)
     {
       return Math.Max(min, Math.Min(max, x));
     }
-
-    static Random Random = new Random();
 
     static double GeneMin { get { return -GeneMagnitude; } }
     static double GeneMax { get { return GeneMagnitude; } }
@@ -211,12 +204,12 @@ namespace Quqe
 
     public static double RandomDouble(double min, double max)
     {
-      return Random.NextDouble() * (max - min) + min;
+      return QuqeUtil.Random.NextDouble() * (max - min) + min;
     }
 
     public static bool WithProb(double probability)
     {
-      return Random.NextDouble() < probability;
+      return QuqeUtil.Random.NextDouble() < probability;
     }
 
     public static Genome MakeRandomGenome(int length)

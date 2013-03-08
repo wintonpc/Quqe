@@ -290,7 +290,7 @@ namespace Quqe
         v.SetTimestamp(this[0].Timestamp);
         newInternalArray[pos] = v;
       });
-      return result;
+      return result.SetTag(this.Tag);
     }
 
     public DataSeries<TNewElement> ZipElements<TOther, TNewElement>(DataSeries<TOther> other, Func<DataSeries<T>, DataSeries<TOther>, DataSeries<TNewElement>, TNewElement> map)

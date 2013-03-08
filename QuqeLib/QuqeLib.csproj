@@ -78,6 +78,7 @@
     <Compile Include="Misc\MatrixExtensions.cs" />
     <Compile Include="Misc\Optimize.cs" />
     <Compile Include="Misc\Orphans.cs" />
+    <Compile Include="Misc\QuqeUtil.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Neural\RBFNet.cs" />
     <Compile Include="Neural\RNN.cs" />

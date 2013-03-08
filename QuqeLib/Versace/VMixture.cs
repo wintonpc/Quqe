@@ -43,23 +43,25 @@ namespace Quqe
     }
 
     public double Fitness { get; private set; }
-    public static double ComputePredictorFitness(IPredictor predictor)
+    public static double ComputePredictorFitness(IPredictor predictor, Mat input, Vec output)
     {
       int correctCount = 0;
       predictor = predictor.Reset();
-      for (int j = 0; j < Versace.ValidationOutput.Count; j++)
+      for (int j = 0; j < output.Count; j++)
       {
-        var prediction = Math.Sign(predictor.Predict(Versace.ValidationInput.Column(j)));
+        var r = input.Column(j);
+        var s = predictor.Predict(r);
+        var prediction = Math.Sign(s);
         Debug.Assert(prediction != 0);
-        if (Versace.ValidationOutput[j] == prediction)
+        if (output[j] == prediction)
           correctCount++;
       }
-      return (double)correctCount / Versace.ValidationOutput.Count;
+      return (double)correctCount / output.Count;
     }
 
     public double ComputeFitness()
     {
-      return Fitness = ComputePredictorFitness(this);
+      return Fitness = ComputePredictorFitness(this, Versace.ValidationInput, Versace.ValidationOutput);
     }
 
     public double Predict(Vec input)

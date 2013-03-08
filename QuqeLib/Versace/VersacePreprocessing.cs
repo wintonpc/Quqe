@@ -5,6 +5,7 @@ using MathNet.Numerics.LinearAlgebra.Double;
 using PCW;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -30,7 +31,7 @@ namespace Quqe
       TestingOutput = testingData.Outputs;
     }
 
-    static Func<DataSeries<Bar>, double> GetIdealSignalFunc(PredictionType pt)
+    public static Func<DataSeries<Bar>, double> GetIdealSignalFunc(PredictionType pt)
     {
       if (pt == PredictionType.NextClose)
         return s => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close);
@@ -48,31 +49,33 @@ namespace Quqe
 
     public static List<DataSeries<Bar>> GetCleanSeries(string predictedSymbol, List<string> tickers)
     {
-      var raw = tickers.Select(t => DataImport.LoadVersace(t)).ToList();
-      var dia = raw.First(s => s.Symbol == predictedSymbol);
-      var supp = raw.Where(s => s != dia).ToList();
+      var allSeries = tickers.Select(t => DataImport.LoadVersace(t)).ToList();
+      var predictedSeries = allSeries.First(s => s.Symbol == predictedSymbol);
+      return allSeries.Select(s => s == predictedSeries ? s : CleanWithRespectTo(predictedSeries, s)).ToList();
+    }
 
+    static DataSeries<Bar> CleanWithRespectTo(DataSeries<Bar> wrt, DataSeries<Bar> s)
+    {
       // fill in missing data in supplemental instruments
-      var supp2 = supp.Select(s => {
-        var q = (from d in dia
-                 join x in s on d.Timestamp equals x.Timestamp into joined
-                 from j in joined.DefaultIfEmpty()
-                 select new { Timestamp = d.Timestamp, X = j }).ToList();
-        List<Bar> newElements = new List<Bar>();
-        for (int i = 0; i < q.Count; i++)
+      var q = (from w in wrt
+               join x in s on w.Timestamp equals x.Timestamp into joined
+               from j in joined.DefaultIfEmpty()
+               select new {
+                 Timestamp = w.Timestamp,
+                 X = j
+               }).ToList();
+      List<Bar> newElements = new List<Bar>();
+      for (int i = 0; i < q.Count; i++)
+      {
+        if (q[i].X != null)
+          newElements.Add(q[i].X);
+        else
         {
-          if (q[i].X != null)
-            newElements.Add(q[i].X);
-          else
-          {
-            var prev = newElements.Last();
-            newElements.Add(new Bar(q[i].Timestamp, prev.Open, prev.Low, prev.High, prev.Close, prev.Volume));
-          }
+          var prev = newElements.Last();
+          newElements.Add(new Bar(q[i].Timestamp, prev.Open, prev.Low, prev.High, prev.Close, prev.Volume));
         }
-        return new DataSeries<Bar>(s.Symbol, newElements);
-      }).ToList();
-
-      return supp2.Concat(List.Create(dia)).ToList();
+      }
+      return new DataSeries<Bar>(s.Symbol, newElements);
     }
 
     static PreprocessedData PreprocessEnhanced(string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal)
@@ -98,14 +101,14 @@ namespace Quqe
       Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker)
         .From(startDate).To(endDate);
 
-      Action<string, Func<Bar, Value>> addSmaNorm = (ticker, getValue) =>
-        aOnly.Add(get(ticker).NormalizeSma10(getValue));
+      Action<string, string, Func<Bar, Value>> addSmaNorm = (ticker, tag, getValue) =>
+        aOnly.Add(get(ticker).NormalizeSma10(getValue).SetTag(tag));
 
-      Action<string> addSmaNormOHLC = (ticker) => {
-        addSmaNorm(ticker, x => x.Open);
-        addSmaNorm(ticker, x => x.High);
-        addSmaNorm(ticker, x => x.Low);
-        addSmaNorm(ticker, x => x.Close);
+      Action<string> addSmaNormOHLC = ticker => {
+        addSmaNorm(ticker, "Open", x => x.Open);
+        addSmaNorm(ticker, "High", x => x.High);
+        addSmaNorm(ticker, "Low", x => x.Low);
+        addSmaNorm(ticker, "Close", x => x.Close);
       };
 
       //////////////////////////////////////////
@@ -118,30 +121,30 @@ namespace Quqe
           return 0;
         else
           return (s[0].Close - s[1].Close) / s[1].Close * 100;
-      }));
+      }).SetTag("% ROC Close"));
 
       // % Diff Open-Close
-      bOnly.Add(predicted.MapElements<Value>((s, v) => (s[0].Open - s[0].Close) / s[0].Open * 100));
+      bOnly.Add(predicted.MapElements<Value>((s, v) => (s[0].Open - s[0].Close) / s[0].Open * 100).SetTag("% Diff Open-Close"));
 
       // % Diff High-Low
-      bOnly.Add(predicted.MapElements<Value>((s, v) => (s[0].High - s[0].Low) / s[0].Low * 100));
+      bOnly.Add(predicted.MapElements<Value>((s, v) => (s[0].High - s[0].Low) / s[0].Low * 100).SetTag("% Diff High-Low"));
 
       // my own LinReg stuff
       {
         var fast = predicted.Closes().LinReg(2, 1);
         var slow = predicted.Closes().LinReg(7, 1);
-        bOnly.Add(fast.ZipElements<Value, Value>(slow, (f, s, _) => f[0] - s[0]));
-        bOnly.Add(predicted.Closes().RSquared(10));
-        bOnly.Add(predicted.Closes().LinRegSlope(4));
+        bOnly.Add(fast.ZipElements<Value, Value>(slow, (f, s, _) => f[0] - s[0]).SetTag("Fast/Slow differential"));
+        bOnly.Add(predicted.Closes().RSquared(10).SetTag("Fast/Slow RSquared"));
+        bOnly.Add(predicted.Closes().LinRegSlope(4).SetTag("Fast/Slow LinRegSlope"));
       }
 
       addSmaNormOHLC(predictedSymbol);
-      addSmaNorm(predictedSymbol, x => x.Volume);
+      addSmaNorm(predictedSymbol, "Volume", x => x.Volume);
 
-      bOnly.Add(predicted.ChaikinVolatility(10));
-      bOnly.Add(predicted.Closes().MACD(10, 21));
-      bOnly.Add(predicted.Closes().Momentum(10));
-      bOnly.Add(predicted.VersaceRSI(10));
+      bOnly.Add(predicted.ChaikinVolatility(10).SetTag("ChaikinVolatility(10)"));
+      bOnly.Add(predicted.Closes().MACD(10, 21).SetTag("MACD(10, 21)"));
+      bOnly.Add(predicted.Closes().Momentum(10).SetTag("Momentum(10)"));
+      bOnly.Add(predicted.VersaceRSI(10).SetTag("VersaceRSI(10)"));
 
       addSmaNormOHLC("^IXIC");
       addSmaNormOHLC("^GSPC");
@@ -151,7 +154,7 @@ namespace Quqe
       addSmaNormOHLC("^DJA");
       addSmaNormOHLC("^N225");
       addSmaNormOHLC("^BVSP");
-      addSmaNormOHLC("^GDAX");
+      addSmaNormOHLC("^GDAXI");
       addSmaNormOHLC("^FTSE");
       // MISSING: dollar/yen
       // MISSING: dollar/swiss frank
@@ -162,29 +165,34 @@ namespace Quqe
       // MISSING: eurobond
 
       addSmaNormOHLC("^XAU");
-      addSmaNorm("^XAU", x => x.Volume);
+      //addSmaNorm("^XAU", "Volume", x => x.Volume); // XAU volume is no longer reported
 
       // % Diff. between Normalized DJIA and Normalized T Bond
-      bOnly.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0]));
+      bOnly.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0])
+        .SetTag("% Diff. between Normalized DJIA and Normalized T Bond"));
 
       DatabaseAInputLength[PreprocessingType.Enhanced] = aOnly.Count;
 
-      var unalignedData = aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).SeriesToMatrix();
+      var allInputSeries = aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList();
+      if (!allInputSeries.All(s => s.All(x => !double.IsNaN(x.Val))))
+        throw new Exception("Some input values are NaN!");
+
+      var unalignedInputs = allInputSeries.SeriesToMatrix();
       if (!includeOutputs)
       {
         return new PreprocessedData {
-          Predicted = predicted,
-          Inputs = unalignedData,
-          Outputs = null
+          PredictedSeries = predicted,
+          Inputs = unalignedInputs
         };
       }
-      //var unalignedOutput = SeriesToMatrix(List.Create(predicted.MapElements<Value>((s, _) => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close))));
+
       var unalignedOutput = List.Create(predicted.MapElements<Value>((s, _) => idealSignal(s))).SeriesToMatrix();
 
-      var data = unalignedData.Columns().Take(unalignedData.ColumnCount - 1).ColumnsToMatrix();
+      var data = unalignedInputs.Columns().Take(unalignedInputs.ColumnCount - 1).ColumnsToMatrix();
       var output = unalignedOutput.Columns().Skip(1).ColumnsToMatrix();
       return new PreprocessedData {
-        Predicted = predicted,
+        PredictedSeries = predicted,
+        AllInputSeries = allInputSeries,
         Inputs = data,
         Outputs = new DenseVector(output.Row(0).ToArray())
       };

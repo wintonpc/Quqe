@@ -7,8 +7,6 @@ namespace Quqe
 {
   public class VChromosome
   {
-    static readonly Random Random = new Random();
-
     public readonly List<VGene> Genes;
 
     public static VChromosome CreateRandom()
@@ -84,7 +82,7 @@ namespace Quqe
 
     static List<VGene> Mutate(IEnumerable<VGene> genes)
     {
-      return genes.Select(g => Random.NextDouble() < Versace.Settings.MutationRate ? g.Mutate(Versace.Settings.MutationDamping) : g).ToList();
+      return genes.Select(g => QuqeUtil.Random.NextDouble() < Versace.Settings.MutationRate ? g.Mutate(Versace.Settings.MutationDamping) : g).ToList();
     }
   }
 }

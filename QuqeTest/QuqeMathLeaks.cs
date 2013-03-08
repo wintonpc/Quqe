@@ -18,7 +18,7 @@ namespace QuqeTest
   public class QuqeMathLeaks
   {
     [Test]
-    public void PropagationContextLeaks()
+    public void NoPropagationContextLeaks()
     {
       int numInputs = 200;
       var layerSpecs = MakeLayers();
@@ -38,11 +38,11 @@ namespace QuqeTest
 
       Trace.WriteLine("Mem usage before: " + mem.StartMB);
       Trace.WriteLine("Mem usage after: " + mem.StopMB);
-      Assert.IsTrue(mem.StopMB - mem.StartMB < 1);
+      Assert.IsTrue(mem.StopMB - mem.StartMB < 2);
     }
 
     [Test]
-    public void TrainingContextLeaks()
+    public void NoTrainingContextLeaks()
     {
       int numInputs = 200;
       var layerSpecs = MakeLayers();
@@ -64,11 +64,11 @@ namespace QuqeTest
 
       Trace.WriteLine("Mem usage before: " + mem.StartMB);
       Trace.WriteLine("Mem usage after: " + mem.StopMB);
-      Assert.IsTrue(mem.StopMB - mem.StartMB < 1);
+      Assert.IsTrue(mem.StopMB - mem.StartMB < 2);
     }
 
     [Test]
-    public void GetWeightsLeaks()
+    public void NoGetWeightsLeaks()
     {
       var layerSpecs = MakeLayers();
 
@@ -122,17 +122,19 @@ namespace QuqeTest
 
     public MemoryAnalyzer()
     {
-      StartMB = GetPeakWorkingSetInMb();
+      StartMB = GetWorkingSetInMb();
     }
 
     public void Dispose()
     {
-      StopMB = GetPeakWorkingSetInMb();
+      StopMB = GetWorkingSetInMb();
     }
 
-    static double GetPeakWorkingSetInMb()
+    static double GetWorkingSetInMb()
     {
-      return (double)Process.GetCurrentProcess().PeakWorkingSet64 / Math.Pow(2, 20);
+      GC.Collect();
+      Thread.Sleep(1000);
+      return (double)Process.GetCurrentProcess().WorkingSet64 / Math.Pow(2, 20);
     }
   }
 }

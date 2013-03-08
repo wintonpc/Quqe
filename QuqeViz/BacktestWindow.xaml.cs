@@ -276,7 +276,7 @@ namespace QuqeViz
       var testingData = Versace.GetPreprocessedValues(ss.PreprocessingType, ss.PredictedSymbol, ss.TestingStart, ss.TestingEnd, false);
       var report = VersaceBacktest.Backtest(ss.PredictionType, SelectedMixture, new Account { Equity = 10000, MarginFactor = 1, Padding = 40 },
         Versace.GetPreprocessedValues(ss.PreprocessingType, ss.PredictedSymbol, ss.TrainingStart, ss.ValidationEnd, false).Inputs,
-        testingData.Inputs, testingData.Predicted);
+        testingData.Inputs, testingData.PredictedSeries);
     }
 
     internal void OnDump()

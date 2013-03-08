@@ -1,5 +1,5 @@
+- why are there NaN values in input matrices??
 - Add Tests
-  - Test QuqeMath changes for memory leaks
   - RNN tests
   - RBF tests
 - try to eliminate GC manipulation
