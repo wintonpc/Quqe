@@ -60,15 +60,14 @@ class TrainingContext
 public:
   Matrix* TrainingInput;
   Vector* TrainingOutput;
+	int NumFrames;
   Frame** Frames;
   int NumLayers;
   LayerSpec* LayerSpecs;
-private:
-  Vector** TempVecs;
-  int TempVecCount;
+	int EvalCount;
 
 public:
-  TrainingContext(const Matrix &trainingInput, const Vector &trainingOutput, Frame** frames, int nLayers, LayerSpec* specs);
+  TrainingContext(const Matrix &trainingInput, const Vector &trainingOutput, int nFrames, Frame** frames, int nLayers, LayerSpec* specs);
   ~TrainingContext();
 };
 

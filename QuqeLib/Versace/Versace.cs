@@ -112,7 +112,7 @@ namespace Quqe
         // select
         var oldPopulation = population.ToList();
         var rankedPopulation = population.OrderByDescending(m => m.Fitness).ToList();
-        var selected = rankedPopulation.Take(Settings.SelectionSize).Shuffle().ToList();
+        var selected = rankedPopulation.Take(Settings.SelectionSize).Shuffle(QuqeUtil.Random).ToList();
         var newPopulation = rankedPopulation.Take(Settings.PopulationSize - Settings.SelectionSize).ToList();
 
         // crossover

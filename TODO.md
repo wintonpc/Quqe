@@ -1,4 +1,3 @@
-- why are there NaN values in input matrices??
 - Add Tests
   - RNN tests
   - RBF tests
