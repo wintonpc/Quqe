@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
@@ -137,13 +138,16 @@ namespace Quqe
           }
           else
           {
+            //if (n == 0) Trace.WriteLine("not restarting");
             if (success) // create new conjugate direction
             {
+              //if (n == 0) Trace.WriteLine("new conjugate direction");
               double beta = (g - g1).DotProduct(g1) / mu;
               s1 = -g1 + beta * s;
             }
             else // use current direction again
             {
+              //if (n == 0) Trace.WriteLine("same conjugate direction");
               s1 = s;
               // mu, kappa, sigma, and gamma stay the same;
             }

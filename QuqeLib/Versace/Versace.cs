@@ -40,7 +40,6 @@ namespace Quqe
     static Versace()
     {
       MathNet.Numerics.Control.DisableParallelization = true;
-      MathNet.Numerics.Control.LinearAlgebraProvider = new MklLinearAlgebraProvider();
     }
 
     public static Dictionary<PreprocessingType, int> DatabaseAInputLength = new Dictionary<PreprocessingType, int>();

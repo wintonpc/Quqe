@@ -54,6 +54,7 @@ namespace QuqeTest
         Trace.WriteLine("");
       });
       Trace.WriteLine(string.Format("Worst precision difference: {0}", WorstDiff(vs)));
+      WorstDiff(vs).ShouldEqual(0);
     }
 
     int WorstDiff(List<Vec> vs)
