@@ -22,5 +22,7 @@ namespace QuqeViz
     {
       InitializeComponent();
     }
+
+    public EqPlot ThePlot { get { return EqPlot; } }
   }
 }

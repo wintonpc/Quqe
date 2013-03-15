@@ -8,12 +8,16 @@ using Machine.Specifications;
 using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra.Double;
+using QuqeViz;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 using System.IO;
 using System.Security.Cryptography;
 using PCW;
 using List = PCW.List;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace QuqeTest
 {
@@ -37,37 +41,21 @@ namespace QuqeTest
 
       QuqeUtil.Random = new Random(42);
 
-      Environment.SetEnvironmentVariable("OPENBLAS_NUM_THREADS", "1");
-      Trace.WriteLine("OPENBLAS_NUM_THREADS=" + Environment.GetEnvironmentVariable("OPENBLAS_NUM_THREADS"));
-
       var weightCount = RNN.GetWeightCount(layers, numInputs);
       var initialWeights = QuqeUtil.MakeRandomVector(weightCount, -1, 1);
 
-      var vs = new List<Vec>();
+      var checksums = new HashSet<string>();
       List.Repeat(5, i => {
         QuqeUtil.Random = new Random(42);
-        Trace.WriteLine(string.Format("Training {0} ...", i));
         var trainResult = RNN.TrainSCG(layers, initialWeights, 1000, data.Inputs, data.Outputs);
         var ws = trainResult.RNNSpec.Weights;
-        vs.Add(ws);
-        Trace.WriteLine(string.Format("{0:D0} Initial: {1} Trained: {2}", i, Checksum(initialWeights), Checksum(ws)));
-        Trace.WriteLine("");
+        checksums.Add(Checksum(trainResult.RNNSpec.Weights));
       });
-      Trace.WriteLine(string.Format("Worst precision difference: {0}", WorstDiff(vs)));
-      WorstDiff(vs).ShouldEqual(0);
-    }
-
-    int WorstDiff(List<Vec> vs)
-    {
-      var worst = Int32.MaxValue;
-      for (int p = 1; p <= 15; p++)
-        for (int i = 0; i < vs.First().Count; i++)
-          if (vs.Select(v => Math.Round(v[i], p)).Distinct().Count() > 1)
-            return p;
-      return 0;
+      checksums.Count.ShouldEqual(1);
     }
 
     [Test]
+    [STAThread]
     public void RNNPredictsWell()
     {
       Func<DateTime, DateTime, PreprocessedData> getData = (start, end) =>
@@ -78,38 +66,39 @@ namespace QuqeTest
 
       var numInputs = trainingData.Inputs.RowCount;
       var layers = new List<LayerSpec> {
-        new LayerSpec { NodeCount = 8, IsRecurrent = true, ActivationType = ActivationType.LogisticSigmoid },
-        new LayerSpec { NodeCount = 4, IsRecurrent = true, ActivationType = ActivationType.LogisticSigmoid },
+        new LayerSpec { NodeCount = 12, IsRecurrent = true, ActivationType = ActivationType.LogisticSigmoid },
+        new LayerSpec { NodeCount = 5, IsRecurrent = true, ActivationType = ActivationType.LogisticSigmoid },
         new LayerSpec { NodeCount = 1, IsRecurrent = false, ActivationType = ActivationType.Linear }
       };
-
-      Environment.SetEnvironmentVariable("OPENBLAS_NUM_THREADS", "8");
-      Trace.WriteLine("OPENBLAS_NUM_THREADS=" + Environment.GetEnvironmentVariable("OPENBLAS_NUM_THREADS"));
 
       QuqeUtil.Random = new Random(42);
 
       var weightCount = RNN.GetWeightCount(layers, numInputs);
       var initialWeights = QuqeUtil.MakeRandomVector(weightCount, -1, 1);
       var trainResult = RNN.TrainSCG(layers, initialWeights, 1000, trainingData.Inputs, trainingData.Outputs);
-      //Trace.WriteLine("Max Cost: " + trainResult.CostHistory.Max());
-      //Trace.WriteLine("Cost: " + trainResult.Cost);
       var rnnSpec = trainResult.RNNSpec;
 
-      var truncSpec = new RNNSpec(rnnSpec.NumInputs, rnnSpec.Layers,
-        new DenseVector(rnnSpec.Weights.Select(x => Math.Round(x, 2)).ToArray()));
+      var net = new RNN(rnnSpec);
+      var trainingFitness = VMixture.ComputePredictorFitness(net, trainingData.Inputs, trainingData.Outputs);
+      //var testFitness = VMixture.ComputePredictorFitness(net, testData.Inputs, testData.Outputs);
 
-      Trace.WriteLine("rnnSpec.Weights  : " + rnnSpec.Weights.Take(5).Join("  "));
-      Trace.WriteLine("truncSpec.Weights checksum: " + Checksum(truncSpec.Weights));
+      var trainingFitnessAtEachEpoch = trainResult.WeightHistory.Select((w, i) =>
+        VMixture.ComputePredictorFitness(new RNN(new RNNSpec(rnnSpec.NumInputs, rnnSpec.Layers, w)),
+        trainingData.Inputs, trainingData.Outputs)).ToList();
 
-      foreach (var spec in List.Create(rnnSpec, truncSpec))
-      {
-        var net = new RNN(spec);
-        var trainingFitness = VMixture.ComputePredictorFitness(net, trainingData.Inputs, trainingData.Outputs);
-        var testFitness = VMixture.ComputePredictorFitness(net, testData.Inputs, testData.Outputs);
+      var testingFitnessAtEachEpoch = trainResult.WeightHistory.Select((w, i) =>
+        VMixture.ComputePredictorFitness(new RNN(new RNNSpec(rnnSpec.NumInputs, rnnSpec.Layers, w)),
+        testData.Inputs, testData.Outputs)).ToList();
 
-        //Trace.WriteLine("Training fitness: " + trainingFitness);
-        Trace.WriteLine("Test fitness: " + testFitness);
-      }
+      var plot = new EqPlotWindow();
+      plot.Show();
+      plot.ThePlot.DrawLineGraph(List.Create(
+        new PlotDesc { ys = trainResult.CostHistory.Skip(1).ToList(), Color = Colors.Blue },
+        new PlotDesc { ys = trainingFitnessAtEachEpoch.Select(x => -x).Skip(1).ToList(), Color = Colors.Green },
+        new PlotDesc { ys = testingFitnessAtEachEpoch.Select(x => -x).Skip(1).ToList(), Color = Colors.HotPink }));
+
+      Trace.WriteLine("Training fitness: " + trainingFitness);
+      Trace.WriteLine("Best test fitness: " + testingFitnessAtEachEpoch.Max());
 
       //trainingFitness.ShouldEqual(0.875);
     }
@@ -119,16 +108,6 @@ namespace QuqeTest
       var ms = new MemoryStream();
       var bw = new BinaryWriter(ms);
       foreach (var x in v)
-        bw.Write(x);
-      using (var md5 = MD5.Create())
-        return Convert.ToBase64String(md5.ComputeHash(ms.ToArray()));
-    }
-
-    static string Checksum(Mat m)
-    {
-      var ms = new MemoryStream();
-      var bw = new BinaryWriter(ms);
-      foreach (var x in m.ToArray())
         bw.Write(x);
       using (var md5 = MD5.Create())
         return Convert.ToBase64String(md5.ComputeHash(ms.ToArray()));

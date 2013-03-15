@@ -61,6 +61,26 @@ namespace QuqeViz
       TheBitmap.Unlock();
     }
 
+    public void DrawLineGraph(List<double> ys, Color color)
+    {
+      Bounds = new Rect(0, ys.Min(), ys.Count, ys.Max() - ys.Min());
+      DrawLine(List.Repeat(ys.Count, x => new Point(x, ys[x])), color);
+    }
+
+    public void DrawLineGraph(List<PlotDesc> pds)
+    {
+      var minAll = pds.SelectMany(p => p.ys).Min();
+      var maxAll = pds.SelectMany(p => p.ys).Max();
+      Bounds = new Rect(0, minAll, pds.Max(p => p.ys.Count), maxAll);
+      foreach (var p in pds)
+      {
+        var min = p.ys.Min();
+        var max = p.ys.Max();
+        var scaled = p.ys.Select(y => ((y - min) / (max - min) * (maxAll - minAll)) + minAll).ToList();
+        DrawLine(List.Repeat(scaled.Count, x => new Point(x, scaled[x])), p.Color);
+      }
+    }
+
     public void DrawLine(IEnumerable<Point> points, Color color)
     {
       var ps = points.Select(PointToPixel).ToList();
@@ -91,6 +111,12 @@ namespace QuqeViz
   }
 
   public enum DrawMode { Gradient, Contour }
+
+  public class PlotDesc
+  {
+    public Color Color;
+    public List<double> ys;
+  }
 
   public class Bmp
   {

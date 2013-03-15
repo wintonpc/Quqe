@@ -56,12 +56,16 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\NUnit.2.6.2\lib\nunit.framework.dll</HintPath>
     </Reference>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
+    <Reference Include="System.Xaml" />
     <Reference Include="System.XML" />
     <Reference Include="System.Xml.Linq" />
+    <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
     <CodeAnalysisDependentAssemblyPaths Condition=" '$(VS100COMNTOOLS)' != '' " Include="$(VS100COMNTOOLS)..\IDE\PrivateAssemblies">
@@ -90,6 +94,10 @@
     <ProjectReference Include="..\QuqeLib\QuqeLib.csproj">
       <Project>{1B373E93-67B2-4045-8F5A-94C1C738EA2C}</Project>
       <Name>QuqeLib</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\QuqeViz\QuqeViz.csproj">
+      <Project>{70183d8d-bcc0-4438-a7df-69d2ccb7b06a}</Project>
+      <Name>QuqeViz</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

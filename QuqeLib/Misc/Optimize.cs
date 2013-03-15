@@ -316,5 +316,6 @@ namespace Quqe
     public RNNSpec RNNSpec;
     public double Cost;
     public List<double> CostHistory;
+    public List<Vec> WeightHistory;
   }
 }
