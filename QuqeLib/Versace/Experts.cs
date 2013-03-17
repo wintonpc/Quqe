@@ -13,21 +13,23 @@ namespace Quqe
   {
     public readonly VChromosome Chromosome;
     public readonly PreprocessingType PreprocessingType;
+    public readonly VersaceContext Context;
     Mat PrincipalComponents;
 
-    protected Expert(VChromosome chromosome, PreprocessingType preprocessType)
+    protected Expert(VersaceContext context, VChromosome chromosome, PreprocessingType preprocessType)
     {
       Chromosome = chromosome;
       PreprocessingType = preprocessType;
+      Context = context;
     }
 
     public void Train()
     {
-      int offset = Math.Min((int)(Chromosome.TrainingOffsetPct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - 1);
+      int offset = Math.Min((int)(Chromosome.TrainingOffsetPct * Context.Training.Input.ColumnCount), Context.Training.Input.ColumnCount - 1);
       // change next line to use MathEx.Clamp()
-      int size = Math.Max(1, Math.Min((int)(Chromosome.TrainingSizePct * Versace.TrainingInput.ColumnCount), Versace.TrainingInput.ColumnCount - offset));
-      var outputs = Versace.TrainingOutput.SubVector(offset, size);
-      var inputs = Versace.TrainingInput.Columns().Skip(offset).Take(size).ToList(); // TODO: don't call Columns
+      int size = Math.Max(1, Math.Min((int)(Chromosome.TrainingSizePct * Context.Training.Input.ColumnCount), Context.Training.Input.ColumnCount - offset));
+      var outputs = Context.Training.Output.SubVector(offset, size);
+      var inputs = Context.Training.Input.Columns().Skip(offset).Take(size).ToList(); // TODO: don't call Columns
       var preprocessedInputs = Preprocess(inputs, true);
 
       Train(preprocessedInputs, outputs);
@@ -39,7 +41,7 @@ namespace Quqe
     {
       // database selection
       if (Chromosome.DatabaseType == DatabaseType.A)
-        inputs = inputs.Select(x => x.SubVector(0, Versace.Context.DatabaseAInputLength[PreprocessingType])).ToList();
+        inputs = inputs.Select(x => x.SubVector(0, Context.Training.DatabaseAInputLength)).ToList();
 
       // complement coding
       if (Chromosome.UseComplementCoding)
@@ -90,6 +92,10 @@ namespace Quqe
       }
     }
 
+    protected static double GetRelativeComplexityInputFactor(VersaceContext context, VChromosome c)
+    {
+      return (c.UseComplementCoding ? 2 : 1) * (c.DatabaseType == DatabaseType.A ? context.DatabaseAInputLength : context.DatabaseBInputLength);
+    }
     public abstract double RelativeComplexity { get; }
   }
 
@@ -100,8 +106,8 @@ namespace Quqe
 
     RNNSpec RNNSpec;
 
-    public RnnExpert(VChromosome chromosome, PreprocessingType preprocessType, Vec initialWeights = null, int trialCount = 1)
-      : base(chromosome, preprocessType)
+    public RnnExpert(VersaceContext context, VChromosome chromosome, PreprocessingType preprocessType, Vec initialWeights = null, int trialCount = 1)
+      : base(context, chromosome, preprocessType)
     {
       TrialCount = trialCount;
       InitialWeights = initialWeights;
@@ -144,9 +150,7 @@ namespace Quqe
       get
       {
         var x = Chromosome;
-        var inputFactor = (x.UseComplementCoding ? 2 : 1)
-          * (x.DatabaseType == DatabaseType.A ? Versace.Context.DatabaseAInputLength[Versace.Settings.PreprocessingType] : Versace.TrainingInput.RowCount);
-        return x.ElmanHidden1NodeCount * x.ElmanHidden2NodeCount * x.ElmanTrainingEpochs * inputFactor;
+        return GetRelativeComplexityInputFactor(Context, x) * x.ElmanHidden1NodeCount * x.ElmanHidden2NodeCount * x.ElmanTrainingEpochs;
       }
     }
 
@@ -157,18 +161,18 @@ namespace Quqe
       var b = crossedChromosomes[1];
       Debug.Assert(this.PreprocessingType == other.PreprocessingType);
       return List.Create(
-        new RnnExpert(a, this.PreprocessingType, this.InitialWeights, TrialCount),
-        new RnnExpert(b, this.PreprocessingType, other.InitialWeights, TrialCount));
+        new RnnExpert(Context, a, this.PreprocessingType, this.InitialWeights, TrialCount),
+        new RnnExpert(Context, b, this.PreprocessingType, other.InitialWeights, TrialCount));
     }
 
     public RnnExpert Mutate()
     {
-      return new RnnExpert(Chromosome.Mutate(), PreprocessingType, InitialWeights, TrialCount);
+      return new RnnExpert(Context, Chromosome.Mutate(), PreprocessingType, InitialWeights, TrialCount);
     }
 
     public RnnExpert ReinitializeWeights()
     {
-      return new RnnExpert(Chromosome, PreprocessingType, null, TrialCount);
+      return new RnnExpert(Context, Chromosome, PreprocessingType, null, TrialCount);
     }
 
     protected override IPredictor MakePredictorInternal()
@@ -186,8 +190,8 @@ namespace Quqe
   {
     RBFNet RBFNetwork;
 
-    public RbfExpert(VChromosome chromosome, PreprocessingType preprocessType)
-      : base(chromosome, preprocessType)
+    public RbfExpert(VersaceContext context, VChromosome chromosome, PreprocessingType preprocessType)
+      : base(context, chromosome, preprocessType)
     {
     }
 
@@ -201,9 +205,7 @@ namespace Quqe
       get
       {
         var x = Chromosome;
-        var inputFactor = (x.UseComplementCoding ? 2 : 1)
-          * (x.DatabaseType == DatabaseType.A ? VersaceContext.DatabaseAInputLength[Versace.Settings.PreprocessingType] : Versace.TrainingInput.RowCount);
-        return x.TrainingSizePct * inputFactor;
+        return GetRelativeComplexityInputFactor(Context, x) * x.TrainingSizePct;
       }
     }
 
@@ -214,13 +216,13 @@ namespace Quqe
       var b = crossedChromosomes[1];
       Debug.Assert(this.PreprocessingType == other.PreprocessingType);
       return List.Create(
-        new RbfExpert(a, this.PreprocessingType),
-        new RbfExpert(b, this.PreprocessingType));
+        new RbfExpert(Context, a, this.PreprocessingType),
+        new RbfExpert(Context, b, this.PreprocessingType));
     }
 
     public RbfExpert Mutate()
     {
-      return new RbfExpert(Chromosome.Mutate(), PreprocessingType);
+      return new RbfExpert(Context, Chromosome.Mutate(), PreprocessingType);
     }
 
     public override string ToString()

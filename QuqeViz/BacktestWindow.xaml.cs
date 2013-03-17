@@ -104,13 +104,15 @@ namespace QuqeViz
   {
     DirectoryWatcher<VersaceResultHolder> ResultsWatcher;
     DirectoryWatcher<VersaceSettingsHolder> SettingsWatcher;
+    VersaceSettings Settings;
 
     public BacktestPresentation()
     {
       ResultsWatcher = new DirectoryWatcher<VersaceResultHolder>("VersaceResults", "*.xml", fn => new VersaceResultHolder(XSer.Read<VersaceResult>(XElement.Load(fn))));
       SettingsWatcher = new DirectoryWatcher<VersaceSettingsHolder>("VersaceSettings", "*.xml", fn => new VersaceSettingsHolder(Quqe.VersaceSettings.Load(fn)));
       SetupPropertyChangeHooks();
-      OnSelectedVersaceSettings(Versace.Settings);
+      Settings = new VersaceSettings();
+      OnSelectedVersaceSettings(Settings);
     }
 
     public ObservableCollection<VersaceResultHolder> VersaceResults { get { return ResultsWatcher.Items; } }
@@ -132,60 +134,19 @@ namespace QuqeViz
     public static readonly DependencyProperty EndDateProperty =
         DependencyProperty.Register("EndDate", typeof(DateTime), typeof(BacktestPresentation), new UIPropertyMetadata());
 
-    public int TestingSplitPct
+    public int SplitPct
     {
-      get { return (int)GetValue(TestingSplitPctProperty); }
-      set { SetValue(TestingSplitPctProperty, value); }
+      get { return (int)GetValue(SplitPctProperty); }
+      set { SetValue(SplitPctProperty, value); }
     }
-    public static readonly DependencyProperty TestingSplitPctProperty =
-        DependencyProperty.Register("TestingSplitPct", typeof(int), typeof(BacktestPresentation), new UIPropertyMetadata(75));
-
-    public bool UseValidationSet
-    {
-      get { return (bool)GetValue(UseValidationSetProperty); }
-      set { SetValue(UseValidationSetProperty, value); }
-    }
-    public static readonly DependencyProperty UseValidationSetProperty =
-        DependencyProperty.Register("UseValidationSet", typeof(bool), typeof(BacktestPresentation), new UIPropertyMetadata(false));
-
-    public int ValidationSplitPct
-    {
-      get { return (int)GetValue(ValidationSplitPctProperty); }
-      set { SetValue(ValidationSplitPctProperty, value); }
-    }
-    public static readonly DependencyProperty ValidationSplitPctProperty =
-        DependencyProperty.Register("ValidationSplitPct", typeof(int), typeof(BacktestPresentation), new UIPropertyMetadata(75));
-
-    public DateTime TestingDate
-    {
-      get { return (DateTime)GetValue(TestingDateProperty); }
-      set { SetValue(TestingDateProperty, value); }
-    }
-    public static readonly DependencyProperty TestingDateProperty =
-        DependencyProperty.Register("TestingDate", typeof(DateTime), typeof(BacktestPresentation), new UIPropertyMetadata());
-    void RefreshTestingDate(object sender, EventArgs ea)
-    {
-      TestingDate = StartDate.AddDays((int)(EndDate.Subtract(StartDate).TotalDays * TestingSplitPct / 100.0));
-    }
-
-    public DateTime ValidationDate
-    {
-      get { return (DateTime)GetValue(ValidationDateProperty); }
-      set { SetValue(ValidationDateProperty, value); }
-    }
-    public static readonly DependencyProperty ValidationDateProperty =
-        DependencyProperty.Register("ValidationDate", typeof(DateTime), typeof(BacktestPresentation), new UIPropertyMetadata());
-    void RefreshValidationDate(object sender, EventArgs ea)
-    {
-      ValidationDate = StartDate.AddDays((int)(TestingDate.Subtract(StartDate).TotalDays * ValidationSplitPct / 100.0));
-    }
+    public static readonly DependencyProperty SplitPctProperty =
+        DependencyProperty.Register("SplitPct", typeof(int), typeof(BacktestPresentation), new UIPropertyMetadata(75));
 
     void SetupPropertyChangeHooks()
     {
-      HookPropChange(TestingSplitPctProperty, RefreshTestingDate);
       HookPropChange(StartDateProperty, RefreshTestingDate);
       HookPropChange(EndDateProperty, RefreshTestingDate);
-      HookPropChange(ValidationSplitPctProperty, RefreshValidationDate);
+      HookPropChange(SplitPctProperty, RefreshValidationDate);
       HookPropChange(StartDateProperty, RefreshValidationDate);
       HookPropChange(TestingDateProperty, RefreshValidationDate);
     }
@@ -219,16 +180,10 @@ namespace QuqeViz
     public static readonly DependencyProperty SettingsDescriptionProperty =
         DependencyProperty.Register("SettingsDescription", typeof(string), typeof(BacktestPresentation), new UIPropertyMetadata(""));
 
-    VersaceSettings SelectedSettings;
     internal void OnSelectedVersaceSettings(VersaceSettings s)
     {
-      StartDate = s.StartDate;
-      EndDate = s.EndDate;
-      TestingSplitPct = s.TestingSplitPct;
-      UseValidationSet = s.UseValidationSet;
-      ValidationSplitPct = s.ValidationSplitPct;
-      SelectedSettings = s.Clone();
-      SettingsDescription = SelectedSettings.ToString();
+      Settings = s;
+      SettingsDescription = s.ToString();
     }
 
     internal void OnTrain()
@@ -253,30 +208,25 @@ namespace QuqeViz
       };
 
       SetVersaceSettings();
-      Versace.Train(updateHistoryWindow, result => {
+      Versace.Train(Versace.MakeVersaceContext(Settings), updateHistoryWindow, result => {
         fitnessChart.Title = new VersaceResultHolder(result).ToString();
       });
     }
 
     private void SetVersaceSettings()
     {
-      SelectedSettings.StartDate = StartDate;
-      SelectedSettings.EndDate = EndDate;
-      SelectedSettings.TestingSplitPct = TestingSplitPct;
-      SelectedSettings.UseValidationSet = UseValidationSet;
-      SelectedSettings.ValidationSplitPct = ValidationSplitPct;
-      Versace.Settings = SelectedSettings;
+      Settings.StartDate = StartDate;
+      Settings.EndDate = EndDate;
+      Settings.SplitPct = SplitPct;
     }
 
     internal void OnBacktest()
     {
-      Versace.Settings = null; // check that the backtest code doesn't reference Settings
-      var ss = SelectedSettings;
-
-      var testingData = Versace.GetPreprocessedValues(ss.PreprocessingType, ss.PredictedSymbol, ss.TestingStart, ss.TestingEnd, false);
-      var report = VersaceBacktest.Backtest(ss.PredictionType, SelectedMixture, new Account { Equity = 10000, MarginFactor = 1, Padding = 40 },
-        Versace.GetPreprocessedValues(ss.PreprocessingType, ss.PredictedSymbol, ss.TrainingStart, ss.ValidationEnd, false).Inputs,
-        testingData.Inputs, testingData.PredictedSeries);
+      var s = Settings;
+      var testingData = Versace.GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TestingStart, s.TestingEnd, false);
+      var report = VersaceBacktest.Backtest(s.PredictionType, SelectedMixture, new Account { Equity = 10000, MarginFactor = 1, Padding = 40 },
+        Versace.GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TrainingStart, s.ValidationEnd, false).Input,
+        testingData.Input, testingData.PredictedSeries);
     }
 
     internal void OnDump()

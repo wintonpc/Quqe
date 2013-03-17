@@ -34,7 +34,7 @@ namespace QuqeTest
       QuqeUtil.Random = new Random(42);
       var trainingData = NNTestUtils.GetData("2004-01-01", "2004-07-01");
       var trainResult = Train(trainingData, 8, 4, 1000);
-      var trainingFitness = VMixture.ComputePredictorFitness(new RNN(trainResult.RNNSpec), trainingData.Inputs, trainingData.Outputs);
+      var trainingFitness = VMixture.ComputePredictorFitness(new RNN(trainResult.RNNSpec), trainingData.Input, trainingData.Output);
       
       Trace.WriteLine("Training fitness: " + trainingFitness);
       trainingFitness.ShouldEqual(0.984);
@@ -53,7 +53,7 @@ namespace QuqeTest
 
     static RnnTrainResult Train(PreprocessedData trainingData, int layer1NodeCount, int layer2NodeCount, int epochMax)
     {
-      var numInputs = trainingData.Inputs.RowCount;
+      var numInputs = trainingData.Input.RowCount;
       var layers = new List<LayerSpec> {
         new LayerSpec { NodeCount = layer1NodeCount, IsRecurrent = true, ActivationType = ActivationType.LogisticSigmoid },
         new LayerSpec { NodeCount = layer2NodeCount, IsRecurrent = true, ActivationType = ActivationType.LogisticSigmoid },
@@ -62,7 +62,7 @@ namespace QuqeTest
 
       var weightCount = RNN.GetWeightCount(layers, numInputs);
       var initialWeights = QuqeUtil.MakeRandomVector(weightCount, -1, 1);
-      return RNN.TrainSCG(layers, initialWeights, epochMax, trainingData.Inputs, trainingData.Outputs);
+      return RNN.TrainSCG(layers, initialWeights, epochMax, trainingData.Input, trainingData.Output);
     }
   }
 }

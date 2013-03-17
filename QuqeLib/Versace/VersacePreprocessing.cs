@@ -15,9 +15,8 @@ namespace Quqe
     {
       Func<DataSeries<Bar>, double> idealSignal = GetIdealSignalFunc(s.PredictionType);
       return new VersaceContext(s,
-        GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TrainingStart, s.TrainingEnd, true, idealSignal),
-        s.UseValidationSet ? GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.ValidationStart, s.ValidationEnd, true, idealSignal) : null,
-        GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TestingStart, s.TestingEnd, true, idealSignal));
+        GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TrainingStart, s.TrainingEnd, idealSignal),
+        GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.ValidationStart, s.ValidationEnd, idealSignal));
     }
 
     public static Func<DataSeries<Bar>, double> GetIdealSignalFunc(PredictionType pt)
@@ -33,12 +32,12 @@ namespace Quqe
         throw new Exception("Unexpected PredictionType: " + pt);
     }
 
-    public static PreprocessedData GetPreprocessedValues(PreprocessingType preprocessType, string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal = null)
+    public static PreprocessedData GetPreprocessedValues(PreprocessingType preprocessingType, string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignal = null)
     {
-      if (preprocessType == PreprocessingType.Enhanced)
-        return PreprocessEnhanced(predictedSymbol, startDate, endDate, includeOutputs, idealSignal);
+      if (preprocessingType == PreprocessingType.Enhanced)
+        return PreprocessEnhanced(predictedSymbol, startDate, endDate, idealSignal);
       else
-        throw new Exception("Unexpected PreprocessingType: " + preprocessType);
+        throw new Exception("Unexpected PreprocessingType: " + preprocessingType);
     }
 
     public static List<DataSeries<Bar>> GetCleanSeries(string predictedSymbol, List<string> tickers)
@@ -72,13 +71,13 @@ namespace Quqe
       return new DataSeries<Bar>(s.Symbol, newElements);
     }
 
-    static PreprocessedData PreprocessEnhanced(string predictedSymbol, DateTime startDate, DateTime endDate, bool includeOutputs, Func<DataSeries<Bar>, double> idealSignal)
+    static PreprocessedData PreprocessEnhanced(string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignal)
     {
       var clean = GetCleanSeries(predictedSymbol, GetTickers(predictedSymbol));
       var aOnly = new List<DataSeries<Value>>();
       var bOnly = new List<DataSeries<Value>>();
 
-      if (includeOutputs)
+      if (idealSignal != null)
       {
         // increase endDate by one trading day, because on the true endDate,
         // we need to look one day ahead to know the correct prediction.
@@ -165,21 +164,19 @@ namespace Quqe
       bOnly.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0])
         .SetTag("% Diff. between Normalized DJIA and Normalized T Bond"));
 
-      Versace.Context.DatabaseAInputLength[PreprocessingType.Enhanced] = aOnly.Count;
-
       var allInputSeries = aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList();
       if (!allInputSeries.All(s => s.All(x => !double.IsNaN(x.Val))))
         throw new Exception("Some input values are NaN!");
 
       var unalignedInputs = allInputSeries.SeriesToMatrix();
-      if (!includeOutputs)
-        return new PreprocessedData(predicted, null, unalignedInputs, null);
+      if (idealSignal == null)
+        return new PreprocessedData(predicted, null, unalignedInputs, null, aOnly.Count);
 
       var unalignedOutput = List.Create(predicted.MapElements<Value>((s, _) => idealSignal(s))).SeriesToMatrix();
 
       var data = unalignedInputs.Columns().Take(unalignedInputs.ColumnCount - 1).ColumnsToMatrix();
       var output = unalignedOutput.Columns().Skip(1).ColumnsToMatrix();
-      return new PreprocessedData(predicted, allInputSeries, data, new DenseVector(output.Row(0).ToArray()));
+      return new PreprocessedData(predicted, allInputSeries, data, new DenseVector(output.Row(0).ToArray()), aOnly.Count);
     }
 
     public static Vec ComplementCode(Vec input)

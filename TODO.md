@@ -1,5 +1,9 @@
+- clean up git untracked files
+- More tests
+- write to mongo instead of files
+- distribute with rabbit
+- analyze with D3
 - try to eliminate GC manipulation
-- support training of a single expert via xml/cmdline
 - distributed evolution
 - finish implementing backtesting
 - improve evolution algorithm

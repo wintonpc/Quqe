@@ -23,15 +23,17 @@ namespace Quqe
   {
     public readonly DataSeries<Bar> PredictedSeries;
     public readonly List<DataSeries<Value>> AllInputSeries;
-    public readonly Mat Inputs;
-    public readonly Vec Outputs;
+    public readonly Mat Input;
+    public readonly Vec Output;
+    public readonly int DatabaseAInputLength;
 
-    public PreprocessedData(DataSeries<Bar> predictedSeries, List<DataSeries<Value>> allInputSeries, Mat inputs, Vec outputs)
+    public PreprocessedData(DataSeries<Bar> predictedSeries, List<DataSeries<Value>> allInputSeries, Mat input, Vec output, int databaseAInputLength)
     {
       PredictedSeries = predictedSeries;
       AllInputSeries = allInputSeries;
-      Inputs = inputs;
-      Outputs = outputs;
+      Input = input;
+      Output = output;
+      DatabaseAInputLength = databaseAInputLength;
     }
   }
 
@@ -48,18 +50,7 @@ namespace Quqe
     static Versace()
     {
       MathNet.Numerics.Control.DisableParallelization = true;
-      //Context = MakeVersaceContext(new VersaceSettings());
     }
-
-    //public static VersaceContext Context { get; set; }
-    //public static VersaceSettings Settings { get { return Context.Settings; } }
-
-    //public static Mat TrainingInput { get; private set; }
-    //public static Mat ValidationInput { get; private set; }
-    //public static Mat TestingInput { get; private set; }
-    //public static Vec TrainingOutput { get; private set; }
-    //public static Vec ValidationOutput { get; private set; }
-    //public static Vec TestingOutput { get; private set; }
 
     public static List<string> GetTickers(string predictedSymbol)
     {
@@ -67,13 +58,13 @@ namespace Quqe
         "^GDAXI", "^FTSE", /*"^CJJ", "USDCHF"*/ "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU");
     }
 
-    public static void Train(Action<List<PopulationInfo>> historyChanged, Action<VersaceResult> whenDone)
+    public static void Train(VersaceContext context, Action<List<PopulationInfo>> historyChanged, Action<VersaceResult> whenDone)
     {
       SyncContext sync = SyncContext.Current;
       Thread t = new Thread(() => {
-        if (Settings.TrainingMethod == TrainingMethod.Evolve)
+        if (context.Settings.TrainingMethod == TrainingMethod.Evolve)
         {
-          var result = Evolve(historyChanged);
+          var result = Evolve(context, historyChanged);
           sync.Post(() => whenDone(result));
         }
       });
@@ -81,20 +72,21 @@ namespace Quqe
       t.Start();
     }
 
-    public static VersaceResult Evolve(Action<List<PopulationInfo>> historyChanged = null)
+    public static VersaceResult Evolve(VersaceContext context, Action<List<PopulationInfo>> historyChanged = null)
     {
+      var settings = context.Settings;
       GCSettings.LatencyMode = GCLatencyMode.Batch;
       var history = new List<PopulationInfo>();
-      var population = List.Repeat(Settings.PopulationSize, n => VMixture.CreateRandom());
+      var population = List.Repeat(settings.PopulationSize, n => VMixture.CreateRandom(context));
       VMixture bestMixture = null;
-      for (int epoch = 0; epoch < Settings.EpochCount; epoch++)
+      for (int epoch = 0; epoch < settings.EpochCount; epoch++)
       {
         Trace.WriteLine(string.Format("Epoch {0} started {1}", epoch, DateTime.Now));
 
         // train
         var trainer = new ParallelTrainer();
         trainer.Train(population.SelectMany(mixture => mixture.AllExperts), numTrained => {
-          Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, Settings.TotalExpertsPerMixture * Settings.PopulationSize));
+          Trace.WriteLine(string.Format("Epoch {0}, trained {1} / {2}", epoch, numTrained, settings.TotalExpertsPerMixture * settings.PopulationSize));
         });
 
         // compute fitness
@@ -103,8 +95,8 @@ namespace Quqe
         // select
         var oldPopulation = population.ToList();
         var rankedPopulation = population.OrderByDescending(m => m.Fitness).ToList();
-        var selected = rankedPopulation.Take(Settings.SelectionSize).Shuffle(QuqeUtil.Random).ToList();
-        var newPopulation = rankedPopulation.Take(Settings.PopulationSize - Settings.SelectionSize).ToList();
+        var selected = rankedPopulation.Take(settings.SelectionSize).Shuffle(QuqeUtil.Random).ToList();
+        var newPopulation = rankedPopulation.Take(settings.PopulationSize - settings.SelectionSize).ToList();
 
         // crossover
         Debug.Assert(selected.Count % 2 == 0);
@@ -119,7 +111,7 @@ namespace Quqe
         if (bestMixture == null || bestThisEpoch.Fitness > bestMixture.Fitness)
           bestMixture = bestThisEpoch;
 
-        var diversity = Diversity(oldPopulation);
+        var diversity = Diversity(settings, oldPopulation);
         history.Add(new PopulationInfo { Fitness = bestThisEpoch.Fitness, Diversity = diversity });
         if (historyChanged != null)
           historyChanged(history);
@@ -127,14 +119,14 @@ namespace Quqe
         Trace.WriteLine(string.Format("Epoch {0} ended {1}", epoch, DateTime.Now));
         Trace.WriteLine("===========================================================================");
       }
-      var result = new VersaceResult(bestMixture, history, Versace.Settings);
+      var result = new VersaceResult(bestMixture, history, settings);
       result.Save();
       return result;
     }
 
-    static double Diversity(List<VMixture> population)
+    static double Diversity(VersaceSettings settings, List<VMixture> population)
     {
-      var d = new DenseMatrix(Settings.TotalExpertsPerMixture * population.First().AllExperts.First().Chromosome.Genes.Count, Settings.PopulationSize);
+      var d = new DenseMatrix(settings.TotalExpertsPerMixture * population.First().AllExperts.First().Chromosome.Genes.Count, settings.PopulationSize);
       for (int m = 0; m < population.Count; m++)
       {
         var chromosomes = population[m].AllExperts.Select(x => x.Chromosome);

@@ -66,7 +66,7 @@ namespace Quqe
           if (fs.Count != 7)
             continue;
           var timestamp = DateTime.ParseExact(fs[0], "MMM d, yyyy", null);
-          if (timestamp < Versace.Settings.StartDate) // yahoo enumerates data in reverse chronological order
+          if (timestamp < start) // yahoo enumerates data in reverse chronological order
             goto Done;
           lines.Add(string.Format("{0:yyyy-MM-dd},{1},{2},{3},{4},{5}",
             timestamp, double.Parse(fs[1]), double.Parse(fs[2]), double.Parse(fs[3]), double.Parse(fs[4]), long.Parse(fs[5], System.Globalization.NumberStyles.AllowThousands)));

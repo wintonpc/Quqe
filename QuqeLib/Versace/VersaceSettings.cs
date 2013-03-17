@@ -31,9 +31,7 @@ namespace Quqe
 
     public DateTime StartDate = DateTime.Parse("11/11/2001");
     public DateTime EndDate = DateTime.Parse("02/12/2003");
-    public int TestingSplitPct = 78;
-    public bool UseValidationSet = false;
-    public int ValidationSplitPct = 0;
+    public int SplitPct = 78;
 
     public List<VGene> ProtoChromosome = new List<VGene> {
         new VGene<int>("ElmanTrainingEpochs", 20, 20, 1),
@@ -62,10 +60,8 @@ namespace Quqe
 
     public DateTime TrainingStart { get { return StartDate; } }
     public DateTime TrainingEnd { get { return ValidationStart.AddDays(-1); } }
-    public DateTime ValidationStart { get { return !UseValidationSet ? TestingStart : StartDate.AddMilliseconds(TestingStart.Subtract(StartDate).TotalMilliseconds * (double)ValidationSplitPct / 100).Date; } }
-    public DateTime ValidationEnd { get { return TestingStart.AddDays(-1); } }
-    public DateTime TestingStart { get { return StartDate.AddMilliseconds(EndDate.Subtract(StartDate).TotalMilliseconds * (double)TestingSplitPct / 100).Date; } }
-    public DateTime TestingEnd { get { return EndDate; } }
+    public DateTime ValidationStart { get { return StartDate.AddMilliseconds(EndDate.Subtract(StartDate).TotalMilliseconds * (double)SplitPct / 100).Date; } }
+    public DateTime ValidationEnd { get { return EndDate; } }
 
     public static VersaceSettings Load(string fn)
     {

@@ -472,8 +472,8 @@ namespace Quqe
       }
 
       //double backBarsSum = s.BackBars(period).Sum(x => x.Val);
-      slope = ((double)period * sumXY - sumX * backBarsSum /*SUM(Inputs[0], period)[0]*/) / divisor;
-      intercept = (backBarsSum /*SUM(Inputs[0], period)[0]*/ - slope * sumX) / period;
+      slope = ((double)period * sumXY - sumX * backBarsSum /*SUM(Input[0], period)[0]*/) / divisor;
+      intercept = (backBarsSum /*SUM(Input[0], period)[0]*/ - slope * sumX) / period;
     }
 
     public static DataSeries<Value> LinReg(this DataSeries<Value> values, int period, int forecast)

@@ -12,20 +12,23 @@ namespace Quqe
   {
     public readonly List<RnnExpert> RnnExperts;
     public readonly List<RbfExpert> RbfExperts;
+    public readonly VersaceContext Context;
     public List<Expert> AllExperts { get { return RnnExperts.Concat<Expert>(RbfExperts).ToList(); } }
     List<IPredictor> Predictors;
 
-    public static VMixture CreateRandom()
+    public static VMixture CreateRandom(VersaceContext context)
     {
-      return new VMixture(
-        List.Repeat(Versace.Settings.RnnExpertsPerMixture, i => new RnnExpert(VChromosome.CreateRandom(), Versace.Settings.PreprocessingType)),
-        List.Repeat(Versace.Settings.RbfExpertsPerMixture, i => new RbfExpert(VChromosome.CreateRandom(), Versace.Settings.PreprocessingType)));
+      var s = context.Settings;
+      return new VMixture(context,
+        List.Repeat(s.RnnExpertsPerMixture, i => new RnnExpert(context, VChromosome.CreateRandom(context), s.PreprocessingType)),
+        List.Repeat(s.RbfExpertsPerMixture, i => new RbfExpert(context, VChromosome.CreateRandom(context), s.PreprocessingType)));
     }
 
-    VMixture(List<RnnExpert> rnnExperts, List<RbfExpert> rbfExperts)
+    VMixture(VersaceContext context, List<RnnExpert> rnnExperts, List<RbfExpert> rbfExperts)
     {
       RnnExperts = rnnExperts;
       RbfExperts = rbfExperts;
+      Context = context;
     }
 
     public List<VMixture> Crossover(VMixture other)
@@ -33,13 +36,13 @@ namespace Quqe
       var qRnn = RnnExperts.Zip(other.RnnExperts, (a, b) => a.Crossover(b)).ToList();
       var qRbf = RbfExperts.Zip(other.RbfExperts, (a, b) => a.Crossover(b)).ToList();
       return List.Create(
-        new VMixture(qRnn.Select(x => x[0]).ToList(), qRbf.Select(x => x[0]).ToList()),
-        new VMixture(qRnn.Select(x => x[1]).ToList(), qRbf.Select(x => x[1]).ToList()));
+        new VMixture(Context, qRnn.Select(x => x[0]).ToList(), qRbf.Select(x => x[0]).ToList()),
+        new VMixture(Context, qRnn.Select(x => x[1]).ToList(), qRbf.Select(x => x[1]).ToList()));
     }
 
     public VMixture Mutate()
     {
-      return new VMixture(RnnExperts.Select(x => x.Mutate()).ToList(), RbfExperts.Select(x => x.Mutate()).ToList());
+      return new VMixture(Context, RnnExperts.Select(x => x.Mutate()).ToList(), RbfExperts.Select(x => x.Mutate()).ToList());
     }
 
     public double Fitness { get; private set; }
@@ -55,15 +58,13 @@ namespace Quqe
         Debug.Assert(prediction != 0);
         if (output[j] == prediction)
           correctCount++;
-        else
-          "oops".ToString();
       }
       return (double)correctCount / output.Count;
     }
 
     public double ComputeFitness()
     {
-      return Fitness = ComputePredictorFitness(this, Versace.ValidationInput, Versace.ValidationOutput);
+      return Fitness = ComputePredictorFitness(this, Context.Validation.Input, Context.Validation.Output);
     }
 
     public double Predict(Vec input)
@@ -82,7 +83,7 @@ namespace Quqe
 
     public IPredictor Reset()
     {
-      return new VMixture(RnnExperts, RbfExperts);
+      return new VMixture(Context, RnnExperts, RbfExperts);
     }
 
     bool IsDisposed;

@@ -8,20 +8,21 @@ namespace Quqe
   public class VChromosome
   {
     public readonly List<VGene> Genes;
+    public readonly VersaceContext Context;
 
-    public static VChromosome CreateRandom()
+    public static VChromosome CreateRandom(VersaceContext context)
     {
-      return new VChromosome(name => Versace.Settings.ProtoChromosome.First(x => x.Name == name).CloneAndRandomize());
+      return new VChromosome(context, name => context.Settings.ProtoChromosome.First(x => x.Name == name).CloneAndRandomize());
     }
 
-    VChromosome(List<VGene> genes)
+    VChromosome(VersaceContext context, List<VGene> genes)
     {
       Genes = genes;
+      Context = context;
     }
 
-    VChromosome(Func<string, VGene> makeGene)
-    {
-      Genes = new List<VGene> {
+    VChromosome(VersaceContext context, Func<string, VGene> makeGene)
+      : this(context, new List<VGene> {
         makeGene("ElmanTrainingEpochs"),
         makeGene("DatabaseType"),
         makeGene("TrainingOffsetPct"),
@@ -33,8 +34,7 @@ namespace Quqe
         makeGene("RbfGaussianSpread"),
         makeGene("ElmanHidden1NodeCount"),
         makeGene("ElmanHidden2NodeCount")
-      };
-    }
+      }) { }
 
     public int ElmanTrainingEpochs { get { return GetGeneValue<int>("ElmanTrainingEpochs"); } }
     public DatabaseType DatabaseType { get { return GetGeneValue<int>("DatabaseType") == 0 ? DatabaseType.A : DatabaseType.B; } }
@@ -57,8 +57,8 @@ namespace Quqe
     {
       var children = Crossover(Genes, other.Genes);
       return List.Create(
-        new VChromosome(children[0]),
-        new VChromosome(children[1]));
+        new VChromosome(Context, children[0]),
+        new VChromosome(Context, children[1]));
     }
 
     static List<List<VGene>> Crossover(IEnumerable<VGene> x, IEnumerable<VGene> y)
@@ -77,12 +77,12 @@ namespace Quqe
 
     public VChromosome Mutate()
     {
-      return new VChromosome(Mutate(Genes));
+      return new VChromosome(Context, Mutate(Context.Settings, Genes));
     }
 
-    static List<VGene> Mutate(IEnumerable<VGene> genes)
+    static List<VGene> Mutate(VersaceSettings settings, IEnumerable<VGene> genes)
     {
-      return genes.Select(g => QuqeUtil.Random.NextDouble() < Versace.Settings.MutationRate ? g.Mutate(Versace.Settings.MutationDamping) : g).ToList();
+      return genes.Select(g => QuqeUtil.Random.NextDouble() < settings.MutationRate ? g.Mutate(settings.MutationDamping) : g).ToList();
     }
   }
 }
