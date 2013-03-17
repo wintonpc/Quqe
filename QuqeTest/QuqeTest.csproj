@@ -79,7 +79,6 @@
     <Compile Include="TestHelperHelpers.cs" />
     <Compile Include="TestHelpers.cs" />
     <Compile Include="Tests.cs" />
-    <Compile Include="Tests2.cs" />
     <Compile Include="VersaceTests.cs" />
   </ItemGroup>
   <ItemGroup>

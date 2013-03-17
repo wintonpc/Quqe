@@ -64,17 +64,7 @@ inline double Dot(Vector* a, Vector* b)
   return cblas_ddot(a->Count, a->Data, 1, b->Data, 1);
 }
 
-//inline double DotColumn(Matrix* a, int column, Vector* b)
-//{
-//  return cblas_ddot(b->Count, a->Data + column, a->ColumnCount, b->Data, 1);
-//}
-
 #define DotColumn(a,column,b)   (cblas_ddot((b)->Count, (a)->Data + (column), (a)->ColumnCount, (b)->Data, 1))
-
-//inline void AXPY(double alpha, Vector* x, double* y)
-//{
-//  return cblas_daxpy(x->Count, alpha, x->Data, 1, y, 1);
-//}
 
 #define AXPY(alpha,x,n,y)    (cblas_daxpy((n), (alpha), (x)->Data, 1, (y), 1))
 #define AXPY2(alpha,xData,n,y)    (cblas_daxpy((n), (alpha), (xData), 1, (y), 1))

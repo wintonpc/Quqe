@@ -16,3 +16,5 @@ Share/*.lib
 Share/*.exp
 *.sdf
 *.opensdf
+Debug
+Release

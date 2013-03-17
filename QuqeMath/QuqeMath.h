@@ -64,7 +64,6 @@ public:
   Frame** Frames;
   int NumLayers;
   LayerSpec* LayerSpecs;
-	int EvalCount;
 
 public:
   TrainingContext(const Matrix &trainingInput, const Vector &trainingOutput, int nFrames, Frame** frames, int nLayers, LayerSpec* specs);
@@ -150,11 +149,6 @@ inline double LinearPrime(double x)
 {
   return 1;
 }
-
-//inline double LogisticSigmoid(double x)
-//{
-//  return 1 / (1 + exp(-x));
-//}
 
 #define LogisticSigmoid(x)    (1 / (1 + exp(-(x))))
 

@@ -1,23 +1,14 @@
-﻿using NUnit.Framework;
+﻿using Machine.Specifications;
+using NUnit.Framework;
 using Quqe;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using Machine.Specifications;
-using System.Text;
-using System.Threading.Tasks;
-using MathNet.Numerics.LinearAlgebra.Double;
-using QuqeViz;
-using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
-using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
-using PCW;
 using List = PCW.List;
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Threading;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 
 namespace QuqeTest
 {
@@ -32,7 +23,6 @@ namespace QuqeTest
       var checksums = List.Repeat(5, i => {
         QuqeUtil.Random = new Random(42);
         var trainResult = Train(data, 8, 4, 1000);
-        var ws = trainResult.RNNSpec.Weights;
         return Checksum(trainResult.RNNSpec.Weights);
       });
       checksums.Distinct().Count().ShouldEqual(1);
@@ -68,6 +58,17 @@ namespace QuqeTest
       var weightCount = RNN.GetWeightCount(layers, numInputs);
       var initialWeights = QuqeUtil.MakeRandomVector(weightCount, -1, 1);
       return RNN.TrainSCG(layers, initialWeights, epochMax, trainingData.Inputs, trainingData.Outputs);
+    }
+
+    [Test]
+    public void RNNTrainsQuickly()
+    {
+      var sw = new Stopwatch();
+      sw.Start();
+      var trainingData = GetData("2004-01-01", "2005-01-01");
+      Train(trainingData, 32, 16, 1000);
+      sw.Stop();
+      sw.ElapsedMilliseconds.ShouldBeGreaterThan(14000).ShouldBeLessThan(17000);
     }
 
     static string Checksum(Vec v)
