@@ -55,6 +55,8 @@ namespace Quqe
         Debug.Assert(prediction != 0);
         if (output[j] == prediction)
           correctCount++;
+        else
+          "oops".ToString();
       }
       return (double)correctCount / output.Count;
     }

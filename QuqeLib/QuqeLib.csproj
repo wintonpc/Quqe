@@ -88,6 +88,7 @@
     <Compile Include="Misc\Strategy.cs" />
     <Compile Include="Data\Transforms.cs" />
     <Compile Include="Versace\Experts.cs" />
+    <Compile Include="Versace\PreprocessedData.cs" />
     <Compile Include="Versace\Trainer.cs" />
     <Compile Include="Versace\VChromosome.cs" />
     <Compile Include="Versace\Versace.cs" />

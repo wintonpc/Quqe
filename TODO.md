@@ -1,6 +1,3 @@
-- Add Tests
-  - RNN tests
-  - RBF tests
 - try to eliminate GC manipulation
 - support training of a single expert via xml/cmdline
 - distributed evolution

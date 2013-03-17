@@ -11,30 +11,24 @@ namespace Quqe
 {
   public static partial class Versace
   {
-    public static void LoadPreprocessedValues()
+    public static VersaceContext MakeVersaceContext(VersaceSettings s)
     {
-      Func<DataSeries<Bar>, double> idealSignal = GetIdealSignalFunc(Settings.PredictionType);
-
-      PreprocessedData trainingData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.TrainingStart, Settings.TrainingEnd, true, idealSignal);
-      TrainingInput = trainingData.Inputs;
-      TrainingOutput = trainingData.Outputs;
-
-      if (Settings.UseValidationSet)
-      {
-        PreprocessedData validationData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.ValidationStart, Settings.ValidationEnd, true, idealSignal);
-        ValidationInput = validationData.Inputs;
-        ValidationOutput = validationData.Outputs;
-      }
-
-      PreprocessedData testingData = GetPreprocessedValues(Settings.PreprocessingType, Settings.PredictedSymbol, Settings.TestingStart, Settings.TestingEnd, true, idealSignal);
-      TestingInput = testingData.Inputs;
-      TestingOutput = testingData.Outputs;
+      Func<DataSeries<Bar>, double> idealSignal = GetIdealSignalFunc(s.PredictionType);
+      return new VersaceContext(s,
+        GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TrainingStart, s.TrainingEnd, true, idealSignal),
+        s.UseValidationSet ? GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.ValidationStart, s.ValidationEnd, true, idealSignal) : null,
+        GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TestingStart, s.TestingEnd, true, idealSignal));
     }
 
     public static Func<DataSeries<Bar>, double> GetIdealSignalFunc(PredictionType pt)
     {
       if (pt == PredictionType.NextClose)
-        return s => s.Pos == 0 ? 0 : Math.Sign(s[0].Close - s[1].Close);
+        return s => {
+          if (s.Pos == 0) return 0;
+          var ideal = Math.Sign(s[0].Close - s[1].Close);
+          if (ideal == 0) return 1; // we never predict "no change", so if there actually was no change, consider it a buy
+          return ideal;
+        };
       else
         throw new Exception("Unexpected PredictionType: " + pt);
     }
@@ -171,7 +165,7 @@ namespace Quqe
       bOnly.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0])
         .SetTag("% Diff. between Normalized DJIA and Normalized T Bond"));
 
-      DatabaseAInputLength[PreprocessingType.Enhanced] = aOnly.Count;
+      Versace.Context.DatabaseAInputLength[PreprocessingType.Enhanced] = aOnly.Count;
 
       var allInputSeries = aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList();
       if (!allInputSeries.All(s => s.All(x => !double.IsNaN(x.Val))))
@@ -179,23 +173,13 @@ namespace Quqe
 
       var unalignedInputs = allInputSeries.SeriesToMatrix();
       if (!includeOutputs)
-      {
-        return new PreprocessedData {
-          PredictedSeries = predicted,
-          Inputs = unalignedInputs
-        };
-      }
+        return new PreprocessedData(predicted, null, unalignedInputs, null);
 
       var unalignedOutput = List.Create(predicted.MapElements<Value>((s, _) => idealSignal(s))).SeriesToMatrix();
 
       var data = unalignedInputs.Columns().Take(unalignedInputs.ColumnCount - 1).ColumnsToMatrix();
       var output = unalignedOutput.Columns().Skip(1).ColumnsToMatrix();
-      return new PreprocessedData {
-        PredictedSeries = predicted,
-        AllInputSeries = allInputSeries,
-        Inputs = data,
-        Outputs = new DenseVector(output.Row(0).ToArray())
-      };
+      return new PreprocessedData(predicted, allInputSeries, data, new DenseVector(output.Row(0).ToArray()));
     }
 
     public static Vec ComplementCode(Vec input)

@@ -21,10 +21,18 @@ namespace Quqe
 
   public class PreprocessedData
   {
-    public DataSeries<Bar> PredictedSeries;
-    public List<DataSeries<Value>> AllInputSeries;
-    public Mat Inputs;
-    public Vec Outputs;
+    public readonly DataSeries<Bar> PredictedSeries;
+    public readonly List<DataSeries<Value>> AllInputSeries;
+    public readonly Mat Inputs;
+    public readonly Vec Outputs;
+
+    public PreprocessedData(DataSeries<Bar> predictedSeries, List<DataSeries<Value>> allInputSeries, Mat inputs, Vec outputs)
+    {
+      PredictedSeries = predictedSeries;
+      AllInputSeries = allInputSeries;
+      Inputs = inputs;
+      Outputs = outputs;
+    }
   }
 
   public enum DatabaseType { A, B }
@@ -40,34 +48,18 @@ namespace Quqe
     static Versace()
     {
       MathNet.Numerics.Control.DisableParallelization = true;
+      //Context = MakeVersaceContext(new VersaceSettings());
     }
 
-    public static Dictionary<PreprocessingType, int> DatabaseAInputLength = new Dictionary<PreprocessingType, int>();
-    static VersaceSettings _Settings = new VersaceSettings();
-    public static VersaceSettings Settings
-    {
-      get { return _Settings; }
-      set
-      {
-        if (value == null)
-        {
-          TrainingInput = ValidationInput = TestingInput = null;
-          TrainingOutput = ValidationOutput = TestingOutput = null;
-        }
-        else
-        {
-          _Settings = value;
-          LoadPreprocessedValues();
-        }
-      }
-    }
+    //public static VersaceContext Context { get; set; }
+    //public static VersaceSettings Settings { get { return Context.Settings; } }
 
-    public static Mat TrainingInput { get; private set; }
-    public static Mat ValidationInput { get; private set; }
-    public static Mat TestingInput { get; private set; }
-    public static Vec TrainingOutput { get; private set; }
-    public static Vec ValidationOutput { get; private set; }
-    public static Vec TestingOutput { get; private set; }
+    //public static Mat TrainingInput { get; private set; }
+    //public static Mat ValidationInput { get; private set; }
+    //public static Mat TestingInput { get; private set; }
+    //public static Vec TrainingOutput { get; private set; }
+    //public static Vec ValidationOutput { get; private set; }
+    //public static Vec TestingOutput { get; private set; }
 
     public static List<string> GetTickers(string predictedSymbol)
     {

@@ -39,7 +39,7 @@ namespace Quqe
     {
       // database selection
       if (Chromosome.DatabaseType == DatabaseType.A)
-        inputs = inputs.Select(x => x.SubVector(0, Versace.DatabaseAInputLength[PreprocessingType])).ToList();
+        inputs = inputs.Select(x => x.SubVector(0, Versace.Context.DatabaseAInputLength[PreprocessingType])).ToList();
 
       // complement coding
       if (Chromosome.UseComplementCoding)
@@ -145,7 +145,7 @@ namespace Quqe
       {
         var x = Chromosome;
         var inputFactor = (x.UseComplementCoding ? 2 : 1)
-          * (x.DatabaseType == DatabaseType.A ? Versace.DatabaseAInputLength[Versace.Settings.PreprocessingType] : Versace.TrainingInput.RowCount);
+          * (x.DatabaseType == DatabaseType.A ? Versace.Context.DatabaseAInputLength[Versace.Settings.PreprocessingType] : Versace.TrainingInput.RowCount);
         return x.ElmanHidden1NodeCount * x.ElmanHidden2NodeCount * x.ElmanTrainingEpochs * inputFactor;
       }
     }
@@ -202,7 +202,7 @@ namespace Quqe
       {
         var x = Chromosome;
         var inputFactor = (x.UseComplementCoding ? 2 : 1)
-          * (x.DatabaseType == DatabaseType.A ? Versace.DatabaseAInputLength[Versace.Settings.PreprocessingType] : Versace.TrainingInput.RowCount);
+          * (x.DatabaseType == DatabaseType.A ? VersaceContext.DatabaseAInputLength[Versace.Settings.PreprocessingType] : Versace.TrainingInput.RowCount);
         return x.TrainingSizePct * inputFactor;
       }
     }

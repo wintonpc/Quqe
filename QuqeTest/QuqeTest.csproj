@@ -73,8 +73,10 @@
     </CodeAnalysisDependentAssemblyPaths>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="NNTestUtils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QuqeMathLeaks.cs" />
+    <Compile Include="RBFTests.cs" />
     <Compile Include="RNNTests.cs" />
     <Compile Include="TestHelperHelpers.cs" />
     <Compile Include="TestHelpers.cs" />

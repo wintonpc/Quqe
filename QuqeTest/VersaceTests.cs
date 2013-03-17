@@ -28,7 +28,7 @@ namespace QuqeTest
       });
 
       var signal = bars.MapElements<Value>((s, _) => predictionFunc(s)).Select(x => x.Val).ToList();
-      signal.ShouldEnumerateLike(List.Create<double>(0, 1, 1, -1, -1, 1, 0)); 
+      signal.ShouldEnumerateLike(List.Create<double>(0, 1, 1, -1, -1, 1, 1)); 
     }
 
     [Test]
