@@ -18,3 +18,5 @@ Share/*.exp
 *.opensdf
 Debug
 Release
+packages/*
+Share/*.xml
