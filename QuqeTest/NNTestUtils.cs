@@ -16,7 +16,7 @@ namespace QuqeTest
     public static PreprocessedData GetData(string startDate, string endDate)
     {
       return Versace.GetPreprocessedValues(PreprocessingType.Enhanced, "DIA", DateTime.Parse(startDate), DateTime.Parse(endDate),
-        true, Versace.GetIdealSignalFunc(PredictionType.NextClose));
+        Versace.GetIdealSignalFunc(PredictionType.NextClose));
     }
 
     public static string Checksum(Vec v)

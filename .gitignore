@@ -20,3 +20,4 @@ Debug
 Release
 packages/*
 Share/*.xml
+Share/*.ilk

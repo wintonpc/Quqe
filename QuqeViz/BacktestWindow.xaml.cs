@@ -144,11 +144,11 @@ namespace QuqeViz
 
     void SetupPropertyChangeHooks()
     {
-      HookPropChange(StartDateProperty, RefreshTestingDate);
-      HookPropChange(EndDateProperty, RefreshTestingDate);
-      HookPropChange(SplitPctProperty, RefreshValidationDate);
-      HookPropChange(StartDateProperty, RefreshValidationDate);
-      HookPropChange(TestingDateProperty, RefreshValidationDate);
+      //HookPropChange(StartDateProperty, RefreshTestingDate);
+      //HookPropChange(EndDateProperty, RefreshTestingDate);
+      //HookPropChange(SplitPctProperty, RefreshValidationDate);
+      //HookPropChange(StartDateProperty, RefreshValidationDate);
+      //HookPropChange(TestingDateProperty, RefreshValidationDate);
     }
 
     void HookPropChange(DependencyProperty dp, EventHandler handler)
@@ -222,11 +222,11 @@ namespace QuqeViz
 
     internal void OnBacktest()
     {
-      var s = Settings;
-      var testingData = Versace.GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TestingStart, s.TestingEnd, false);
-      var report = VersaceBacktest.Backtest(s.PredictionType, SelectedMixture, new Account { Equity = 10000, MarginFactor = 1, Padding = 40 },
-        Versace.GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TrainingStart, s.ValidationEnd, false).Input,
-        testingData.Input, testingData.PredictedSeries);
+      //var s = Settings;
+      //var testingData = Versace.GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TestingStart, s.TestingEnd, false);
+      //var report = VersaceBacktest.Backtest(s.PredictionType, SelectedMixture, new Account { Equity = 10000, MarginFactor = 1, Padding = 40 },
+      //  Versace.GetPreprocessedValues(s.PreprocessingType, s.PredictedSymbol, s.TrainingStart, s.ValidationEnd, false).Input,
+      //  testingData.Input, testingData.PredictedSeries);
     }
 
     internal void OnDump()

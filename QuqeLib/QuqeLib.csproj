@@ -88,7 +88,7 @@
     <Compile Include="Misc\Strategy.cs" />
     <Compile Include="Data\Transforms.cs" />
     <Compile Include="Versace\Experts.cs" />
-    <Compile Include="Versace\PreprocessedData.cs" />
+    <Compile Include="Versace\VersaceContext.cs" />
     <Compile Include="Versace\Trainer.cs" />
     <Compile Include="Versace\VChromosome.cs" />
     <Compile Include="Versace\Versace.cs" />
@@ -113,12 +113,6 @@
     <Content Include="App_Readme\MathNet.Numerics.authors.txt" />
     <Content Include="App_Readme\MathNet.Numerics.copyright.txt" />
     <Content Include="App_Readme\MathNet.Numerics.readme.txt" />
-    <Content Include="libiomp5md.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="MathNet.Numerics.MKL.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
