@@ -8,12 +8,12 @@ namespace Quqe
 {
   public interface ITrainer
   {
-    void Train(IEnumerable<Expert> experts, Action<int> onTrainedOne);
+    void Train(IEnumerable<VExpert> experts, Action<int> onTrainedOne);
   }
 
   public class SequentialTrainer : ITrainer
   {
-    public void Train(IEnumerable<Expert> experts, Action<int> onTrainedOne)
+    public void Train(IEnumerable<VExpert> experts, Action<int> onTrainedOne)
     {
       int numTrained = 0;
       foreach (var x in experts)
@@ -36,7 +36,7 @@ namespace Quqe
   {
     ParallelOptions ParallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
 
-    public void Train(IEnumerable<Expert> experts, Action<int> onTrainedOne = null)
+    public void Train(IEnumerable<VExpert> experts, Action<int> onTrainedOne = null)
     {
       GCSettings.LatencyMode = GCLatencyMode.Batch;
       object Lock = new object();

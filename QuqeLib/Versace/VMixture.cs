@@ -13,7 +13,7 @@ namespace Quqe
     public readonly List<RnnExpert> RnnExperts;
     public readonly List<RbfExpert> RbfExperts;
     public readonly VersaceContext Context;
-    public List<Expert> AllExperts { get { return RnnExperts.Concat<Expert>(RbfExperts).ToList(); } }
+    public List<VExpert> AllExperts { get { return RnnExperts.Concat<VExpert>(RbfExperts).ToList(); } }
     List<IPredictor> Predictors;
 
     public static VMixture CreateRandom(VersaceContext context)

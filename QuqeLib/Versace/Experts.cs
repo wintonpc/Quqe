@@ -9,14 +9,14 @@ using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe
 {
-  public abstract class Expert
+  public abstract class VExpert
   {
     public readonly VChromosome Chromosome;
     public readonly PreprocessingType PreprocessingType;
     public readonly VersaceContext Context;
     Mat PrincipalComponents;
 
-    protected Expert(VersaceContext context, VChromosome chromosome, PreprocessingType preprocessType)
+    protected VExpert(VersaceContext context, VChromosome chromosome, PreprocessingType preprocessType)
     {
       Chromosome = chromosome;
       PreprocessingType = preprocessType;
@@ -99,7 +99,7 @@ namespace Quqe
     public abstract double RelativeComplexity { get; }
   }
 
-  public class RnnExpert : Expert
+  public class RnnExpert : VExpert
   {
     readonly int TrialCount;
     Vec InitialWeights;
@@ -186,7 +186,7 @@ namespace Quqe
     }
   }
 
-  public class RbfExpert : Expert
+  public class RbfExpert : VExpert
   {
     RBFNet RBFNetwork;
 
