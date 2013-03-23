@@ -87,6 +87,7 @@
     <Compile Include="Misc\QuqeUtil.cs" />
     <Compile Include="NewVersace\Database.cs" />
     <Compile Include="NewVersace\Functions.cs" />
+    <Compile Include="NewVersace\Initialization.cs" />
     <Compile Include="NewVersace\MongoTopLevelObject.cs" />
     <Compile Include="NewVersace\RbfTrainRec.cs" />
     <Compile Include="NewVersace\RnnTrainRec.cs" />

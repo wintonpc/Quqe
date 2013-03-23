@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MongoDB.Bson;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
@@ -15,7 +16,11 @@ namespace Quqe
     public readonly double Spread;
     public readonly bool IsDegenerate;
 
-    public RbfTrainRec(Mixture m) : base(m.Database) { }
+    public RbfTrainRec(Database db, ObjectId mixtureId, Chromosome chromosome)
+      : base(db, mixtureId, chromosome)
+    {
+      Database.Set(this, x => x.Id);
+    }
   }
 
   public class MRadialBasis

@@ -24,19 +24,19 @@ namespace QuqeTest
       var mongoDb = server.GetDatabase("test");
       var db = new Database(mongoDb);
 
-      var geneDescriptions = List.Repeat(2, i => ProtoGene.CreateBoolean("Gene" + i));
-      var protoChromosome = new ProtoChromosome(geneDescriptions);
-
-      var run = Functions.Evolve(db, new LocalTrainer(), 10, 1, 2, 3, protoChromosome);
+      var runSetup = new RunSetupInfo(Initialization.MakeProtoChromosome(), 10, 6, 4);
+      var run = Functions.Evolve(db, new LocalTrainer(), 1, runSetup);
       run.Id.ShouldBeOfType<ObjectId>();
-      run.ProtoChromosomes.ProtoGenes.Length.ShouldEqual(2);
+      run.ProtoChromosome.Genes.Length.ShouldEqual(11);
 
+      run.Generations.Length.ShouldEqual(1 + 1);
       var gen0 = run.Generations.First();
 
       gen0.Id.ShouldBeOfType<ObjectId>();
       gen0.Order.ShouldEqual(0);
-      gen0.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rnn).ShouldEqual(2);
-      gen0.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rbf).ShouldEqual(3);
+      gen0.Mixtures.Count().ShouldEqual(10);
+      gen0.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rnn).ShouldEqual(6);
+      gen0.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rbf).ShouldEqual(4);
     }
   }
 }

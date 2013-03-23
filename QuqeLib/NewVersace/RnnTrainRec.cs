@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
+using MongoDB.Bson;
 
 namespace Quqe
 {
@@ -14,10 +15,10 @@ namespace Quqe
     public readonly MRnnSpec RnnSpec;
     public readonly double[] CostHistory;
 
-    public RnnTrainRec(Mixture m)
-      : base(m.Database)
+    public RnnTrainRec(Database db, ObjectId mixtureId, Chromosome chromosome)
+      : base(db, mixtureId, chromosome)
     {
-
+      Database.Set(this, x => x.Id);
     }
   }
 

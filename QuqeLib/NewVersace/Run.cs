@@ -58,14 +58,8 @@ namespace Quqe
 
   public class ProtoChromosome
   {
-    public ProtoGene[] ProtoGenes { get; private set; }
-    public ProtoChromosome(IEnumerable<ProtoGene> protoGenes) { ProtoGenes = protoGenes.ToArray(); }
-  }
-
-  public class ProtoMixture
-  {
-    public ProtoChromosome[] ProtoChromosomes { get; private set; }
-    public ProtoMixture(IEnumerable<ProtoChromosome> protoChromosomes) { ProtoChromosomes = protoChromosomes.ToArray(); }
+    public ProtoGene[] Genes { get; private set; }
+    public ProtoChromosome(IEnumerable<ProtoGene> protoGenes) { Genes = protoGenes.ToArray(); }
   }
 
   public class Gene
@@ -96,13 +90,13 @@ namespace Quqe
   public class Run : MongoTopLevelObject
   {
     public ObjectId Id { get; private set; }
-    public ProtoChromosome ProtoChromosomes { get; private set; }
+    public ProtoChromosome ProtoChromosome { get; private set; }
     public Generation[] Generations { get { return Database.QueryAll<Generation>(x => x.RunId == this.Id).ToArray(); } }
 
-    public Run(Database db, ProtoChromosome chromDesc)
+    public Run(Database db, ProtoChromosome protoChrom)
       : base(db)
     {
-      ProtoChromosomes = chromDesc;
+      ProtoChromosome = protoChrom;
       db.Set(this, x => x.Id);
     }
   }
@@ -111,7 +105,6 @@ namespace Quqe
   {
     public ObjectId Id { get; private set; }
     public ObjectId RunId { get; private set; }
-    public Run Run { get { return Database.Get<Run>(RunId); } }
 
     public int Order { get; private set; }
     public Mixture[] Mixtures { get { return Database.QueryAll<Mixture>(x => x.GenerationId == this.Id).ToArray(); } }
@@ -132,7 +125,15 @@ namespace Quqe
     public ObjectId GenerationId { get; private set; }
 
     public ObjectId[] Parents;
-    public Expert[] Experts { get { return Database.QueryAll<Expert>(x => x.MixtureId == this.Id).ToArray(); } }
+    public Expert[] Experts
+    {
+      get
+      {
+        var rnnExperts = Database.QueryAll<RnnTrainRec>(x => x.MixtureId == this.Id);
+        var rbfExperts = Database.QueryAll<RbfTrainRec>(x => x.MixtureId == this.Id);
+        return rnnExperts.Concat<Expert>(rbfExperts).ToArray();
+      }
+    }
     public MixtureEval Evaluated { get { return Database.QueryAll<MixtureEval>(x => x.MixtureId == this.Id).Single(); } }
 
     public Mixture(Generation gen, IEnumerable<Mixture> parents)
@@ -140,6 +141,7 @@ namespace Quqe
     {
       GenerationId = gen.Id;
       Parents = parents.Select(x => x.Id).ToArray();
+      Database.Set(this, x => x.Id);
     }
   }
 
@@ -174,9 +176,15 @@ namespace Quqe
 
   public abstract class Expert : MongoTopLevelObject
   {
+    public ObjectId Id { get; private set; }
     public ObjectId MixtureId { get; private set; }
     public Chromosome Chromosome { get; private set; }
 
-    protected Expert(Database db) : base(db) { }
+    protected Expert(Database db, ObjectId mixtureId, Chromosome chromosome)
+      : base(db)
+    {
+      MixtureId = mixtureId;
+      Chromosome = chromosome;
+    }
   }
 }

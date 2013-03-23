@@ -21,31 +21,41 @@ namespace Quqe
     }
   }
 
+  public class RunSetupInfo
+  {
+    public readonly ProtoChromosome ProtoChromosome;
+    public readonly int MixturesPerGeneration;
+    public readonly int RnnPerMixture;
+    public readonly int RbfPerMixture;
+
+    public RunSetupInfo(ProtoChromosome protoChrom, int mixturesPerGen, int rnnPerMixture, int rbfPerMixture)
+    {
+      ProtoChromosome = protoChrom;
+      MixturesPerGeneration = mixturesPerGen;
+      RnnPerMixture = rnnPerMixture;
+      RbfPerMixture = rbfPerMixture;
+    }
+  }
+
   public static class Functions
   {
-    static MixtureInfo MakeMixture(Generation gen, ProtoChromosome chromDesc, int rnnPerMixture, int rbfPerMixture)
+    public static Run Evolve(Database db, IGenTrainer trainer, int numGenerations, RunSetupInfo runSetup)
     {
-      var rnnChromosomes = List.Repeat(rnnPerMixture, _ => RandomChromosome(NetworkType.Rnn, chromDesc));
-      var rbfChromosomes = List.Repeat(rbfPerMixture, _ => RandomChromosome(NetworkType.Rbf, chromDesc));
-      var mixture = new Mixture(gen, new Mixture[0]);
-      return new MixtureInfo(mixture.Id, rnnChromosomes.Concat(rbfChromosomes).ToArray());
+      var run = new Run(db, runSetup.ProtoChromosome);
+      var initialGen = Initialization.MakeInitialGeneration(run, runSetup, trainer);
+
+      List.Iterate(numGenerations, initialGen, (i, gen) => 
+        Train(trainer, run, i, Mutate(Combine(Select(Evaluate(gen.Mixtures))))));
+      return run;
     }
 
-    public static Run Evolve(Database db, IGenTrainer trainer, int mixturesPerGeneration, int numGenerations, int rnnPerMixture, int rbfPerMixture, ProtoChromosome chromDesc)
+    static Generation Train(IGenTrainer trainer, Run run, int generationNum, MixtureInfo[] pop)
     {
-      var run = new Run(db, chromDesc);
-
-      var gen0 = new Generation(run, 0);
-      var pop0 = List.Repeat(mixturesPerGeneration, _ => MakeMixture(gen0, chromDesc, rnnPerMixture, rbfPerMixture)).ToArray();
-
-      List.Iterate(numGenerations, pop0, (i, pop) => {
-        var genNum = i + 1;
-        var gen = new Generation(run, genNum);
-        var mixtures = trainer.Train(gen, pop,
-          progress => Trace.WriteLine(string.Format("Generation {0}: Trained {1} of {2}", genNum, progress.Completed, progress.Total)));
-        return Mutate(CrossOver(Select(Evaluate(mixtures))));
-      });
-      return run;
+      var gen = new Generation(run, generationNum);
+      trainer.Train(gen, pop,
+        progress => Trace.WriteLine(string.Format("Generation {0}: Trained {1} of {2}",
+          generationNum, progress.Completed, progress.Total)));
+      return gen;
     }
 
     static MixtureEval[] Evaluate(IEnumerable<Mixture> mixtures)
@@ -64,7 +74,7 @@ namespace Quqe
       throw new NotImplementedException();
     }
 
-    static MixtureInfo[] CrossOver(IEnumerable<MixtureEval> ms)
+    static MixtureInfo[] Combine(IEnumerable<MixtureEval> ms)
     {
       throw new NotImplementedException();
     }
@@ -79,12 +89,7 @@ namespace Quqe
       return 0;
     }
 
-    static Chromosome RandomChromosome(NetworkType networkType, ProtoChromosome chromDesc)
-    {
-      return new Chromosome(networkType, chromDesc.ProtoGenes.Select(gd => new Gene(gd.Name, RandomGeneValue(gd))));
-    }
-
-    static double RandomGeneValue(ProtoGene gd)
+    public static double RandomGeneValue(ProtoGene gd)
     {
       return Quantize(RandomDouble(gd.MinValue, gd.MaxValue), gd.MinValue, gd.Granularity);
     }

@@ -35,8 +35,10 @@ namespace Quqe
   {
     public IEnumerable<MemberInfo> FindMembers(Type type)
     {
-      return type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy)
-        .Concat<MemberInfo>(type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy));
+      var fields = type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+      var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy)
+        .Where(pi => pi.GetSetMethod(true) != null);
+      return fields.Concat<MemberInfo>(props);
     }
   }
 }
