@@ -91,7 +91,7 @@ namespace Quqe
   {
     public ObjectId Id { get; private set; }
     public ProtoChromosome ProtoChromosome { get; private set; }
-    public Generation[] Generations { get { return Database.QueryAll<Generation>(x => x.RunId == this.Id).ToArray(); } }
+    public Generation[] Generations { get { return Database.QueryAll<Generation>(x => x.RunId == this.Id); } }
 
     public Run(Database db, ProtoChromosome protoChrom)
       : base(db)
@@ -105,9 +105,10 @@ namespace Quqe
   {
     public ObjectId Id { get; private set; }
     public ObjectId RunId { get; private set; }
+    public Run Run { get { return Database.Get<Run>(RunId); } }
 
     public int Order { get; private set; }
-    public Mixture[] Mixtures { get { return Database.QueryAll<Mixture>(x => x.GenerationId == this.Id).ToArray(); } }
+    public Mixture[] Mixtures { get { return Database.QueryAll<Mixture>(x => x.GenerationId == this.Id); } }
     public GenEval Evaluated { get { return Database.QueryAll<GenEval>(x => x.GenerationId == this.Id).Single(); } }
 
     public Generation(Run run, int order)
@@ -123,6 +124,7 @@ namespace Quqe
   {
     public ObjectId Id { get; private set; }
     public ObjectId GenerationId { get; private set; }
+    public Generation Generation { get { return Database.Get<Generation>(GenerationId); } }
 
     public ObjectId[] Parents;
     public Expert[] Experts
@@ -149,6 +151,7 @@ namespace Quqe
   {
     public ObjectId Id { get; private set; }
     public ObjectId GenerationId { get; private set; }
+    public Generation Generation { get { return Database.Get<Generation>(GenerationId); } }
     public double Fitness { get; private set; }
 
     public GenEval(Generation gen, double fitness)
@@ -169,6 +172,7 @@ namespace Quqe
     public MixtureEval(Mixture mixture, double fitness)
       : base(mixture.Database)
     {
+      MixtureId = mixture.Id;
       Fitness = fitness;
       Database.Set(this, x => x.Id);
     }
@@ -178,6 +182,7 @@ namespace Quqe
   {
     public ObjectId Id { get; private set; }
     public ObjectId MixtureId { get; private set; }
+    public Mixture Mixture { get { return Database.Get<Mixture>(MixtureId); } }
     public Chromosome Chromosome { get; private set; }
 
     protected Expert(Database db, ObjectId mixtureId, Chromosome chromosome)
