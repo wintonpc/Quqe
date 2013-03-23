@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Driver.Builders;
+using System.Windows;
+using System.Linq.Expressions;
 
 namespace Quqe
 {
@@ -20,18 +22,25 @@ namespace Quqe
       MDB = db;
     }
 
-    public T Get<T>(ObjectId id) where T: MongoObject
+    public IEnumerable<T> QueryAll<T>(Expression<Func<T, bool>> predicate)
+    {
+      var query = new QueryBuilder<T>().Where(predicate);
+      var coll = MDB.GetCollection(typeof(T).Name);
+      return coll.FindAs<T>(query);
+    }
+
+    public T Get<T>(ObjectId id) where T: MongoTopLevelObject
     {
       return Get<T>(id, GetTypeLookup<T>());
     }
 
-    public void Set<T>(T value, Func<T, ObjectId> getId) where T : MongoObject
+    public void Set<T>(T value, Func<T, ObjectId> getId) where T : MongoTopLevelObject
     {
       StoreInMongo<T>(value);
       GetTypeLookup<T>().Add(getId(value), value);
     }
 
-    T Get<T>(ObjectId id, Dictionary<ObjectId, object> typeLookup) where T : MongoObject
+    T Get<T>(ObjectId id, Dictionary<ObjectId, object> typeLookup) where T : MongoTopLevelObject
     {
       object value;
       if (!typeLookup.TryGetValue(id, out value))
@@ -53,7 +62,7 @@ namespace Quqe
       return lookup;
     }
 
-    T GetFromMongo<T>(ObjectId id) where T : MongoObject
+    T GetFromMongo<T>(ObjectId id) where T : MongoTopLevelObject
     {
       var coll = MDB.GetCollection(typeof(T).Name);
       var obj = coll.FindOneAs<T>(Query.EQ("_id", id));
@@ -61,7 +70,7 @@ namespace Quqe
       return obj;
     }
 
-    void StoreInMongo<T>(T value) where T : MongoObject
+    void StoreInMongo<T>(T value) where T : MongoTopLevelObject
     {
       var coll = MDB.GetCollection(typeof(T).Name);
       coll.Insert(value);

@@ -1,4 +1,3 @@
-- clean up git untracked files
 - More tests
 - write to mongo instead of files
 - distribute with rabbit

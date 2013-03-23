@@ -9,6 +9,8 @@ using Quqe;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Machine.Specifications;
+using List = PCW.List;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace QuqeTest
 {
@@ -18,37 +20,62 @@ namespace QuqeTest
     [Test]
     public void Sandbox()
     {
+      var client = new MongoClient("mongodb://localhost");
+      var server = client.GetServer();
+      server.DropDatabase("sandbox");
+      var mongoDb = server.GetDatabase("sandbox");
 
+      var coll = mongoDb.GetCollection("widgets");
+      coll.Insert(new Widget(new int[] { 1, 2, 3, 4, 5 }, List.Repeat(3, _ => new Sprocket()).ToArray()));
+
+      var results = coll.FindAllAs<Widget>().ToList();
+    }
+
+    [Test]
+    public void Sandbox2()
+    {
+      var client = new MongoClient("mongodb://localhost");
+      var server = client.GetServer();
+      var mongoDb = server.GetDatabase("test");
+
+      var coll = mongoDb.GetCollection("Generation");
+      MongoTopLevelObject.RegisterConventions();
+      var results = coll.FindAllAs<Generation>().ToList();
+      var results2 = coll.FindAll().ToList();
+    }
+
+    class Widget
+    {
+      [BsonId]
+      public ObjectId Id;
+
+      public int Foo;
+      public int[] Bars;
+      public Sprocket[] Sprockets;
+
+      public Widget(int[] bars, Sprocket[] sprockets)
+      {
+        Bars = bars;
+        Sprockets = sprockets;
+      }
+    }
+
+    class Sprocket
+    {
+      public int Ding = 2;
+      public int Dong = 3;
     }
 
     [Test]
     public void DatabaseWorks()
     {
-      var client = new MongoClient("mongodb://localhost");
-      var server = client.GetServer();
-      server.DropDatabase("test");
-      var testDb = server.GetDatabase("test");
 
-      var db1 = new Database(testDb);
-      var gd1 = GeneDesc.Create(db1, "name", 0, 100, GeneType.Continuous);
-      db1.Set(gd1, x => x.Id);
-
-      var db2 = new Database(testDb);
-      var gd2 = db2.Get<GeneDesc>(gd1.Id);
     }
 
     [Test]
     public void DatabaseReferences()
     {
-      var client = new MongoClient("mongodb://localhost");
-      var server = client.GetServer();
-      server.DropDatabase("test");
-      var testDb = server.GetDatabase("test");
 
-      var db1 = new Database(testDb);
-      var gd = GeneDesc.Create(db1, "name", 0, 100, GeneType.Continuous);
-      var g = new Gene(gd, 55);
-      g.GeneDescId.ShouldEqual(gd.Id);
     }
   }
 }
