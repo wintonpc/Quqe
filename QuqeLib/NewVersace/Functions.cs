@@ -1,4 +1,5 @@
 ﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using PCW;
 using System;
 using System.Collections.Generic;
@@ -13,10 +14,18 @@ namespace Quqe
   {
     public readonly ObjectId MixtureId;
     public readonly Chromosome[] Chromosomes;
+    [BsonIgnore]
+    public readonly Mixture[] Parents;
 
     public MixtureInfo(ObjectId mixtureId, IEnumerable<Chromosome> chromosomes)
     {
       MixtureId = mixtureId;
+      Chromosomes = chromosomes.ToArray();
+    }
+
+    public MixtureInfo(IEnumerable<Mixture> parents, IEnumerable<Chromosome> chromosomes)
+    {
+      Parents = parents.ToArray();
       Chromosomes = chromosomes.ToArray();
     }
   }
@@ -47,14 +56,14 @@ namespace Quqe
       var initialGen = Initialization.MakeInitialGeneration(run, v, trainer);
 
       List.Iterate(numGenerations, initialGen, (i, gen) =>
-        Train(trainer, run, i, newGen => Mutate(Combine(v.MixturesPerGeneration, newGen, Select(v.SelectionSize, Evaluate(gen.Mixtures))))));
+        Train(trainer, run, i, Mutate(Combine(v.MixturesPerGeneration, Select(v.SelectionSize, Evaluate(gen.Mixtures))))));
       return run;
     }
 
-    static Generation Train(IGenTrainer trainer, Run run, int generationNum, Func<Generation, MixtureInfo[]> getPopulation)
+    static Generation Train(IGenTrainer trainer, Run run, int generationNum, MixtureInfo[] pop)
     {
       var gen = new Generation(run, generationNum);
-      trainer.Train(gen, getPopulation(gen),
+      trainer.Train(gen, pop.Select(mi => new MixtureInfo(new Mixture(gen, mi.Parents).Id, mi.Chromosomes)),
         progress => Trace.WriteLine(string.Format("Generation {0}: Trained {1} of {2}",
           generationNum, progress.Completed, progress.Total)));
       return gen;
@@ -76,27 +85,24 @@ namespace Quqe
       return ms.OrderByDescending(x => x.Fitness).Take(selectionSize).ToArray();
     }
 
-    static MixtureInfo[] Combine(int outputSize, Generation gen, IList<MixtureEval> ms)
+    static MixtureInfo[] Combine(int outputSize, IList<MixtureEval> ms)
     {
-      return List.Repeat((int)Math.Ceiling(outputSize / 2.0), _ => CombineTwo(ms, gen)).SelectMany(x => x).Take(outputSize).ToArray();
+      return List.Repeat((int)Math.Ceiling(outputSize / 2.0), _ => CombineTwoMixtures(ms)).SelectMany(x => x).Take(outputSize).ToArray();
     }
 
-    static Tuple2<MixtureInfo> CombineTwo(IList<MixtureEval> ms, Generation gen)
+    static Tuple2<MixtureInfo> CombineTwoMixtures(IList<MixtureEval> ms)
     {
       var parents = SelectTwoAccordingToQuality(ms, x => x.Fitness);
 
       Func<MixtureEval, Chromosome[]> chromosomesOf = me => me.Mixture.Experts.Select(x => x.Chromosome).ToArray();
 
-      Func<IEnumerable<Chromosome>, MixtureInfo> chromosomesToMixture = chromosomes => {
-        var mixture = new Mixture(gen, parents.Select(p => p.Mixture));
-        return new MixtureInfo(mixture.Id, chromosomes);
-      };
+      Func<IEnumerable<Chromosome>, MixtureInfo> chromosomesToMixture = chromosomes => 
+        new MixtureInfo(parents.Select(p => p.Mixture), chromosomes);
 
-      return CrossOver(chromosomesOf(parents.Item1), chromosomesOf(parents.Item2),
-        (a, b) => CrossOverChromosomes(gen.Run, a, b), chromosomesToMixture);
+      return CrossOver(chromosomesOf(parents.Item1), chromosomesOf(parents.Item2), CrossOverChromosomes, chromosomesToMixture);
     }
 
-    public static Tuple2<Chromosome> CrossOverChromosomes(Run run, Chromosome a, Chromosome b)
+    public static Tuple2<Chromosome> CrossOverChromosomes(Chromosome a, Chromosome b)
     {
       Debug.Assert(a.NetworkType == b.NetworkType);
 
