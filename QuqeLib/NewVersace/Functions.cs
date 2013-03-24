@@ -46,7 +46,7 @@ namespace Quqe
       var run = new Run(db, v.ProtoChromosome);
       var initialGen = Initialization.MakeInitialGeneration(run, v, trainer);
 
-      List.Iterate(numGenerations, initialGen, (i, gen) => 
+      List.Iterate(numGenerations, initialGen, (i, gen) =>
         Train(trainer, run, i, newGen => Mutate(Combine(v.MixturesPerGeneration, newGen, Select(v.SelectionSize, Evaluate(gen.Mixtures))))));
       return run;
     }
@@ -76,53 +76,56 @@ namespace Quqe
       return ms.OrderByDescending(x => x.Fitness).Take(selectionSize).ToArray();
     }
 
-    static MixtureInfo[] Combine(int outputSize, Generation gen, IEnumerable<MixtureEval> ms)
+    static MixtureInfo[] Combine(int outputSize, Generation gen, IList<MixtureEval> ms)
     {
       return List.Repeat((int)Math.Ceiling(outputSize / 2.0), _ => CombineTwo(ms, gen)).SelectMany(x => x).Take(outputSize).ToArray();
     }
 
-    static MixtureInfo[] CombineTwo(IEnumerable<MixtureEval> ms, Generation gen)
+    static Tuple2<MixtureInfo> CombineTwo(IList<MixtureEval> ms, Generation gen)
     {
       var parents = SelectTwoAccordingToQuality(ms, x => x.Fitness);
 
-      Func<MixtureEval, Chromosome[]> chromosomesFor = me => me.Mixture.Experts.Select(x => x.Chromosome).ToArray();
+      Func<MixtureEval, Chromosome[]> chromosomesOf = me => me.Mixture.Experts.Select(x => x.Chromosome).ToArray();
 
       Func<IEnumerable<Chromosome>, MixtureInfo> chromosomesToMixture = chromosomes => {
-        var mixture = new Mixture(gen, List.Create(parents[0].Mixture, parents[1].Mixture));
+        var mixture = new Mixture(gen, parents.Select(p => p.Mixture));
         return new MixtureInfo(mixture.Id, chromosomes);
       };
 
-      var zipped = chromosomesFor(parents[0]).Zip(chromosomesFor(parents[1]), (a, b) => CrossOver(gen.Run, a, b));
-      var unzipped = Unzip(zipped, z => z[0], z => z[1]);
-      return unzipped.Select(chromosomesToMixture).ToArray();
+      return CrossOver(chromosomesOf(parents.Item1), chromosomesOf(parents.Item2),
+        (a, b) => CrossOverChromosomes(gen.Run, a, b), chromosomesToMixture);
     }
 
-    public static Chromosome[] CrossOver(Run run, Chromosome a, Chromosome b)
+    public static Tuple2<Chromosome> CrossOverChromosomes(Run run, Chromosome a, Chromosome b)
     {
       Debug.Assert(a.NetworkType == b.NetworkType);
-      var zipped = a.Genes.Zip(b.Genes, (x, y) => {
+
+      Func<Gene, Gene, Tuple2<Gene>> crossGenes = (x, y) => {
         Debug.Assert(x.Name == y.Name);
-        return QuqeUtil.Random.Next(2) == 0 ? List.Create(x, y) : List.Create(y, x);
-      });
-      var unzipped = Unzip(zipped, z => z[0], z => z[1]);
-      return unzipped.Select(genes => new Chromosome(a.NetworkType, genes)).ToArray();
+        return QuqeUtil.Random.Next(2) == 0 ? Tuple2.Create(x, y) : Tuple2.Create(y, x);
+      };
+
+      return CrossOver(a.Genes, b.Genes, crossGenes, genes => new Chromosome(a.NetworkType, genes));
     }
 
-    public static IEnumerable<IEnumerable<TUnzipped>> Unzip<T, TUnzipped>(IEnumerable<T> items, Func<T, TUnzipped> a, Func<T, TUnzipped> b)
+    public static Tuple2<TResult> CrossOver<T, TResult>(T[] a, T[] b, Func<T, T, Tuple2<T>> crossItems, Func<T[], TResult> makeResult)
     {
-      return List.Create(items.Select(a), items.Select(b));
+      var zipped = a.Zip(b, crossItems).ToArray();
+      var newA = zipped.Select(x => x.Item1).ToArray();
+      var newB = zipped.Select(x => x.Item2).ToArray();
+      return new Tuple2<TResult>(makeResult(newA), makeResult(newB));
     }
 
-    public static T[] SelectTwoAccordingToQuality<T>(IEnumerable<T> items, Func<T, double> quality)
+    public static Tuple2<T> SelectTwoAccordingToQuality<T>(IList<T> items, Func<T, double> quality)
     {
-      var possibleFirsts = items.ToList();
+      var possibleFirsts = items;
       var first = SelectOneAccordingToQuality(possibleFirsts, quality);
       var possibleSeconds = items.Except(List.Create(first)).ToList();
       var second = SelectOneAccordingToQuality(possibleSeconds, quality);
-      return new[] { first, second };
+      return Tuple2.Create(first, second);
     }
 
-    public static T SelectOneAccordingToQuality<T>(IEnumerable<T> items, Func<T, double> quality)
+    public static T SelectOneAccordingToQuality<T>(IList<T> items, Func<T, double> quality)
     {
       var qualitySum = items.Sum(quality);
       var spot = QuqeUtil.Random.NextDouble() * qualitySum;
@@ -162,5 +165,32 @@ namespace Quqe
     {
       return QuqeUtil.Random.NextDouble() * (max - min) + min;
     }
+  }
+
+  public class Tuple2<T> : IEnumerable<T>
+  {
+    public readonly T Item1;
+    public readonly T Item2;
+
+    public Tuple2(T item1, T item2)
+    {
+      Item1 = item1;
+      Item2 = item2;
+    }
+
+    public IEnumerator<T> GetEnumerator()
+    {
+      return List.Create(Item1, Item2).GetEnumerator();
+    }
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+    {
+      return GetEnumerator();
+    }
+  }
+
+  public static class Tuple2
+  {
+    public static Tuple2<T> Create<T>(T item1, T item2) { return new Tuple2<T>(item1, item2); }
   }
 }
