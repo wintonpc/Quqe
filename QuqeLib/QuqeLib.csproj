@@ -88,6 +88,7 @@
     <Compile Include="NewVersace\Database.cs" />
     <Compile Include="NewVersace\EvolutionAux.cs" />
     <Compile Include="NewVersace\Functions.cs" />
+    <Compile Include="NewVersace\GenericFunctions.cs" />
     <Compile Include="NewVersace\Initialization.cs" />
     <Compile Include="NewVersace\MongoTopLevelObject.cs" />
     <Compile Include="NewVersace\RbfTrainRec.cs" />

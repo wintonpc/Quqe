@@ -55,9 +55,9 @@ namespace Quqe
       return gen;
     }
 
-    public static Chromosome RandomChromosome(NetworkType networkType, ProtoChromosome chromDesc)
+    public static Chromosome RandomChromosome(NetworkType networkType, ProtoChromosome protoChrom)
     {
-      return new Chromosome(networkType, chromDesc.Genes.Select(gd => new Gene(gd.Name, Functions.RandomGeneValue(gd))));
+      return new Chromosome(networkType, protoChrom.Genes.Select(gd => new Gene(gd.Name, Functions.RandomGeneValue(gd))));
     }
   }
 }

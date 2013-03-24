@@ -128,6 +128,8 @@ namespace Quqe
     public ObjectId GenerationId { get; private set; }
     public Generation Generation { get { return Database.Get<Generation>(GenerationId); } }
 
+    public Chromosome[] Chromosomes { get { return Experts.Select(x => x.Chromosome).ToArray(); } }
+
     public ObjectId[] Parents;
     public Expert[] Experts
     {

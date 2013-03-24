@@ -22,7 +22,7 @@ namespace QuqeTest
       var db = new Database(mongoDb);
 
       var runSetup = new RunSetupInfo(Initialization.MakeProtoChromosome(), 10, 6, 4, 5);
-      var run = Functions.Evolve(db, new LocalTrainer(), 1, runSetup);
+      var run = Functions.Evolve(db, new FakeTrainer(), 1, runSetup);
       run.Id.ShouldBeOfType<ObjectId>();
       run.ProtoChromosome.Genes.Length.ShouldEqual(11);
 
@@ -34,6 +34,63 @@ namespace QuqeTest
       gen0.Mixtures.Count().ShouldEqual(10);
       gen0.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rnn).ShouldEqual(6);
       gen0.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rbf).ShouldEqual(4);
+    }
+
+    [Test]
+    public void MixtureCrossover()
+    {
+      var db = new Database(TestHelpers.GetCleanDatabase());
+      var protoChrom = Initialization.MakeProtoChromosome();
+      var run = new Run(db, protoChrom);
+      var gen = Initialization.MakeInitialGeneration(run, new RunSetupInfo(protoChrom, 2, 10, 0, 10), new FakeTrainer());
+      gen.Mixtures.Length.ShouldEqual(2);
+      var m1 = gen.Mixtures[0];
+      var m2 = gen.Mixtures[1];
+
+      var prev = Tuple2.Create(m1.Chromosomes, m2.Chromosomes);
+      var cmis = Functions.CombineTwoMixtures(gen.Mixtures.Select(m => new MixtureEval(m, 1)).ToList());
+      var curr = Tuple2.Create(cmis.Item1.Chromosomes, cmis.Item2.Chromosomes);
+
+      for (int i = 0; i < m1.Chromosomes.Length; i++)
+        AssertIsCrossedOverVersionOf(Tuple2.Create(curr.Item1[i], curr.Item2[i]),
+                                     Tuple2.Create(prev.Item1[i], prev.Item2[i]));
+    }
+
+    [Test]
+    public void ChromosomeCrossover()
+    {
+      var protoChrom = Initialization.MakeProtoChromosome();
+      var a = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom);
+      var b = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom);
+      a.ShouldNotLookLike(b);
+
+      var crossedOverChroms = Functions.CrossOverChromosomes(a, b);
+      AssertIsCrossedOverVersionOf(crossedOverChroms, Tuple2.Create(a, b));
+    }
+
+    static void AssertIsCrossedOverVersionOf(Tuple2<Chromosome> curr, Tuple2<Chromosome> prev)
+    {
+      var a1 = curr.Item1;
+      var b1 = curr.Item2;
+      var a0 = prev.Item1;
+      var b0 = prev.Item2;
+
+      a1.ShouldNotLookLike(a0);
+      b1.ShouldNotLookLike(b0);
+
+      List.Repeat(a1.Genes.Length, i => {
+        var a1g = a1.Genes[i];
+        var b1g = b1.Genes[i];
+        var a0g = a0.Genes[i];
+        var b0g = b0.Genes[i];
+
+        if (a1g.LooksLike(a0g))
+          b1g.ShouldLookLike(b0g);
+        else if (a1g.LooksLike(b0g))
+          b1g.ShouldLookLike(a0g);
+        else
+          Assert.Fail("gene was mutated??");
+      });
     }
   }
 }

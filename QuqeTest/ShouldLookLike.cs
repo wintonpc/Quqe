@@ -53,6 +53,16 @@ namespace Quqe
       Check(expected, actual, options, List.Create(".").ToPairs(), new HashSet<object>());
     }
 
+    public static void ShouldNotLookLike(this object actual, object expected, ShouldLookLikeOptions options = null)
+    {
+      new Action(() => actual.ShouldLookLike(expected, options)).ShouldThrow<SpecificationException>();
+    }
+
+    public static bool LooksLike(this object actual, object expected, ShouldLookLikeOptions options = null)
+    {
+      return Catch.Exception(() => actual.ShouldLookLike(expected, options)) == null;
+    }
+
     static void Check(object expected, object actual, ShouldLookLikeOptions options, Indigo.Util.Lisp.Pair<string> path, HashSet<object> visitedExpecteds)
     {
       if (actual == null && expected == null)

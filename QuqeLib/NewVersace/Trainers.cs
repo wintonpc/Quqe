@@ -19,7 +19,7 @@ namespace Quqe
     public readonly int Total;
   }
 
-  public class LocalTrainer : IGenTrainer
+  public class FakeTrainer : IGenTrainer
   {
     public void Train(Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
     {
