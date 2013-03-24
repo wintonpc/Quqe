@@ -39,7 +39,6 @@ namespace QuqeTest
       var mongoDb = server.GetDatabase("test");
 
       var coll = mongoDb.GetCollection("Generation");
-      MongoTopLevelObject.RegisterConventions();
       var results = coll.FindAllAs<Generation>().ToList();
       var results2 = coll.FindAll().ToList();
     }

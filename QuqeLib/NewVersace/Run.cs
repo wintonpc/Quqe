@@ -94,7 +94,6 @@ namespace Quqe
 
   public class Run : MongoTopLevelObject
   {
-    public ObjectId Id { get; private set; }
     public ProtoChromosome ProtoChromosome { get; private set; }
     public Generation[] Generations { get { return Database.QueryAll<Generation>(x => x.RunId == this.Id); } }
 
@@ -108,7 +107,6 @@ namespace Quqe
 
   public class Generation : MongoTopLevelObject
   {
-    public ObjectId Id { get; private set; }
     public ObjectId RunId { get; private set; }
     public Run Run { get { return Database.Get<Run>(RunId); } }
 
@@ -127,7 +125,6 @@ namespace Quqe
 
   public class Mixture : MongoTopLevelObject
   {
-    public ObjectId Id { get; private set; }
     public ObjectId GenerationId { get; private set; }
     public Generation Generation { get { return Database.Get<Generation>(GenerationId); } }
 
@@ -154,7 +151,6 @@ namespace Quqe
 
   public class GenEval : MongoTopLevelObject
   {
-    public ObjectId Id { get; private set; }
     public ObjectId GenerationId { get; private set; }
     public Generation Generation { get { return Database.Get<Generation>(GenerationId); } }
     public double Fitness { get; private set; }
@@ -169,7 +165,6 @@ namespace Quqe
 
   public class MixtureEval : MongoTopLevelObject
   {
-    public ObjectId Id { get; private set; }
     public ObjectId MixtureId { get; private set; }
     public Mixture Mixture { get { return Database.Get<Mixture>(MixtureId); } }
     public double Fitness { get; private set; }
@@ -185,7 +180,6 @@ namespace Quqe
 
   public abstract class Expert : MongoTopLevelObject
   {
-    public ObjectId Id { get; private set; }
     public ObjectId MixtureId { get; private set; }
     public Mixture Mixture { get { return Database.Get<Mixture>(MixtureId); } }
     public Chromosome Chromosome { get; private set; }
