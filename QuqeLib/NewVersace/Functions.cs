@@ -10,44 +10,6 @@ using System.Threading.Tasks;
 
 namespace Quqe
 {
-  public class MixtureInfo
-  {
-    public readonly ObjectId MixtureId;
-    public readonly Chromosome[] Chromosomes;
-    [BsonIgnore]
-    public readonly Mixture[] Parents;
-
-    public MixtureInfo(ObjectId mixtureId, IEnumerable<Chromosome> chromosomes)
-    {
-      MixtureId = mixtureId;
-      Chromosomes = chromosomes.ToArray();
-    }
-
-    public MixtureInfo(IEnumerable<Mixture> parents, IEnumerable<Chromosome> chromosomes)
-    {
-      Parents = parents.ToArray();
-      Chromosomes = chromosomes.ToArray();
-    }
-  }
-
-  public class RunSetupInfo
-  {
-    public readonly ProtoChromosome ProtoChromosome;
-    public readonly int MixturesPerGeneration;
-    public readonly int RnnPerMixture;
-    public readonly int RbfPerMixture;
-    public readonly int SelectionSize;
-
-    public RunSetupInfo(ProtoChromosome protoChrom, int mixturesPerGen, int rnnPerMixture, int rbfPerMixture, int selectionSize)
-    {
-      ProtoChromosome = protoChrom;
-      MixturesPerGeneration = mixturesPerGen;
-      RnnPerMixture = rnnPerMixture;
-      RbfPerMixture = rbfPerMixture;
-      SelectionSize = selectionSize;
-    }
-  }
-
   public static class Functions
   {
     public static Run Evolve(Database db, IGenTrainer trainer, int numGenerations, RunSetupInfo v)
@@ -154,7 +116,7 @@ namespace Quqe
 
     static double MixtureFitness(Mixture m)
     {
-      return 0;
+      return QuqeUtil.Random.NextDouble();
     }
 
     public static double RandomGeneValue(ProtoGene gd)
