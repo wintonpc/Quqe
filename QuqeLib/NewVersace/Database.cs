@@ -37,10 +37,10 @@ namespace Quqe
       return Get<T>(id, GetTypeLookup<T>());
     }
 
-    public void Set<T>(T value, Func<T, ObjectId> getId) where T : MongoTopLevelObject
+    public void Store<T>(T value) where T : MongoTopLevelObject
     {
       StoreInMongo<T>(value);
-      GetTypeLookup<T>().Add(getId(value), value);
+      GetTypeLookup<T>().Add(value.Id, value);
     }
 
     T Get<T>(ObjectId id, Dictionary<ObjectId, object> typeLookup) where T : MongoTopLevelObject

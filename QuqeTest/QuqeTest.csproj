@@ -80,12 +80,17 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MongoTests.cs" />
-    <Compile Include="NewVersaceTests.cs" />
+    <Compile Include="NewVersace\DatabaseTests.cs" />
+    <Compile Include="NewVersace\FunctionTests.cs" />
+    <Compile Include="NewVersace\EvolutionTests.cs" />
+    <Compile Include="NewVersace\TestHelpers.cs" />
     <Compile Include="NNTestUtils.cs" />
+    <Compile Include="Pair.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QuqeMathLeaks.cs" />
     <Compile Include="RBFTests.cs" />
     <Compile Include="RNNTests.cs" />
+    <Compile Include="ShouldLookLike.cs" />
     <Compile Include="TestHelperHelpers.cs" />
     <Compile Include="TestHelpers.cs" />
     <Compile Include="Tests.cs" />

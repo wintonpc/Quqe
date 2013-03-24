@@ -101,7 +101,7 @@ namespace Quqe
       : base(db)
     {
       ProtoChromosome = protoChrom;
-      db.Set(this, x => x.Id);
+      db.Store(this);
     }
   }
 
@@ -119,7 +119,7 @@ namespace Quqe
     {
       RunId = run.Id;
       Order = order;
-      Database.Set(this, x => x.Id);
+      Database.Store(this);
     }
   }
 
@@ -145,7 +145,7 @@ namespace Quqe
     {
       GenerationId = gen.Id;
       Parents = parents.Select(x => x.Id).ToArray();
-      Database.Set(this, x => x.Id);
+      Database.Store(this);
     }
   }
 
@@ -159,7 +159,7 @@ namespace Quqe
       : base(gen.Database)
     {
       Fitness = fitness;
-      Database.Set(this, x => x.Id);
+      Database.Store(this);
     }
   }
 
@@ -174,7 +174,7 @@ namespace Quqe
     {
       MixtureId = mixture.Id;
       Fitness = fitness;
-      Database.Set(this, x => x.Id);
+      Database.Store(this);
     }
   }
 

@@ -18,7 +18,7 @@ namespace Quqe
     public RnnTrainRec(Database db, ObjectId mixtureId, Chromosome chromosome)
       : base(db, mixtureId, chromosome)
     {
-      Database.Set(this, x => x.Id);
+      Database.Store(this);
     }
   }
 
