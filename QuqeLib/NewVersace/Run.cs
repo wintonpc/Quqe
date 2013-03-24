@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Driver;
 using MongoDB.Driver.Builders;
+using PCW;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
@@ -89,6 +90,30 @@ namespace Quqe
     {
       NetworkType = networkType;
       Genes = genes.ToArray();
+    }
+
+    // input data window
+    public double TrainingOffsetPct { get { return GetGeneValue<double>("TrainingOffsetPct"); } }
+    public double TrainingSizePct { get { return GetGeneValue<double>("TrainingSizePct"); } }
+
+    // transformations
+    public DatabaseType DatabaseType { get { return GetGeneValue<DatabaseType>("DatabaseType"); } }
+    public bool UseComplementCoding { get { return GetGeneValue<bool>("UseComplementCoding"); } }
+    public bool UsePCA { get { return GetGeneValue<bool>("UsePCA"); } }
+    public int PrincipalComponent { get { return GetGeneValue<int>("PrincipalComponent"); } }
+
+    // RNN params
+    public int RnnTrainingEpochs { get { return GetGeneValue<int>("RnnTrainingEpochs"); } }
+    public int RnnLayer1NodeCount { get { return GetGeneValue<int>("RnnLayer1NodeCount"); } }
+    public int RnnLayer2NodeCount { get { return GetGeneValue<int>("RnnLayer2NodeCount"); } }
+
+    // RBF params
+    public double RbfNetTolerance { get { return GetGeneValue<double>("RbfNetTolerance"); } }
+    public double RbfGaussianSpread { get { return GetGeneValue<double>("RbfGaussianSpread"); } }
+
+    T GetGeneValue<T>(string name) where T : struct
+    {
+      return Genes.First(g => g.Name == name).Value.As<T>();
     }
   }
 

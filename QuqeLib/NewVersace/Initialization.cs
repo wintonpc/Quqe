@@ -33,7 +33,31 @@ namespace Quqe
       });
     }
 
-    public static Generation MakeInitialGeneration(Run run, RunSetupInfo setup, IGenTrainer trainer)
+    public static ProtoChromosome MakeFastProtoChromosome()
+    {
+      return new ProtoChromosome(new[] {
+        // input data window
+        ProtoGene.Create("TrainingOffsetPct", 0, 1, GeneType.Continuous),
+        ProtoGene.Create("TrainingSizePct", 0, 1, GeneType.Continuous),
+        
+        // transformations
+        ProtoGene.Create("DatabaseType", 0, 1, GeneType.Discrete),
+        ProtoGene.CreateBoolean("UseComplementCoding"),
+        ProtoGene.CreateBoolean("UsePCA"),
+        ProtoGene.Create("PrincipalComponent", 0, 100, GeneType.Discrete),
+
+        // RNN params
+        ProtoGene.Create("RnnTrainingEpochs", 20, 100, GeneType.Discrete),
+        ProtoGene.Create("RnnLayer1NodeCount", 3, 40, GeneType.Discrete),
+        ProtoGene.Create("RnnLayer2NodeCount", 3, 10, GeneType.Discrete),
+
+        // RBF params
+        ProtoGene.Create("RbfNetTolerance", 0, 1, GeneType.Continuous),
+        ProtoGene.Create("RbfGaussianSpread", 0.1, 10, GeneType.Continuous),
+      });
+    }
+
+    public static Generation MakeInitialGeneration(TrainingSeed seed, Run run, RunSetupInfo setup, IGenTrainer trainer)
     {
       var gen = new Generation(run, -1);
 
@@ -50,7 +74,7 @@ namespace Quqe
 
       var pop = List.Repeat(setup.MixturesPerGeneration, _ => makeMixture()).Select(makeMixtureInfo);
 
-      trainer.Train(gen, pop, _ => { });
+      trainer.Train(seed, gen, pop, _ => { });
 
       return gen;
     }

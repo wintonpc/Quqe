@@ -12,20 +12,20 @@ namespace Quqe
 {
   public static partial class Functions
   {
-    public static Run Evolve(Database db, IGenTrainer trainer, int numGenerations, RunSetupInfo v)
+    public static Run Evolve(Database db, IGenTrainer trainer, TrainingSeed seed, int numGenerations, RunSetupInfo v)
     {
       var run = new Run(db, v.ProtoChromosome);
-      var initialGen = Initialization.MakeInitialGeneration(run, v, trainer);
+      var initialGen = Initialization.MakeInitialGeneration(seed, run, v, trainer);
 
       List.Iterate(numGenerations, initialGen, (i, gen) =>
-        Train(trainer, run, i, Mutate(Combine(v.MixturesPerGeneration, Select(v.SelectionSize, Evaluate(gen.Mixtures))))));
+        Train(trainer, seed, run, i, Mutate(Combine(v.MixturesPerGeneration, Select(v.SelectionSize, Evaluate(gen.Mixtures))))));
       return run;
     }
 
-    static Generation Train(IGenTrainer trainer, Run run, int generationNum, MixtureInfo[] pop)
+    static Generation Train(IGenTrainer trainer, TrainingSeed seed, Run run, int generationNum, MixtureInfo[] pop)
     {
       var gen = new Generation(run, generationNum);
-      trainer.Train(gen, pop.Select(mi => new MixtureInfo(new Mixture(gen, mi.Parents).Id, mi.Chromosomes)),
+      trainer.Train(seed, gen, pop.Select(mi => new MixtureInfo(new Mixture(gen, mi.Parents).Id, mi.Chromosomes)),
         progress => Trace.WriteLine(string.Format("Generation {0}: Trained {1} of {2}",
           generationNum, progress.Completed, progress.Total)));
       return gen;
@@ -44,7 +44,7 @@ namespace Quqe
 
     static double MixtureFitness(Mixture m)
     {
-      return QuqeUtil.Random.NextDouble();
+      throw new NotImplementedException();
     }
 
     static MixtureEval[] Select(int selectionSize, IEnumerable<MixtureEval> ms)

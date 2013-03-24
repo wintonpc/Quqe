@@ -37,7 +37,11 @@ namespace Quqe
     }
   }
 
-  public enum DatabaseType { A, B }
+  public enum DatabaseType
+  {
+    A = 0,
+    B = 1
+  }
 
   public interface IPredictor : IDisposable
   {

@@ -9,6 +9,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Machine.Specifications;
 using MongoDB.Bson;
+using System.Diagnostics;
+using PCW;
 
 namespace QuqeTest
 {
@@ -22,12 +24,16 @@ namespace QuqeTest
       var db = new Database(mongoDb);
 
       var runSetup = new RunSetupInfo(Initialization.MakeProtoChromosome(), 10, 6, 4, 5);
-      var run = Functions.Evolve(db, new FakeTrainer(), 1, runSetup);
+      var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
+      var run = Functions.Evolve(db, new FakeTrainer(), seed, 1, runSetup);
       run.Id.ShouldBeOfType<ObjectId>();
       run.ProtoChromosome.Genes.Length.ShouldEqual(11);
 
       run.Generations.Length.ShouldEqual(1 + 1);
       var gen0 = run.Generations.First();
+
+      var dbTypes = gen0.Mixtures.First().Experts.Select(x => x.Chromosome.DatabaseType).Distinct();
+      dbTypes.Count().ShouldEqual(2);
 
       gen0.Id.ShouldBeOfType<ObjectId>();
       gen0.Order.ShouldEqual(0);
@@ -37,12 +43,25 @@ namespace QuqeTest
     }
 
     [Test]
+    public void LocalEvolveTest()
+    {
+      var mongoDb = TestHelpers.GetCleanDatabase();
+      var db = new Database(mongoDb);
+
+      var runSetup = new RunSetupInfo(Initialization.MakeProtoChromosome(), 10, 10, 0, 5);
+      var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
+      var run = Functions.Evolve(db, new LocalTrainer(), seed, 3, runSetup);
+      Trace.WriteLine("Generation fitnesses: " + run.Generations.Select(x => x.Evaluated.Fitness).Join(", "));
+    }
+
+    [Test]
     public void MixtureCrossover()
     {
       var db = new Database(TestHelpers.GetCleanDatabase());
       var protoChrom = Initialization.MakeProtoChromosome();
       var run = new Run(db, protoChrom);
-      var gen = Initialization.MakeInitialGeneration(run, new RunSetupInfo(protoChrom, 2, 10, 0, 10), new FakeTrainer());
+      var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
+      var gen = Initialization.MakeInitialGeneration(seed, run, new RunSetupInfo(protoChrom, 2, 10, 0, 10), new FakeTrainer());
       gen.Mixtures.Length.ShouldEqual(2);
       var m1 = gen.Mixtures[0];
       var m2 = gen.Mixtures[1];
