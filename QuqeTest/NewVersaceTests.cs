@@ -24,7 +24,7 @@ namespace QuqeTest
       var mongoDb = server.GetDatabase("test");
       var db = new Database(mongoDb);
 
-      var runSetup = new RunSetupInfo(Initialization.MakeProtoChromosome(), 10, 6, 4);
+      var runSetup = new RunSetupInfo(Initialization.MakeProtoChromosome(), 10, 6, 4, 5);
       var run = Functions.Evolve(db, new LocalTrainer(), 1, runSetup);
       run.Id.ShouldBeOfType<ObjectId>();
       run.ProtoChromosome.Genes.Length.ShouldEqual(11);

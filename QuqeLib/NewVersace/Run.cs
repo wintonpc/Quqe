@@ -72,6 +72,11 @@ namespace Quqe
       Name = name;
       Value = value;
     }
+
+    public ProtoGene GetProto(Run run)
+    {
+      return run.ProtoChromosome.Genes.First(x => x.Name == this.Name);
+    }
   }
 
   public class Chromosome
