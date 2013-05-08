@@ -12,7 +12,7 @@ namespace Quqe
   {
     public static void DownloadData(string predictedSymbol, DateTime start, DateTime end)
     {
-      var dir = @"c:\users\wintonpc\git\Quqe\Share\VersaceData";
+      var dir = @"d:\users\wintonpc\git\Quqe\Share\VersaceData";
       if (!Directory.Exists(dir))
         Directory.CreateDirectory(dir);
 

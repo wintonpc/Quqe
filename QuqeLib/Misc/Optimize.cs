@@ -57,7 +57,7 @@ namespace Quqe
     public string GenomeName;
     public double Fitness;
 
-    public static readonly string StrategyDir = @"c:\Users\Wintonpc\git\Quqe\Share\Strategies";
+    public static readonly string StrategyDir = @"d:\Users\Wintonpc\git\Quqe\Share\Strategies";
     public override string ToString()
     {
       var sb = new StringBuilder();

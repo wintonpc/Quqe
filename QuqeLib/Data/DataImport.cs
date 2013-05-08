@@ -9,12 +9,12 @@ namespace Quqe
   {
     public static DataSeries<Bar> Load(string symbol)
     {
-      return new DataSeries<Bar>(symbol, DataImport.LoadNinjaBars(@"c:\users\wintonpc\git\Quqe\Share\" + symbol + ".txt"));
+      return new DataSeries<Bar>(symbol, DataImport.LoadNinjaBars(@"d:\users\wintonpc\git\Quqe\Share\" + symbol + ".txt"));
     }
 
     public static DataSeries<Bar> LoadVersace(string symbol)
     {
-      return new DataSeries<Bar>(symbol, DataImport.LoadNinjaBars(@"c:\users\wintonpc\git\Quqe\Share\VersaceData\" + symbol + ".txt"));
+      return new DataSeries<Bar>(symbol, DataImport.LoadNinjaBars(@"d:\users\wintonpc\git\Quqe\Share\VersaceData\" + symbol + ".txt"));
     }
 
     public static List<Bar> LoadNinjaBars(string fn)

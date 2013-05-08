@@ -236,7 +236,7 @@ namespace QuqeTest
     [TestMethod]
     public void DirWatch()
     {
-      var dw = new DirectoryWatcher<object>(@"c:\users\wintonpc", "*", fn => fn);
+      var dw = new DirectoryWatcher<object>(@"d:\users\wintonpc", "*", fn => fn);
       SyncContext.Current.Run();
     }
 
