@@ -1,5 +1,6 @@
 - More tests
 - write to mongo instead of files
+- stock data needs to be in mongo as a central place for workers to access it.
 - distribute with rabbit
 - analyze with D3
 - try to eliminate GC manipulation

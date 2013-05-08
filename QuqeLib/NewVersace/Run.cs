@@ -137,7 +137,7 @@ namespace Quqe
 
     public int Order { get; private set; }
     public Mixture[] Mixtures { get { return Database.QueryAll<Mixture>(x => x.GenerationId == this.Id); } }
-    public GenEval Evaluated { get { return Database.QueryAll<GenEval>(x => x.GenerationId == this.Id).Single(); } }
+    public GenEval Evaluated { get { return Database.QueryOne<GenEval>(x => x.GenerationId == this.Id); } }
 
     public Generation(Run run, int order)
       : base(run.Database)
@@ -165,7 +165,7 @@ namespace Quqe
         return rnnExperts.Concat<Expert>(rbfExperts).ToArray();
       }
     }
-    public MixtureEval Evaluated { get { return Database.QueryAll<MixtureEval>(x => x.MixtureId == this.Id).Single(); } }
+    public MixtureEval Evaluated { get { return Database.QueryOne<MixtureEval>(x => x.MixtureId == this.Id); } }
 
     public Mixture(Generation gen, IEnumerable<Mixture> parents)
       : base(gen.Database)
