@@ -32,6 +32,11 @@ namespace Quqe
       return items;
     }
 
+    public T QueryOne<T>(Expression<Func<T, bool>> predicate) where T : MongoTopLevelObject
+    {
+      return QueryAll(predicate).Single();
+    }
+
     public T Get<T>(ObjectId id) where T: MongoTopLevelObject
     {
       return Get<T>(id, GetTypeLookup<T>());
