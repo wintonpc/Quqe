@@ -117,6 +117,30 @@ namespace Quqe
     }
   }
 
+  public class ProtoRun : MongoTopLevelObject
+  {
+    public string Name { get; private set; }
+    public int NumGenerations { get; private set; }
+    public ProtoChromosome ProtoChromosome { get; private set; }
+    public int MixturesPerGeneration { get; private set; }
+    public int RnnPerMixture { get; private set; }
+    public int RbfPerMixture { get; private set; }
+    public int SelectionSize { get; private set; }
+
+    public ProtoRun(Database db, string name, int numGenerations, ProtoChromosome protoChrom, int mixturesPerGen, int rnnPerMixture, int rbfPerMixture, int selectionSize)
+      : base(db)
+    {
+      Name = name;
+      NumGenerations = numGenerations;
+      ProtoChromosome = protoChrom; MixturesPerGeneration = mixturesPerGen;
+      RnnPerMixture = rnnPerMixture;
+      RbfPerMixture = rbfPerMixture;
+      SelectionSize = selectionSize;
+
+      db.Store(this);
+    }
+  }
+
   public class Run : MongoTopLevelObject
   {
     public ProtoChromosome ProtoChromosome { get; private set; }

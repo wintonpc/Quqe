@@ -55,9 +55,9 @@ namespace QuqeTest
     {
       var numInputs = trainingData.Input.RowCount;
       var layers = new List<LayerSpec> {
-        new LayerSpec { NodeCount = layer1NodeCount, IsRecurrent = true, ActivationType = ActivationType.LogisticSigmoid },
-        new LayerSpec { NodeCount = layer2NodeCount, IsRecurrent = true, ActivationType = ActivationType.LogisticSigmoid },
-        new LayerSpec { NodeCount = 1, IsRecurrent = false, ActivationType = ActivationType.Linear }
+        new LayerSpec(layer1NodeCount, true, ActivationType.LogisticSigmoid),
+        new LayerSpec(layer2NodeCount, true, ActivationType.LogisticSigmoid),
+        new LayerSpec(1, false, ActivationType.Linear)
       };
 
       var weightCount = RNN.GetWeightCount(layers, numInputs);

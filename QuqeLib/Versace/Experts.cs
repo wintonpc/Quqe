@@ -120,12 +120,12 @@ namespace Quqe
         throw new Exception("Expert has already been trained.");
 
       Func<int, LayerSpec> logisticSigmoidRecurrent = nodeCount =>
-        new LayerSpec { NodeCount = nodeCount, ActivationType = ActivationType.LogisticSigmoid, IsRecurrent = true };
+                                                      new LayerSpec(nodeCount, true, ActivationType.LogisticSigmoid);
 
       var layers = new List<LayerSpec> {
         logisticSigmoidRecurrent(Chromosome.ElmanHidden1NodeCount),
         logisticSigmoidRecurrent(Chromosome.ElmanHidden2NodeCount),
-        new LayerSpec { NodeCount = 1, ActivationType = ActivationType.Linear, IsRecurrent = false }
+        new LayerSpec(1, false, ActivationType.Linear)
       };
       var trainingData = inputs.ColumnsToMatrix();
       var epochMax = Chromosome.ElmanTrainingEpochs;

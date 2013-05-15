@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe
 {
@@ -28,21 +30,17 @@ namespace Quqe
     }
   }
 
-  public class RunSetupInfo
+  public class RnnTrainRecInfo
   {
-    public readonly ProtoChromosome ProtoChromosome;
-    public readonly int MixturesPerGeneration;
-    public readonly int RnnPerMixture;
-    public readonly int RbfPerMixture;
-    public readonly int SelectionSize;
+    public readonly Vec InitialWeights;
+    public readonly MRnnSpec RnnSpec;
+    public readonly double[] CostHistory;
 
-    public RunSetupInfo(ProtoChromosome protoChrom, int mixturesPerGen, int rnnPerMixture, int rbfPerMixture, int selectionSize)
+    public RnnTrainRecInfo(Vec initialWeights, MRnnSpec rnnSpec, IEnumerable<double> costHistory)
     {
-      ProtoChromosome = protoChrom;
-      MixturesPerGeneration = mixturesPerGen;
-      RnnPerMixture = rnnPerMixture;
-      RbfPerMixture = rbfPerMixture;
-      SelectionSize = selectionSize;
+      InitialWeights = initialWeights;
+      RnnSpec = rnnSpec;
+      CostHistory = costHistory.ToArray();
     }
   }
 }

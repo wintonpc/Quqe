@@ -96,21 +96,9 @@ namespace QuqeTest
     static List<LayerSpec> MakeLayers()
     {
       return new List<LayerSpec> {
-        new LayerSpec {
-          NodeCount = 100,
-          ActivationType = ActivationType.LogisticSigmoid,
-          IsRecurrent = true
-        },
-        new LayerSpec {
-          NodeCount = 100,
-          ActivationType = ActivationType.LogisticSigmoid,
-          IsRecurrent = true
-        },
-        new LayerSpec {
-          NodeCount = 1,
-          ActivationType = ActivationType.Linear,
-          IsRecurrent = false
-        }
+        new LayerSpec(100, true, ActivationType.LogisticSigmoid),
+        new LayerSpec(100, true, ActivationType.LogisticSigmoid),
+        new LayerSpec(1, false, ActivationType.Linear)
       };
     }
   }

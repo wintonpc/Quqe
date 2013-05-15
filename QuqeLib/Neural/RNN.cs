@@ -10,9 +10,16 @@ namespace Quqe
 
   public class LayerSpec
   {
-    public int NodeCount;
-    public bool IsRecurrent;
-    public ActivationType ActivationType;
+    public readonly int NodeCount;
+    public readonly bool IsRecurrent;
+    public readonly ActivationType ActivationType;
+
+    public LayerSpec(int nodeCount, bool isRecurrent, ActivationType activationType)
+    {
+      NodeCount = nodeCount;
+      IsRecurrent = isRecurrent;
+      ActivationType = activationType;
+    }
   }
 
   public class RNNSpec
@@ -21,10 +28,10 @@ namespace Quqe
     public readonly List<LayerSpec> Layers;
     public readonly Vec Weights;
 
-    public RNNSpec(int numInputs, List<LayerSpec> layers, Vec weights)
+    public RNNSpec(int numInputs, IEnumerable<LayerSpec> layers, Vec weights)
     {
       NumInputs = numInputs;
-      Layers = layers;
+      Layers = layers.ToList();
       Weights = weights;
     }
   }

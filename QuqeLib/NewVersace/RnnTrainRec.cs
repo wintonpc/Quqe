@@ -26,29 +26,27 @@ namespace Quqe
     }
   }
 
-  public class RnnTrainRecInfo
-  {
-    public readonly Vec InitialWeights;
-    public readonly MRnnSpec RnnSpec;
-    public readonly double[] CostHistory;
-
-    public RnnTrainRecInfo(Vec initialWeights, MRnnSpec rnnSpec, IEnumerable<double> costHistory)
-    {
-      InitialWeights = initialWeights;
-      RnnSpec = rnnSpec;
-      CostHistory = costHistory.ToArray();
-    }
-  }
-
   public class MRnnSpec
   {
     public int NumInputs { get; private set; }
     public MLayerSpec[] Layers { get; private set; }
+    public Vec Weights { get; private set; }
 
-    public MRnnSpec(int numInputs, IEnumerable<MLayerSpec> layers)
+    public MRnnSpec(int numInputs, IEnumerable<MLayerSpec> layers, Vec weights)
     {
       NumInputs = numInputs;
       Layers = layers.ToArray();
+      Weights = weights;
+    }
+
+    public static MRnnSpec FromRNNSpec(RNNSpec s)
+    {
+      return new MRnnSpec(s.NumInputs, s.Layers.Select(sl => new MLayerSpec(sl.NodeCount, sl.IsRecurrent, sl.ActivationType)), s.Weights);
+    }
+
+    public RNNSpec ToRNNSpec()
+    {
+      return new RNNSpec(this.NumInputs, this.Layers.Select(l => new LayerSpec(l.NodeCount, l.IsRecurrent, l.ActivationType)), this.Weights);
     }
   }
 

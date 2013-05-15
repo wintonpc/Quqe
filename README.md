@@ -22,3 +22,6 @@
   - store Expert
   - broadcast training notification
   
+  
+- TODO
+  - finish implementing Evolve() and helpers

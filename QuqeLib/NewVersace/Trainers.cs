@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using PCW;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
@@ -96,7 +97,7 @@ namespace Quqe
     void Train(Database db, ObjectId mixtureId, Chromosome chrom)
     {
       if (chrom.NetworkType == NetworkType.Rnn)
-        new RnnTrainRec(db, mixtureId, chrom, null, null, null);
+        new RnnTrainRec(db, mixtureId, chrom, null, null, new List<double>());
       else
         new RbfTrainRec(db, mixtureId, chrom);
     }

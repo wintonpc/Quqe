@@ -57,22 +57,22 @@ namespace Quqe
       });
     }
 
-    public static Generation MakeInitialGeneration(TrainingSeed seed, Run run, RunSetupInfo setup, IGenTrainer trainer)
+    public static Generation MakeInitialGeneration(TrainingSeed seed, Run run, ProtoRun protoRun, IGenTrainer trainer)
     {
       var gen = new Generation(run, -1);
 
       Func<int, NetworkType, Chromosome[]> makeChromosomes = (n, type) =>
-        List.Repeat(n, _ => RandomChromosome(type, setup.ProtoChromosome)).ToArray();
+        List.Repeat(n, _ => RandomChromosome(type, protoRun.ProtoChromosome)).ToArray();
 
       Func<Chromosome[]> makeMixtureChromosomes = () =>
-        makeChromosomes(setup.RnnPerMixture, NetworkType.Rnn).Concat(
-        makeChromosomes(setup.RbfPerMixture, NetworkType.Rbf)).ToArray();
+        makeChromosomes(protoRun.RnnPerMixture, NetworkType.Rnn).Concat(
+        makeChromosomes(protoRun.RbfPerMixture, NetworkType.Rbf)).ToArray();
 
       Func<Mixture> makeMixture = () => new Mixture(gen, new Mixture[0]);
 
       Func<Mixture, MixtureInfo> makeMixtureInfo = m => new MixtureInfo(m.Id, makeMixtureChromosomes());
 
-      var pop = List.Repeat(setup.MixturesPerGeneration, _ => makeMixture()).Select(makeMixtureInfo);
+      var pop = List.Repeat(protoRun.MixturesPerGeneration, _ => makeMixture()).Select(makeMixtureInfo);
 
       trainer.Train(seed, gen, pop, _ => { });
 

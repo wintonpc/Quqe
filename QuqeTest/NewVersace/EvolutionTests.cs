@@ -23,9 +23,9 @@ namespace QuqeTest
       var mongoDb = TestHelpers.GetCleanDatabase();
       var db = new Database(mongoDb);
 
-      var runSetup = new RunSetupInfo(Initialization.MakeProtoChromosome(), 10, 6, 4, 5);
+      var protoRun = new ProtoRun(db, "EvolveTest", 1, Initialization.MakeProtoChromosome(), 10, 6, 4, 5);
       var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
-      var run = Functions.Evolve(db, new FakeTrainer(), seed, 1, runSetup);
+      var run = Functions.Evolve(protoRun, new FakeTrainer(), seed);
       run.Id.ShouldBeOfType<ObjectId>();
       run.ProtoChromosome.Genes.Length.ShouldEqual(11);
 
@@ -48,9 +48,9 @@ namespace QuqeTest
       var mongoDb = TestHelpers.GetCleanDatabase();
       var db = new Database(mongoDb);
 
-      var runSetup = new RunSetupInfo(Initialization.MakeProtoChromosome(), 10, 10, 0, 5);
+      var protoRun = new ProtoRun(db, "LocalEvolveTest", 3, Initialization.MakeProtoChromosome(), 10, 10, 0, 5);
       var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
-      var run = Functions.Evolve(db, new LocalTrainer(), seed, 3, runSetup);
+      var run = Functions.Evolve(protoRun, new LocalTrainer(), seed);
       Trace.WriteLine("Generation fitnesses: " + run.Generations.Select(x => x.Evaluated.Fitness).Join(", "));
     }
 
@@ -61,7 +61,8 @@ namespace QuqeTest
       var protoChrom = Initialization.MakeProtoChromosome();
       var run = new Run(db, protoChrom);
       var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
-      var gen = Initialization.MakeInitialGeneration(seed, run, new RunSetupInfo(protoChrom, 2, 10, 0, 10), new FakeTrainer());
+      var protoRun = new ProtoRun(db, "MixtureCrossoverTest", -1, protoChrom, 2, 10, 0, 10);
+      var gen = Initialization.MakeInitialGeneration(seed, run, protoRun, new FakeTrainer());
       gen.Mixtures.Length.ShouldEqual(2);
       var m1 = gen.Mixtures[0];
       var m2 = gen.Mixtures[1];

@@ -40,9 +40,9 @@ namespace Quqe
     public bool IsDegenerate { get; private set; }
     public int NumCenters { get { return Bases.Count; } }
 
-    RBFNet(List<RadialBasis> bases, double outputBias, double spread, bool isDegenerate)
+    public RBFNet(IEnumerable<RadialBasis> bases, double outputBias, double spread, bool isDegenerate)
     {
-      Bases = bases;
+      Bases = bases.ToList();
       OutputBias = outputBias;
       Spread = spread;
       IsDegenerate = isDegenerate;

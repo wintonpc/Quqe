@@ -27,5 +27,21 @@ namespace Quqe
   {
     public readonly Vec Center;
     public readonly double Weight;
+
+    public MRadialBasis(Vec center, double weight)
+    {
+      Center = center;
+      Weight = weight;
+    }
+
+    public static MRadialBasis FromRadialBasis(RadialBasis rb)
+    {
+      return new MRadialBasis(rb.Center, rb.Weight);
+    }
+
+    public RadialBasis ToRadialBasis()
+    {
+      return new RadialBasis(this.Center, this.Weight);
+    }
   }
 }

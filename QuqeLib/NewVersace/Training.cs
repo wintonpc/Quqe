@@ -19,12 +19,12 @@ namespace Quqe
       var output = data.Item2;
 
       Func<int, LayerSpec> logisticSigmoidRecurrent = nodeCount =>
-        new LayerSpec { NodeCount = nodeCount, ActivationType = ActivationType.LogisticSigmoid, IsRecurrent = true };
+        new LayerSpec(nodeCount, true, ActivationType.LogisticSigmoid);
 
       var layers = new List<LayerSpec> {
         logisticSigmoidRecurrent(seed.Chromosome.RnnLayer1NodeCount),
         logisticSigmoidRecurrent(seed.Chromosome.RnnLayer2NodeCount),
-        new LayerSpec { NodeCount = 1, ActivationType = ActivationType.Linear, IsRecurrent = false }
+        new LayerSpec(1, false, ActivationType.Linear)
       };
       var epochMax = seed.Chromosome.RnnTrainingEpochs;
 
@@ -33,9 +33,7 @@ namespace Quqe
       var initialWeights = RNN.MakeRandomWeights(rnnWeightCount);
       var trainResult = RNN.TrainSCG(layers, initialWeights, epochMax, input, output);
 
-      var spec = trainResult.RNNSpec;
-      var mRnnSpec = new MRnnSpec(spec.NumInputs, spec.Layers.Select(x => new MLayerSpec(x.NodeCount, x.IsRecurrent, x.ActivationType)));
-      return new RnnTrainRecInfo(initialWeights, mRnnSpec, trainResult.CostHistory);
+      return new RnnTrainRecInfo(initialWeights, MRnnSpec.FromRNNSpec(trainResult.RNNSpec), trainResult.CostHistory);
     }
 
     public static Tuple<Mat, Vec> PrepareData(ExpertSeed seed)
