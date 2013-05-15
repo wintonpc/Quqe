@@ -210,14 +210,14 @@ namespace QuqeViz
     {
       var fn = Directory.EnumerateFiles("VersaceResults").OrderByDescending(x => new FileInfo(x).LastWriteTime).First();
       //var vr = VersaceResult.Load(fn);
-      var vr = VersaceResult.Load("VersaceResults/VersaceResult-20121015-065326.xml");
-      var m = vr.BestMixture;
+      //var vr = VersaceResult.Load("VersaceResults/VersaceResult-20121015-065326.xml");
+      //var m = vr.BestMixture;
       //m.Dump();
 
-      var ch = new EqPlotWindow();
-      ch.EqPlot.Bounds = new Rect(0, vr.FitnessHistory.Min(), vr.FitnessHistory.Count, vr.FitnessHistory.Max() - vr.FitnessHistory.Min());
-      ch.EqPlot.DrawLine(List.Repeat(vr.FitnessHistory.Count, i => new Point(i, vr.FitnessHistory[i])), Colors.Blue);
-      ch.Show();
+      //var ch = new EqPlotWindow();
+      //ch.EqPlot.Bounds = new Rect(0, vr.FitnessHistory.Min(), vr.FitnessHistory.Count, vr.FitnessHistory.Max() - vr.FitnessHistory.Min());
+      //ch.EqPlot.DrawLine(List.Repeat(vr.FitnessHistory.Count, i => new Point(i, vr.FitnessHistory[i])), Colors.Blue);
+      //ch.Show();
 
       //m.Reset();
       //var output = Versace.TestingInput.Columns().Select(x => (double)Math.Sign(m.Predict(x))).ToList();

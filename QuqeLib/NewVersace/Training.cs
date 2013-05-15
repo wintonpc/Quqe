@@ -33,7 +33,7 @@ namespace Quqe
       var initialWeights = RNN.MakeRandomWeights(rnnWeightCount);
       var trainResult = RNN.TrainSCG(layers, initialWeights, epochMax, input, output);
 
-      return new RnnTrainRecInfo(initialWeights, MRnnSpec.FromRNNSpec(trainResult.RNNSpec), trainResult.CostHistory);
+      return new RnnTrainRecInfo(initialWeights, MRnnSpec.FromRnnSpec(trainResult.RNNSpec), trainResult.CostHistory);
     }
 
     public static Tuple<Mat, Vec> PrepareData(ExpertSeed seed)
@@ -43,9 +43,10 @@ namespace Quqe
       return new Tuple<Mat, Vec>(inputs.ColumnsToMatrix(), outputs);
     }
 
-    public static void TrainRbf(Database db, ObjectId mixtureId, Chromosome chrom)
+    public static RbfTrainRecInfo TrainRbf(ExpertSeed seed)
     {
-      throw new NotImplementedException();
+      var rbf = RBFNet.Train(seed.Input, seed.Output, seed.Chromosome.RbfNetTolerance, seed.Chromosome.RbfGaussianSpread);
+      return new RbfTrainRecInfo(rbf.Bases.Select(MRadialBasis.FromRadialBasis), rbf.OutputBias, rbf.Spread, rbf.IsDegenerate);
     }
 
     public static Tuple2<int> GetDataWindowOffsetAndSize(int count, Chromosome chrom)

@@ -43,4 +43,20 @@ namespace Quqe
       CostHistory = costHistory.ToArray();
     }
   }
+
+  public class RbfTrainRecInfo
+  {
+    public readonly MRadialBasis[] Bases;
+    public readonly double OutputBias;
+    public readonly double Spread;
+    public readonly bool IsDegenerate;
+
+    public RbfTrainRecInfo(IEnumerable<MRadialBasis> bases, double outputBias, double spread, bool isDegenerate)
+    {
+      Bases = bases.ToArray();
+      OutputBias = outputBias;
+      Spread = spread;
+      IsDegenerate = isDegenerate;
+    }
+  }
 }

@@ -49,7 +49,12 @@ namespace Quqe
 
     static double MixturePredict(Mixture m, Vec inputs)
     {
-      return Math.Sign(m.Experts.Average(expert => MakePredictor(expert).Predict(inputs)));
+      //return Math.Sign(m.Experts.Average(expert => MakePredictor(expert).Predict(inputs)));
+      var outputs = m.Experts.Select(expert => {
+        var p = MakePredictor(expert).Predict(inputs);
+        return p;
+      }).ToArray();
+      return Math.Sign(outputs.Average());
     }
 
     static IPredictor MakePredictor(Expert expert)
@@ -57,7 +62,7 @@ namespace Quqe
       if (expert is RnnTrainRec)
       {
         var trainRec = (RnnTrainRec)expert;
-        return new RNN(trainRec.RnnSpec.ToRNNSpec());
+        return new RNN(trainRec.RnnSpec.ToRnnSpec());
       }
       else if (expert is RbfTrainRec)
       {

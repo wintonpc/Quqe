@@ -62,17 +62,5 @@ namespace Quqe
     public DateTime TrainingEnd { get { return ValidationStart.AddDays(-1); } }
     public DateTime ValidationStart { get { return StartDate.AddMilliseconds(EndDate.Subtract(StartDate).TotalMilliseconds * (double)SplitPct / 100).Date; } }
     public DateTime ValidationEnd { get { return EndDate; } }
-
-    public static VersaceSettings Load(string fn)
-    {
-      var s = XSer.Read<VersaceSettings>(XElement.Load(fn));
-      s.Path = fn;
-      return s;
-    }
-
-    public VersaceSettings Clone()
-    {
-      return XSer.Read<VersaceSettings>(XSer.Write(this));
-    }
   }
 }

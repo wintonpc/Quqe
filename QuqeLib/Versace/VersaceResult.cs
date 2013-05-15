@@ -11,9 +11,7 @@ namespace Quqe
   {
     public string Path { get; private set; }
     public VMixture BestMixture;
-    [Base64]
     public List<double> FitnessHistory;
-    [Base64]
     public List<double> DiversityHistory;
     public VersaceSettings VersaceSettings;
 
@@ -30,19 +28,6 @@ namespace Quqe
     public VersaceResult(VMixture bestMixture, List<PopulationInfo> history, VersaceSettings settings, string path = null)
       : this(bestMixture, history.Select(x => x.Fitness).ToList(), history.Select(x => x.Diversity).ToList(), settings, path)
     {
-    }
-
-    public void Save()
-    {
-      if (!Directory.Exists("VersaceResults"))
-        Directory.CreateDirectory("VersaceResults");
-      Path = string.Format("VersaceResults\\VersaceResult-{0:yyyyMMdd}-{0:HHmmss}.xml", DateTime.Now);
-      XSer.Write(this).Save(Path);
-    }
-
-    public static VersaceResult Load(string fn)
-    {
-      return XSer.Read<VersaceResult>(XElement.Load(fn));
     }
   }
 }

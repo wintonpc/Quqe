@@ -4,8 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
+using Quqe.NewVersace;
 
 namespace Quqe
 {
@@ -25,6 +27,7 @@ namespace Quqe
 
   public class MRadialBasis
   {
+    [BsonSerializer(typeof(VectorSerializer))]
     public readonly Vec Center;
     public readonly double Weight;
 

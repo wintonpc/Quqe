@@ -80,7 +80,6 @@
     <Compile Include="Data\DataImport.cs" />
     <Compile Include="Data\DataSeries.cs" />
     <Compile Include="Data\Indicators.cs" />
-    <Compile Include="Misc\CustomMarshalers.cs" />
     <Compile Include="Misc\MatrixExtensions.cs" />
     <Compile Include="Misc\Optimize.cs" />
     <Compile Include="Misc\Orphans.cs" />
@@ -90,6 +89,7 @@
     <Compile Include="NewVersace\Functions.cs" />
     <Compile Include="NewVersace\GenericFunctions.cs" />
     <Compile Include="NewVersace\Initialization.cs" />
+    <Compile Include="NewVersace\LittleEndian.cs" />
     <Compile Include="NewVersace\MathEx.cs" />
     <Compile Include="NewVersace\MongoTopLevelObject.cs" />
     <Compile Include="NewVersace\Preprocessing.cs" />
@@ -98,6 +98,7 @@
     <Compile Include="NewVersace\Run.cs" />
     <Compile Include="NewVersace\Trainers.cs" />
     <Compile Include="NewVersace\Training.cs" />
+    <Compile Include="NewVersace\VectorSerializer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Neural\RBFNet.cs" />
     <Compile Include="Neural\RNN.cs" />
@@ -122,10 +123,6 @@
     <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">
       <Project>{2BFAD437-7AF7-4F7B-B0FD-8305F6CF3392}</Project>
       <Name>PCW</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\XSer\XSer\XSer.csproj">
-      <Project>{34efc897-1141-4603-b294-43da05ae9cd4}</Project>
-      <Name>XSer</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

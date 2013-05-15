@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MathNet.Numerics.LinearAlgebra.Double;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using PCW;
@@ -53,14 +54,18 @@ namespace Quqe
     }
 
     public ExpertSeed(Chromosome chrom, TrainingSeed seed)
-      : this(chrom, seed.Input, seed.Output, seed.DatabaseAInputLength) { }
+      : this(chrom, seed.Input, seed.Output, seed.DatabaseAInputLength)
+    {
+    }
   }
 
   public class LocalTrainer : IGenTrainer
   {
+    public virtual bool ExertMinimalErrort { get { return false; } }
+
     public void Train(TrainingSeed seed, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
     {
-      var total = population.Count() * population.First().Chromosomes.Length;
+      var total = population.Count()*population.First().Chromosomes.Length;
       var numTrained = 0;
       foreach (var mi in population)
         foreach (var chrom in mi.Chromosomes)
@@ -79,27 +84,12 @@ namespace Quqe
           var record = Training.TrainRnn(seed);
           new RnnTrainRec(db, mixtureId, seed.Chromosome, record.InitialWeights, record.RnnSpec, record.CostHistory);
           break;
-        case NetworkType.Rbf: Training.TrainRbf(db, mixtureId, seed.Chromosome); break;
-        default: throw new Exception("Unexpected network type: " + seed.Chromosome.NetworkType);
+        case NetworkType.Rbf:
+          Training.TrainRbf(seed);
+          break;
+        default:
+          throw new Exception("Unexpected network type: " + seed.Chromosome.NetworkType);
       }
-    }
-  }
-
-  public class FakeTrainer : IGenTrainer
-  {
-    public void Train(TrainingSeed seed, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
-    {
-      foreach (var mi in population)
-        foreach (var chrom in mi.Chromosomes)
-          Train(gen.Database, mi.MixtureId, chrom);
-    }
-
-    void Train(Database db, ObjectId mixtureId, Chromosome chrom)
-    {
-      if (chrom.NetworkType == NetworkType.Rnn)
-        new RnnTrainRec(db, mixtureId, chrom, null, null, new List<double>());
-      else
-        new RbfTrainRec(db, mixtureId, chrom);
     }
   }
 }

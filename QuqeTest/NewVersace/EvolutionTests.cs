@@ -23,9 +23,9 @@ namespace QuqeTest
       var mongoDb = TestHelpers.GetCleanDatabase();
       var db = new Database(mongoDb);
 
-      var protoRun = new ProtoRun(db, "EvolveTest", 1, Initialization.MakeProtoChromosome(), 10, 6, 4, 5);
+      var protoRun = new ProtoRun(db, "EvolveTest", 1, Initialization.MakeFastestProtoChromosome(), 10, 6, 4, 5);
       var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
-      var run = Functions.Evolve(protoRun, new FakeTrainer(), seed);
+      var run = Functions.Evolve(protoRun, new LocalTrainer(), seed);
       run.Id.ShouldBeOfType<ObjectId>();
       run.ProtoChromosome.Genes.Length.ShouldEqual(11);
 
@@ -58,11 +58,11 @@ namespace QuqeTest
     public void MixtureCrossover()
     {
       var db = new Database(TestHelpers.GetCleanDatabase());
-      var protoChrom = Initialization.MakeProtoChromosome();
+      var protoChrom = Initialization.MakeFastestProtoChromosome();
       var run = new Run(db, protoChrom);
       var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
       var protoRun = new ProtoRun(db, "MixtureCrossoverTest", -1, protoChrom, 2, 10, 0, 10);
-      var gen = Initialization.MakeInitialGeneration(seed, run, protoRun, new FakeTrainer());
+      var gen = Initialization.MakeInitialGeneration(seed, run, protoRun, new LocalTrainer());
       gen.Mixtures.Length.ShouldEqual(2);
       var m1 = gen.Mixtures[0];
       var m2 = gen.Mixtures[1];

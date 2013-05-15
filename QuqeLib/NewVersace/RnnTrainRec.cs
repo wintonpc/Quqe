@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Quqe.NewVersace;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 using MongoDB.Bson;
@@ -12,6 +13,7 @@ namespace Quqe
 {
   public class RnnTrainRec : Expert
   {
+    [BsonSerializer(typeof(VectorSerializer))]
     public Vec InitialWeights { get; private set; }
     public MRnnSpec RnnSpec { get; private set; }
     public double[] CostHistory { get; private set; }
@@ -30,6 +32,7 @@ namespace Quqe
   {
     public int NumInputs { get; private set; }
     public MLayerSpec[] Layers { get; private set; }
+    [BsonSerializer(typeof(VectorSerializer))]
     public Vec Weights { get; private set; }
 
     public MRnnSpec(int numInputs, IEnumerable<MLayerSpec> layers, Vec weights)
@@ -39,12 +42,12 @@ namespace Quqe
       Weights = weights;
     }
 
-    public static MRnnSpec FromRNNSpec(RNNSpec s)
+    public static MRnnSpec FromRnnSpec(RNNSpec s)
     {
       return new MRnnSpec(s.NumInputs, s.Layers.Select(sl => new MLayerSpec(sl.NodeCount, sl.IsRecurrent, sl.ActivationType)), s.Weights);
     }
 
-    public RNNSpec ToRNNSpec()
+    public RNNSpec ToRnnSpec()
     {
       return new RNNSpec(this.NumInputs, this.Layers.Select(l => new LayerSpec(l.NodeCount, l.IsRecurrent, l.ActivationType)), this.Weights);
     }

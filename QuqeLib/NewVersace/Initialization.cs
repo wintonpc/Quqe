@@ -57,6 +57,30 @@ namespace Quqe
       });
     }
 
+    public static ProtoChromosome MakeFastestProtoChromosome()
+    {
+      return new ProtoChromosome(new[] {
+        // input data window
+        ProtoGene.Create("TrainingOffsetPct", 0, 1, GeneType.Continuous),
+        ProtoGene.Create("TrainingSizePct", 0, 1, GeneType.Continuous),
+        
+        // transformations
+        ProtoGene.Create("DatabaseType", 0, 1, GeneType.Discrete),
+        ProtoGene.CreateBoolean("UseComplementCoding"),
+        ProtoGene.CreateBoolean("UsePCA"),
+        ProtoGene.Create("PrincipalComponent", 0, 100, GeneType.Discrete),
+
+        // RNN params
+        ProtoGene.Create("RnnTrainingEpochs", 100, 100, GeneType.Discrete),
+        ProtoGene.Create("RnnLayer1NodeCount", 3, 40, GeneType.Discrete),
+        ProtoGene.Create("RnnLayer2NodeCount", 3, 10, GeneType.Discrete),
+
+        // RBF params
+        ProtoGene.Create("RbfNetTolerance", 0.99, 1, GeneType.Continuous),
+        ProtoGene.Create("RbfGaussianSpread", 0.1, 10, GeneType.Continuous),
+      });
+    }
+
     public static Generation MakeInitialGeneration(TrainingSeed seed, Run run, ProtoRun protoRun, IGenTrainer trainer)
     {
       var gen = new Generation(run, -1);

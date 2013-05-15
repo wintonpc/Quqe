@@ -124,7 +124,7 @@ namespace Quqe
         Trace.WriteLine("===========================================================================");
       }
       var result = new VersaceResult(bestMixture, history, settings);
-      result.Save();
+      //result.Save();
       return result;
     }
 

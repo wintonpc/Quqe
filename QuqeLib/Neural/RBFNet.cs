@@ -34,8 +34,8 @@ namespace Quqe
 
   public class RBFNet : IPredictor
   {
-    List<RadialBasis> Bases;
-    double OutputBias;
+    public readonly List<RadialBasis> Bases;
+    public readonly double OutputBias;
     public readonly double Spread;
     public bool IsDegenerate { get; private set; }
     public int NumCenters { get { return Bases.Count; } }
