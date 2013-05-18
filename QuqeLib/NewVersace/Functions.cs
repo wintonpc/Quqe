@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Quqe.NewVersace;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
@@ -15,8 +16,12 @@ namespace Quqe
       var run = new Run(protoRun.Database, protoRun.ProtoChromosome);
       var initialGen = Initialization.MakeInitialGeneration(seed, run, protoRun, trainer);
 
-      List.Iterate(protoRun.NumGenerations, initialGen, (i, gen) =>
-                                                        Train(trainer, seed, run, i, Mutate(Combine(protoRun.MixturesPerGeneration, Select(protoRun.SelectionSize, Evaluate(gen.Mixtures, seed))))));
+      List.Iterate(protoRun.NumGenerations, initialGen, (i, gen) => {
+        return Train(trainer, seed, run, i, Mutate(Combine(protoRun.MixturesPerGeneration,
+                                                           Select(protoRun.SelectionSize,
+                                                                  Evaluate(gen.Mixtures, seed)))));
+      });
+
       return run;
     }
 
@@ -40,19 +45,33 @@ namespace Quqe
       return new MixtureEval(m, fitness);
     }
 
-    static double MixtureFitness(Mixture m, TrainingSeed seed)
+    static double MixtureFitness(Mixture m, TrainingSeed tSeed)
     {
-      var predictions = seed.Input.Columns().Select(inputs => MixturePredict(m, inputs));
-      var accuracy = predictions.Zip(seed.Output, (predicted, actual) => Math.Sign(predicted) == Math.Sign(actual) ? 1 : 0).Average();
+      var expertPredictors = m.Experts.Select(x => new ExpertPredictor(tSeed, x)).ToList();
+      var predictions = List.Repeat(tSeed.Input.ColumnCount, t => MixturePredict(expertPredictors, t));
+      var accuracy = predictions.Zip(tSeed.Output, (predicted, actual) => Math.Sign(predicted) == Math.Sign(actual) ? 1 : 0).Average();
       return accuracy;
     }
 
-    static double MixturePredict(Mixture m, Vec inputs)
+    class ExpertPredictor
     {
-      //return Math.Sign(m.Experts.Average(expert => MakePredictor(expert).Predict(inputs)));
-      var outputs = m.Experts.Select(expert => {
-        var p = MakePredictor(expert).Predict(inputs);
-        return p;
+      public readonly ExpertSeed ExpertSeed;
+      public readonly IPredictor Predictor;
+
+      public ExpertPredictor(TrainingSeed tSeed, Expert expert)
+      {
+        var data = ExpertPreprocessing.PrepareData(tSeed, expert.Chromosome);
+        ExpertSeed = new ExpertSeed(data.Item1, data.Item2, expert.Chromosome);
+        Predictor = MakePredictor(expert);
+      }
+    }
+
+    static double MixturePredict(List<ExpertPredictor> expertPredictors, int t)
+    {
+      //return Math.Sign(expertPredictors.Select(p => p.Predict(inputs)).Average());
+      var outputs = expertPredictors.Select(ep => {
+        var prediction = ep.Predictor.Predict(ep.ExpertSeed.Input.Column(t));
+        return prediction;
       }).ToArray();
       return Math.Sign(outputs.Average());
     }

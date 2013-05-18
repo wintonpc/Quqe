@@ -86,13 +86,14 @@
     <Compile Include="Misc\QuqeUtil.cs" />
     <Compile Include="NewVersace\Database.cs" />
     <Compile Include="NewVersace\EvolutionAux.cs" />
+    <Compile Include="NewVersace\ExpertPreprocessing.cs" />
     <Compile Include="NewVersace\Functions.cs" />
     <Compile Include="NewVersace\GenericFunctions.cs" />
     <Compile Include="NewVersace\Initialization.cs" />
     <Compile Include="NewVersace\LittleEndian.cs" />
     <Compile Include="NewVersace\MathEx.cs" />
     <Compile Include="NewVersace\MongoTopLevelObject.cs" />
-    <Compile Include="NewVersace\Preprocessing.cs" />
+    <Compile Include="NewVersace\GlobalPreprocessing.cs" />
     <Compile Include="NewVersace\RbfTrainRec.cs" />
     <Compile Include="NewVersace\RnnTrainRec.cs" />
     <Compile Include="NewVersace\Run.cs" />

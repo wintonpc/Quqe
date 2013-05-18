@@ -28,8 +28,8 @@ namespace TestExe
 
     void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-      var testFixture = new QuqeTest.RNNTests();
-      testFixture.RNNPredictsWell();
+      var testFixture = new QuqeTest.EvolutionTests();
+      testFixture.EvolveTest();
     }
   }
 }

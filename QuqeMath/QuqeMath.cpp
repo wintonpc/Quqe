@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include <stdio.h>
+#include <float.h>
 #include "QuqeMath.h"
 #include "LinReg.h"
 
@@ -123,9 +124,19 @@ void Propagate(double* input, int inputStride, int numLayers, Layer** currLayers
 	}
 }
 
+void AssertNoNaNs(double* xs, int count)
+{
+	for (int i=0; i<count; i++)
+		assert(!_isnan(xs[i]));
+}
+
 void PropagateLayer(double* input, int inputStride, Layer* layer, Vector* recurrentInput)
 {
 	int inputCount = layer->InputCount;
+	
+	AssertNoNaNs(input, inputCount);
+	if (recurrentInput != NULL)
+		AssertNoNaNs(recurrentInput->Data, recurrentInput->Count);
 
 	// set x
 	layer->x->Set(input, inputStride, inputCount);
@@ -151,6 +162,8 @@ void PropagateLayer(double* input, int inputStride, Layer* layer, Vector* recurr
 			zData[i] = LogisticSigmoid(zData[i]);
 	}
 	// else ACTIVATION_PURELIN, in which case zData is already what it should be
+
+	AssertNoNaNs(layer->z->Data, layer->z->Count);
 }
 
 void SetWeights(Layer** layers, int numLayers, double* weights, int nWeights)

@@ -15,7 +15,7 @@ using PCW;
 namespace QuqeTest
 {
   [TestFixture]
-  class EvolutionTests
+  public class EvolutionTests
   {
     [Test]
     public void EvolveTest()

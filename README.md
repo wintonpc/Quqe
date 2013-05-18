@@ -26,4 +26,5 @@
 - TODO
   - finish implementing Evolve() and helpers
   
-NEXT: 
+NEXT: MixturePredict needs to create predictors once before running through the input because RNNs keep state.
+      This is probably why RNN is predicting NaNs

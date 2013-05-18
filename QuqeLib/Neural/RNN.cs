@@ -3,6 +3,7 @@ using System.Linq;
 using MathNet.Numerics.LinearAlgebra.Double;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -44,6 +45,7 @@ namespace Quqe
     public RNN(RNNSpec spec)
     {
       Spec = spec;
+      Debug.Assert(!spec.Weights.Any(x => double.IsNaN(x)));
       PropagationContext = RNNInterop.CreatePropagationContext(spec);
     }
 
@@ -59,7 +61,10 @@ namespace Quqe
 
     Vec Propagate(Vec input)
     {
-      return new DenseVector(RNNInterop.PropagateInput(PropagationContext, input.ToArray(), Spec.Layers.Last().NodeCount));
+      Debug.Assert(!input.Any(x => double.IsNaN(x)));
+      var output = new DenseVector(RNNInterop.PropagateInput(PropagationContext, input.ToArray(), Spec.Layers.Last().NodeCount));
+      Debug.Assert(!output.Any(x => double.IsNaN(x)));
+      return output;
     }
 
     public static int GetWeightCount(List<LayerSpec> layers, int numInputs)
