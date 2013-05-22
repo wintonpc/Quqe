@@ -134,9 +134,11 @@ void PropagateLayer(double* input, int inputStride, Layer* layer, Vector* recurr
 {
 	int inputCount = layer->InputCount;
 	
+#if DEBUG
 	AssertNoNaNs(input, inputCount);
 	if (recurrentInput != NULL)
 		AssertNoNaNs(recurrentInput->Data, recurrentInput->Count);
+#endif
 
 	// set x
 	layer->x->Set(input, inputStride, inputCount);
@@ -163,7 +165,9 @@ void PropagateLayer(double* input, int inputStride, Layer* layer, Vector* recurr
 	}
 	// else ACTIVATION_PURELIN, in which case zData is already what it should be
 
+#if DEBUG
 	AssertNoNaNs(layer->z->Data, layer->z->Count);
+#endif
 }
 
 void SetWeights(Layer** layers, int numLayers, double* weights, int nWeights)

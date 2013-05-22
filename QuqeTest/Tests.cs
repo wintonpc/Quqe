@@ -2,7 +2,6 @@
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Quqe;
 using PCW;
 using System.Diagnostics;
@@ -10,13 +9,15 @@ using MathNet.Numerics.LinearAlgebra.Double;
 using System.Threading.Tasks;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
+using NUnit.Framework;
+using List = PCW.List;
 
 namespace QuqeTest
 {
-  [TestClass]
-  public class Tests
+  [TestFixture]
+  public class Tests1
   {
-    [TestMethod]
+    [Test]
     public void SMA1()
     {
       var ls = List.Create(1, 4, 6, 2, 4, 7, 2, 4);
@@ -31,7 +32,7 @@ namespace QuqeTest
       Trace.WriteLine("out: " + zlema.Select(x => x.Val).ToLisp());
     }
 
-    [TestMethod]
+    [Test]
     public void Extrapolate1()
     {
       var ls = List.Create<double>(1, 2, 4, 9, 16);
@@ -39,14 +40,14 @@ namespace QuqeTest
       var ex = ds.Extrapolate().Select(x => x.Val).ToLisp();
     }
 
-    [TestMethod]
+    [Test]
     public void Drawdown()
     {
       var dd = BacktestHelper.CalcMaxDrawdownPercent(new DataSeries<Value>("Foo", List.Create(1.0, 2, 3, 4, 7, 5, 4, 5, 2, 10, 12, 11, 15).Select(x => new Value(DateTime.MinValue, x))));
       Assert.IsTrue(dd == (7 - 2) / 7.0);
     }
 
-    [TestMethod]
+    [Test]
     public void Accounting1()
     {
       var a = new Account { Equity = 10000, MarginFactor = 1 };
@@ -78,7 +79,7 @@ namespace QuqeTest
       Assert.IsTrue(List.Equal(expectedEquity, actualEquity.Select(x => Math.Round(x, 2))));
     }
 
-    [TestMethod]
+    [Test]
     public void Accounting2()
     {
       var a = new Account { Equity = 10000, MarginFactor = 4 };
@@ -103,30 +104,30 @@ namespace QuqeTest
       Assert.IsTrue(List.Equal(expectedEquity, actualEquity.Select(x => Math.Round(x, 2))));
     }
 
-    [TestMethod]
-    public void Accounting3()
-    {
-      var a = new Account { Equity = 10000, MarginFactor = 4 };
-      var com = 5;
-      a.Commission = size => com;
-      var bars = new DataSeries<Bar>("ABCD", List.Create(
-        new Bar(DateTime.Parse("12/10/2010"), 21.63, 21.50, 23.01, 22.90, 10000), // long profit
-        new Bar(DateTime.Parse("12/13/2010"), 23.90, 23.10, 23.95, 23.15, 10000))); // short profit
+    //[Test]
+    //public void Accounting3()
+    //{
+    //  var a = new Account { Equity = 10000, MarginFactor = 4 };
+    //  var com = 5;
+    //  a.Commission = size => com;
+    //  var bars = new DataSeries<Bar>("ABCD", List.Create(
+    //    new Bar(DateTime.Parse("12/10/2010"), 21.63, 21.50, 23.01, 22.90, 10000), // long profit
+    //    new Bar(DateTime.Parse("12/13/2010"), 23.90, 23.10, 23.95, 23.15, 10000))); // short profit
 
-      bool threw = false;
-      try
-      {
-        a.EnterLong("ABCD", 1850, new ExitOnSessionClose(20.00), bars.FromHere());
-      }
-      catch (InvalidOperationException)
-      {
-        threw = true;
-      }
+    //  bool threw = false;
+    //  try
+    //  {
+    //    a.EnterLong("ABCD", 1850, new ExitOnSessionClose(20.00), bars.FromHere());
+    //  }
+    //  catch (InvalidOperationException)
+    //  {
+    //    threw = true;
+    //  }
 
-      Assert.IsTrue(threw);
-    }
+    //  Assert.IsTrue(threw);
+    //}
 
-    [TestMethod]
+    [Test]
     public void Mesh1()
     {
       var a = new ListHolder<double> { List = List.Create(1.0, 2, 4, 5, 6, 7, 8, 9) };
@@ -154,7 +155,7 @@ namespace QuqeTest
       }
     }
 
-    [TestMethod]
+    [Test]
     public void MakeSMATest1()
     {
       var sma = Optimizer.MakeSMA(3);
@@ -168,7 +169,7 @@ namespace QuqeTest
       Assert.AreEqual(n, 5);
     }
 
-    [TestMethod]
+    [Test]
     public void QuantizeTest()
     {
       Assert.IsTrue(Optimizer.Quantize(7, 2, 1) == 7);
@@ -177,7 +178,7 @@ namespace QuqeTest
       Assert.IsTrue(Optimizer.Quantize(1.5, 1.3, 0.3) == 1.6);
     }
 
-    [TestMethod]
+    [Test]
     public void CookieBagTest()
     {
       var cb = new CookieBag<string>();
@@ -197,7 +198,7 @@ namespace QuqeTest
       Assert.IsTrue(e == 3);
     }
 
-    [TestMethod]
+    [Test]
     public void SvdTest()
     {
       var points = List.Create<Vector>(
@@ -221,7 +222,7 @@ namespace QuqeTest
       var c = a.DotProduct(p2) * p2;
     }
 
-    [TestMethod]
+    [Test]
     public void OrthoTest()
     {
       var w = RBFNet.Orthogonalize(new DenseVector(new double[] { 1, 1, 0 }), new List<Vec> {
@@ -233,14 +234,7 @@ namespace QuqeTest
       });
     }
 
-    [TestMethod]
-    public void DirWatch()
-    {
-      var dw = new DirectoryWatcher<object>(@"d:\users\wintonpc", "*", fn => fn);
-      SyncContext.Current.Run();
-    }
-
-    [TestMethod]
+    [Test]
     public void ListPartitioning()
     {
       var letters = "abcdefghijklmnopqrstuvwxyz".ToList();

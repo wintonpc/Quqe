@@ -37,7 +37,7 @@ namespace QuqeTest
       var trainingFitness = VMixture.ComputePredictorFitness(new RNN(trainResult.RNNSpec), trainingData.Input, trainingData.Output);
       
       Trace.WriteLine("Training fitness: " + trainingFitness);
-      trainingFitness.ShouldEqual(0.984);
+      trainingFitness.ShouldEqual(0.968);
     }
 
     [Test]
@@ -48,7 +48,7 @@ namespace QuqeTest
       var trainingData = NNTestUtils.GetData("2004-01-01", "2005-01-01");
       Train(trainingData, 32, 16, 1000);
       sw.Stop();
-      sw.ElapsedMilliseconds.ShouldBeGreaterThan(14000).ShouldBeLessThan(17000);
+      sw.ElapsedMilliseconds.ShouldBeGreaterThan(2000).ShouldBeLessThan(17000);
     }
 
     static RnnTrainResult Train(PreprocessedData trainingData, int layer1NodeCount, int layer2NodeCount, int epochMax)
