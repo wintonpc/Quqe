@@ -10,6 +10,7 @@
 #define QUQEMATH_API __declspec(dllimport)
 #endif
 
+#include <float.h>
 #include "LinReg.h"
 
 const int ACTIVATION_LOGSIG = 0;
@@ -150,7 +151,17 @@ inline double LinearPrime(double x)
   return 1;
 }
 
-#define LogisticSigmoid(x)    (1 / (1 + exp(-(x))))
+//#define LogisticSigmoid(x)    (1 / (1 + exp(-(x))))
+
+inline double LogisticSigmoid(double x)
+{
+  // without this, exp(-x) can overflow, but the FPU handles it ok: 1 / (1 + INF) == 0
+  //static const double xmin = -log(DBL_MAX-1);
+  //if (x <= xmin)
+  //  return 0;
+
+  return 1.0 / (1.0 + exp(-x));
+}
 
 inline double LogisticSigmoidPrime(double x)
 {

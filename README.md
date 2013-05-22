@@ -1,17 +1,18 @@
-- select ProtoRun from database
-- store Run with chosen ProtoChromosome
-- store generation 0
-- randomly initialize and train generation 0
-- train next generation
-  - select, combine, and mutate
-  - enqueue train requests containing:
-    - generation ID
-    - chromosome
-  - collect train notifications
-  - evaluate generation
-    - evaluate Mixtures
-    - attach MixtureEvals
-  - attach GenEval
+- general workflow
+  - select ProtoRun from database
+  - store Run with chosen ProtoChromosome
+  - store generation 0
+  - randomly initialize and train generation 0
+  - train next generation
+    - select, combine, and mutate
+    - enqueue train requests containing:
+      - generation ID
+      - chromosome
+    - collect train notifications
+    - evaluate generation
+      - evaluate Mixtures
+      - attach MixtureEvals
+    - attach GenEval
   
 - request workers take a Chromosome as input
   - (an expert is the training output in addition to aux training input (e.g., initial weights)
@@ -24,7 +25,9 @@
   
   
 - TODO
+  - make logistic more numerically stable
   - finish implementing Evolve() and helpers
+  - catch NaN bug
+  - pick better initial weights: http://www.heatonresearch.com/encog/articles/nguyen-widrow-neural-network-weight.html
   
-NEXT: MixturePredict needs to create predictors once before running through the input because RNNs keep state.
-      This is probably why RNN is predicting NaNs
+NEXT: implement mutate
