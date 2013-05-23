@@ -102,11 +102,12 @@ namespace Quqe
       switch (chrom.NetworkType)
       {
         case NetworkType.Rnn:
-          var record = Training.TrainRnn(eSeed);
-          new RnnTrainRec(db, mixtureId, chrom, record.InitialWeights, record.RnnSpec, record.CostHistory);
+          var rnnInfo = Training.TrainRnn(eSeed);
+          new RnnTrainRec(db, mixtureId, chrom, rnnInfo.InitialWeights, rnnInfo.RnnSpec, rnnInfo.CostHistory);
           break;
         case NetworkType.Rbf:
-          Training.TrainRbf(eSeed);
+          var rbfInfo = Training.TrainRbf(eSeed);
+          new RbfTrainRec(db, mixtureId, chrom, rbfInfo.Bases, rbfInfo.OutputBias, rbfInfo.Spread, rbfInfo.IsDegenerate);
           break;
         default:
           throw new Exception("Unexpected network type: " + eSeed.Chromosome.NetworkType);

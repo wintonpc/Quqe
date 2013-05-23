@@ -13,30 +13,37 @@ namespace Quqe
   {
     public static Run Evolve(ProtoRun protoRun, IGenTrainer trainer, TrainingSeed seed)
     {
-      var run = new Run(protoRun.Database, protoRun.ProtoChromosome);
-      var initialGen = Initialization.MakeInitialGeneration(seed, run, protoRun, trainer);
+      var run = new Run(protoRun, protoRun.ProtoChromosome);
+      var gen = Initialization.MakeInitialGeneration(seed, run, trainer);
 
-      List.Iterate(protoRun.NumGenerations, initialGen, (i, gen) => {
-        return Train(trainer, seed, run, i, Mutate(Combine(protoRun.MixturesPerGeneration,
-                                                           Select(protoRun.SelectionSize,
-                                                                  Evaluate(gen.Mixtures, seed)))));
-      });
+      while (true)
+      {
+        var evaluated = Evaluate(gen, seed);
+        if (gen.Order == protoRun.NumGenerations - 1)
+          return run;
 
-      return run;
+        gen = Train(trainer, seed, run, gen.Order + 1,
+                    Mutate(run,
+                           Combine(protoRun.MixturesPerGeneration,
+                                   Select(protoRun.SelectionSize,
+                                          evaluated))));
+      }
     }
 
     static Generation Train(IGenTrainer trainer, TrainingSeed seed, Run run, int generationNum, MixtureInfo[] pop)
     {
       var gen = new Generation(run, generationNum);
-      trainer.Train(seed, gen, pop.Select(mi => new MixtureInfo(new Mixture(gen, mi.Parents).Id, mi.Chromosomes)),
+      trainer.Train(seed, gen, pop.Select(mi => new MixtureInfo(new Mixture(gen, mi.Parents).Id, mi.Chromosomes)).ToArray(),
                     progress => Trace.WriteLine(string.Format("Generation {0}: Trained {1} of {2}",
                                                               generationNum, progress.Completed, progress.Total)));
       return gen;
     }
 
-    static MixtureEval[] Evaluate(Mixture[] mixtures, TrainingSeed seed)
+    static MixtureEval[] Evaluate(Generation gen, TrainingSeed seed)
     {
-      return mixtures.Select(m => EvaluateMixture(m, seed)).ToArray();
+      var evaluatedMixtures = gen.Mixtures.Select(m => EvaluateMixture(m, seed)).ToArray();
+      new GenEval(gen, evaluatedMixtures.Max(x => x.Fitness));
+      return evaluatedMixtures;
     }
 
     static MixtureEval EvaluateMixture(Mixture m, TrainingSeed seed)
@@ -99,7 +106,7 @@ namespace Quqe
 
     internal static MixtureInfo[] Combine(int outputSize, IList<MixtureEval> ms)
     {
-      return List.Repeat((int)Math.Ceiling(outputSize/2.0), _ => CombineTwoMixtures(ms)).SelectMany(x => x).Take(outputSize).ToArray();
+      return List.Repeat((int)Math.Ceiling(outputSize / 2.0), _ => CombineTwoMixtures(ms)).SelectMany(x => x).Take(outputSize).ToArray();
     }
 
     internal static Tuple2<MixtureInfo> CombineTwoMixtures(IList<MixtureEval> ms)
@@ -126,9 +133,24 @@ namespace Quqe
       return CrossOver(a.Genes, b.Genes, crossGenes, genes => new Chromosome(a.NetworkType, genes));
     }
 
-    static MixtureInfo[] Mutate(IEnumerable<MixtureInfo> ms)
+    static MixtureInfo[] Mutate(Run run, IEnumerable<MixtureInfo> ms)
     {
-      throw new NotImplementedException();
+      return ms.Select(mi => new MixtureInfo(mi.Parents, MutateChromosomes(mi.Chromosomes, run))).ToArray();
+    }
+
+    static Chromosome[] MutateChromosomes(IEnumerable<Chromosome> chromosomes, Run run)
+    {
+      return chromosomes.Select(x => MutateChromosome(x, run)).ToArray();
+    }
+
+    static Chromosome MutateChromosome(Chromosome c, Run run)
+    {
+      return new Chromosome(c.NetworkType, c.Genes.Select(x => MutateGene(x, run)));
+    }
+
+    static Gene MutateGene(Gene g, Run run)
+    {
+      return new Gene(g.Name, QuqeUtil.WithProb(run.ProtoRun.MutationRate) ? RandomGeneValue(g.GetProto(run)) : g.Value);
     }
 
     public static double RandomGeneValue(ProtoGene gd)

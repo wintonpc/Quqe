@@ -25,9 +25,9 @@
   
   
 - TODO
-  - make logistic more numerically stable
-  - finish implementing Evolve() and helpers
-  - catch NaN bug
+  - Evaluate() against validation set instead of training set.
+  - remove {Rnn,Rbf}TrainRecInfo. return the TrainRec directly
   - pick better initial weights: http://www.heatonresearch.com/encog/articles/nguyen-widrow-neural-network-weight.html
+  - catch NaN bug
   
 NEXT: implement mutate

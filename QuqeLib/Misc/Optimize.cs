@@ -207,11 +207,6 @@ namespace Quqe
       return QuqeUtil.Random.NextDouble() * (max - min) + min;
     }
 
-    public static bool WithProb(double probability)
-    {
-      return QuqeUtil.Random.NextDouble() < probability;
-    }
-
     public static Genome MakeRandomGenome(int length)
     {
       return new Genome { Genes = List.Repeat(length, () => RandomDouble(GeneMin, GeneMax)) };

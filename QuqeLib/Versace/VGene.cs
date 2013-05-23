@@ -66,7 +66,7 @@ namespace Quqe
       // handle "booleans" specially
       if (Min == 0 && Max == 1 && Value is int)
       {
-        if (dampingFactor == 0 || Optimizer.WithProb(1 / dampingFactor))
+        if (dampingFactor == 0 || QuqeUtil.WithProb(1 / dampingFactor))
           doubleValue = 1 - doubleValue;
         return new VGene<TValue>(Name, Min, Max, Granularity, doubleValue.As<TValue>());
       }

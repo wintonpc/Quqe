@@ -22,11 +22,12 @@ namespace Quqe
       MDB = db;
     }
 
-    public T[] QueryAll<T>(Expression<Func<T, bool>> predicate) where T : MongoTopLevelObject
+    public T[] QueryAll<T>(Expression<Func<T, bool>> predicate, Func<T, IComparable> orderKey = null) where T : MongoTopLevelObject
     {
       var query = new QueryBuilder<T>().Where(predicate);
       var coll = MDB.GetCollection(typeof(T).Name);
-      var items = coll.FindAs<T>(query).ToArray();
+      var cursor = coll.FindAs<T>(query);
+      var items = (orderKey != null ? (IEnumerable<T>)cursor.OrderBy(orderKey) : cursor).ToArray();
       foreach (var item in items)
         item.Database = this;
       return items;

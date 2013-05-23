@@ -36,7 +36,8 @@ namespace QuqeTest
     {
       var mongoDb = TestHelpers.GetCleanDatabase();
       var db1 = new Database(mongoDb);
-      var run = new Run(db1, Initialization.MakeProtoChromosome());
+      var protoRun = new ProtoRun(db1, "", 0, null, 0, 0, 0, 0, 0);
+      var run = new Run(protoRun, Initialization.MakeProtoChromosome());
       var id = run.Id;
 
       var db2 = new Database(mongoDb);
@@ -55,8 +56,9 @@ namespace QuqeTest
     {
       var mongoDb = TestHelpers.GetCleanDatabase();
       var db1 = new Database(mongoDb);
-      var run1 = new Run(db1, Initialization.MakeProtoChromosome());
-      var run2 = new Run(db1, Initialization.MakeProtoChromosome());
+      var protoRun = new ProtoRun(db1, "", 0, null, 0, 0, 0, 0, 0);
+      var run1 = new Run(protoRun, Initialization.MakeProtoChromosome());
+      var run2 = new Run(protoRun, Initialization.MakeProtoChromosome());
 
       var db2 = new Database(mongoDb);
       var runs1 = db2.QueryAll<Run>(_ => true);

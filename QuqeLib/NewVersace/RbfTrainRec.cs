@@ -13,14 +13,20 @@ namespace Quqe
 {
   public class RbfTrainRec : Expert
   {
-    public readonly MRadialBasis[] Bases;
-    public readonly double OutputBias;
-    public readonly double Spread;
-    public readonly bool IsDegenerate;
+    public MRadialBasis[] Bases { get; private set; }
+    public double OutputBias { get; private set; }
+    public double Spread { get; private set; }
+    public bool IsDegenerate { get; private set; }
 
-    public RbfTrainRec(Database db, ObjectId mixtureId, Chromosome chromosome)
+    public RbfTrainRec(Database db, ObjectId mixtureId, Chromosome chromosome,
+      IEnumerable<MRadialBasis> bases, double outputBias, double spread, bool isDegenerate)
       : base(db, mixtureId, chromosome)
     {
+      Bases = bases.ToArray();
+      OutputBias = outputBias;
+      Spread = spread;
+      IsDegenerate = isDegenerate;
+
       Database.Store(this);
     }
   }
@@ -28,8 +34,8 @@ namespace Quqe
   public class MRadialBasis
   {
     [BsonSerializer(typeof(VectorSerializer))]
-    public readonly Vec Center;
-    public readonly double Weight;
+    public Vec Center { get; private set; }
+    public double Weight { get; private set; }
 
     public MRadialBasis(Vec center, double weight)
     {

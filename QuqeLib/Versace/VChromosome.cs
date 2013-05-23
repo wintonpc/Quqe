@@ -66,7 +66,7 @@ namespace Quqe
       var a = x.ToList();
       var b = y.ToList();
       for (int i = 0; i < a.Count; i++)
-        if (Optimizer.WithProb(0.5))
+        if (QuqeUtil.WithProb(0.5))
         {
           var t = a[i];
           a[i] = b[i];

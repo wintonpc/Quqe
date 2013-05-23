@@ -18,5 +18,10 @@ namespace Quqe
     {
       return new DenseVector(ContinuousUniform.Samples(Random, min, max).Take(size).ToArray());
     }
+
+    public static bool WithProb(double probability)
+    {
+      return Random.NextDouble() < probability;
+    }
   }
 }

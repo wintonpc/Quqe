@@ -71,7 +71,7 @@ namespace Quqe
         ProtoGene.Create("PrincipalComponent", 0, 100, GeneType.Discrete),
 
         // RNN params
-        ProtoGene.Create("RnnTrainingEpochs", 100, 100, GeneType.Discrete),
+        ProtoGene.Create("RnnTrainingEpochs", 3, 3, GeneType.Discrete),
         ProtoGene.Create("RnnLayer1NodeCount", 3, 40, GeneType.Discrete),
         ProtoGene.Create("RnnLayer2NodeCount", 3, 10, GeneType.Discrete),
 
@@ -81,22 +81,22 @@ namespace Quqe
       });
     }
 
-    public static Generation MakeInitialGeneration(TrainingSeed seed, Run run, ProtoRun protoRun, IGenTrainer trainer)
+    public static Generation MakeInitialGeneration(TrainingSeed seed, Run run, IGenTrainer trainer)
     {
-      var gen = new Generation(run, -1);
+      var gen = new Generation(run, 0);
 
       Func<int, NetworkType, Chromosome[]> makeChromosomes = (n, type) =>
-        List.Repeat(n, _ => RandomChromosome(type, protoRun.ProtoChromosome)).ToArray();
+        List.Repeat(n, _ => RandomChromosome(type, run.ProtoRun.ProtoChromosome)).ToArray();
 
       Func<Chromosome[]> makeMixtureChromosomes = () =>
-        makeChromosomes(protoRun.RnnPerMixture, NetworkType.Rnn).Concat(
-        makeChromosomes(protoRun.RbfPerMixture, NetworkType.Rbf)).ToArray();
+        makeChromosomes(run.ProtoRun.RnnPerMixture, NetworkType.Rnn).Concat(
+        makeChromosomes(run.ProtoRun.RbfPerMixture, NetworkType.Rbf)).ToArray();
 
       Func<Mixture> makeMixture = () => new Mixture(gen, new Mixture[0]);
 
       Func<Mixture, MixtureInfo> makeMixtureInfo = m => new MixtureInfo(m.Id, makeMixtureChromosomes());
 
-      var pop = List.Repeat(protoRun.MixturesPerGeneration, _ => makeMixture()).Select(makeMixtureInfo);
+      var pop = List.Repeat(run.ProtoRun.MixturesPerGeneration, _ => makeMixture()).Select(makeMixtureInfo);
 
       trainer.Train(seed, gen, pop, _ => { });
 

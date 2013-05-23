@@ -126,8 +126,10 @@ namespace Quqe
     public int RnnPerMixture { get; private set; }
     public int RbfPerMixture { get; private set; }
     public int SelectionSize { get; private set; }
+    public double MutationRate { get; private set; }
 
-    public ProtoRun(Database db, string name, int numGenerations, ProtoChromosome protoChrom, int mixturesPerGen, int rnnPerMixture, int rbfPerMixture, int selectionSize)
+    public ProtoRun(Database db, string name, int numGenerations, ProtoChromosome protoChrom,
+      int mixturesPerGen, int rnnPerMixture, int rbfPerMixture, int selectionSize, double mutationRate)
       : base(db)
     {
       Name = name;
@@ -136,6 +138,7 @@ namespace Quqe
       RnnPerMixture = rnnPerMixture;
       RbfPerMixture = rbfPerMixture;
       SelectionSize = selectionSize;
+      MutationRate = mutationRate;
 
       db.Store(this);
     }
@@ -144,13 +147,15 @@ namespace Quqe
   public class Run : MongoTopLevelObject
   {
     public ProtoChromosome ProtoChromosome { get; private set; }
-    public Generation[] Generations { get { return Database.QueryAll<Generation>(x => x.RunId == this.Id); } }
+    public ProtoRun ProtoRun { get; private set; }
+    public Generation[] Generations { get { return Database.QueryAll<Generation>(x => x.RunId == this.Id, x => x.Order); } }
 
-    public Run(Database db, ProtoChromosome protoChrom)
-      : base(db)
+    public Run(ProtoRun protoRun, ProtoChromosome protoChrom)
+      : base(protoRun.Database)
     {
       ProtoChromosome = protoChrom;
-      db.Store(this);
+      ProtoRun = protoRun;
+      Database.Store(this);
     }
   }
 
@@ -209,7 +214,9 @@ namespace Quqe
     public GenEval(Generation gen, double fitness)
       : base(gen.Database)
     {
+      GenerationId = gen.Id;
       Fitness = fitness;
+
       Database.Store(this);
     }
   }

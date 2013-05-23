@@ -23,23 +23,25 @@ namespace QuqeTest
       var mongoDb = TestHelpers.GetCleanDatabase();
       var db = new Database(mongoDb);
 
-      var protoRun = new ProtoRun(db, "EvolveTest", 1, Initialization.MakeFastestProtoChromosome(), 10, 6, 4, 5);
+      var protoRun = new ProtoRun(db, "EvolveTest", 3, Initialization.MakeFastestProtoChromosome(), 10, 6, 4, 5, 0.05);
       var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
-      var run = Functions.Evolve(protoRun, new LocalTrainer(), seed);
+      var run = Functions.Evolve(protoRun, new LocalParallelTrainer(), seed);
       run.Id.ShouldBeOfType<ObjectId>();
       run.ProtoChromosome.Genes.Length.ShouldEqual(11);
 
-      run.Generations.Length.ShouldEqual(1 + 1);
-      var gen0 = run.Generations.First();
+      run.Generations.Length.ShouldEqual(3);
+      run.Generations[0].Order.ShouldEqual(0);
+      run.Generations[1].Order.ShouldEqual(1);
+      run.Generations[2].Order.ShouldEqual(2);
 
-      var dbTypes = gen0.Mixtures.First().Experts.Select(x => x.Chromosome.DatabaseType).Distinct();
+      var dbTypes = run.Generations[1].Mixtures.First().Experts.Select(x => x.Chromosome.DatabaseType).Distinct();
       dbTypes.Count().ShouldEqual(2);
 
-      gen0.Id.ShouldBeOfType<ObjectId>();
-      gen0.Order.ShouldEqual(0);
-      gen0.Mixtures.Count().ShouldEqual(10);
-      gen0.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rnn).ShouldEqual(6);
-      gen0.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rbf).ShouldEqual(4);
+      var gen2 = run.Generations[2];
+      gen2.Id.ShouldBeOfType<ObjectId>();
+      gen2.Mixtures.Count().ShouldEqual(10);
+      gen2.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rnn).ShouldEqual(6);
+      gen2.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rbf).ShouldEqual(4);
     }
 
     [Test]
@@ -48,9 +50,9 @@ namespace QuqeTest
       var mongoDb = TestHelpers.GetCleanDatabase();
       var db = new Database(mongoDb);
 
-      var protoRun = new ProtoRun(db, "LocalEvolveTest", 3, Initialization.MakeProtoChromosome(), 10, 10, 0, 5);
+      var protoRun = new ProtoRun(db, "LocalEvolveTest", 3, Initialization.MakeProtoChromosome(), 10, 10, 0, 5, 0.05);
       var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
-      var run = Functions.Evolve(protoRun, new LocalTrainer(), seed);
+      var run = Functions.Evolve(protoRun, new LocalParallelTrainer(), seed);
       Trace.WriteLine("Generation fitnesses: " + run.Generations.Select(x => x.Evaluated.Fitness).Join(", "));
     }
 
@@ -59,10 +61,10 @@ namespace QuqeTest
     {
       var db = new Database(TestHelpers.GetCleanDatabase());
       var protoChrom = Initialization.MakeFastestProtoChromosome();
-      var run = new Run(db, protoChrom);
+      var protoRun = new ProtoRun(db, "MixtureCrossoverTest", -1, protoChrom, 2, 10, 0, 10, 0.05);
+      var run = new Run(protoRun, protoChrom);
       var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
-      var protoRun = new ProtoRun(db, "MixtureCrossoverTest", -1, protoChrom, 2, 10, 0, 10);
-      var gen = Initialization.MakeInitialGeneration(seed, run, protoRun, new LocalTrainer());
+      var gen = Initialization.MakeInitialGeneration(seed, run, new LocalTrainer());
       gen.Mixtures.Length.ShouldEqual(2);
       var m1 = gen.Mixtures[0];
       var m2 = gen.Mixtures[1];
