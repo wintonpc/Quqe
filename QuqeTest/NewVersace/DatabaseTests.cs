@@ -48,7 +48,7 @@ namespace QuqeTest
       db2Run.ProtoChromosome.ShouldLookLike(run.ProtoChromosome);
 
       var db2Run2 = db2.Get<Run>(id);
-      db2Run2.ShouldEqual(db2Run);
+      db2Run2.ShouldLookLike(db2Run);
     }
 
     [Test]
