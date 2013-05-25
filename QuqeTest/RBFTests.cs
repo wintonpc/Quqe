@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Machine.Specifications;
 using Quqe;
+using Quqe.NewVersace;
 using List = PCW.List;
 using System.Diagnostics;
 
@@ -21,7 +22,7 @@ namespace QuqeTest
       var fitnesses = List.Repeat(5, i => {
         var rbfNet = RBFNet.Train(data.Input, data.Output, 0.1, 1);
         rbfNet.IsDegenerate.ShouldBeFalse();
-        return VMixture.ComputePredictorFitness(rbfNet, data.Input, data.Output);
+        return Functions.ComputeFitness(new PredictorWithInputs(rbfNet, data.Input), data);
       });
       fitnesses.Distinct().Count().ShouldEqual(1);
     }
@@ -34,7 +35,7 @@ namespace QuqeTest
       Func<double, double> fitnessForTolerance = tolerance => {
         var rbfNet = RBFNet.Train(data.Input, data.Output, tolerance, 1);
         rbfNet.IsDegenerate.ShouldBeFalse();
-        var fitness = VMixture.ComputePredictorFitness(rbfNet, data.Input, data.Output);
+        var fitness = Functions.ComputeFitness(new PredictorWithInputs(rbfNet, data.Input), data);
         Trace.WriteLine("RBF fitness: " + fitness);
         return fitness;
       };

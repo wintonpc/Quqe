@@ -14,7 +14,7 @@ namespace Quqe
 {
   public interface IGenTrainer
   {
-    void Train(TrainingSeed seed, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress);
+    void Train(DataSet data, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress);
   }
 
   public class TrainProgress
@@ -29,13 +29,13 @@ namespace Quqe
     }
   }
 
-  public class TrainingSeed
+  public class DataSet
   {
     public readonly Mat Input;
     public readonly Vec Output;
     public readonly int DatabaseAInputLength;
 
-    public TrainingSeed(Mat input, Vec output, int databaseAInputLength)
+    public DataSet(Mat input, Vec output, int databaseAInputLength)
     {
       Input = input;
       Output = output;
@@ -45,14 +45,14 @@ namespace Quqe
 
   public class LocalTrainer : IGenTrainer
   {
-    public void Train(TrainingSeed seed, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
+    public void Train(DataSet data, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
     {
       var total = population.Count() * population.First().Chromosomes.Length;
       var numTrained = 0;
       foreach (var mi in population)
         foreach (var chrom in mi.Chromosomes)
         {
-          TrainerCommon.Train(gen.Database, mi.MixtureId, seed, chrom);
+          TrainerCommon.Train(gen.Database, mi.MixtureId, data, chrom);
           numTrained++;
           progress(new TrainProgress(numTrained, total));
         }
@@ -61,64 +61,52 @@ namespace Quqe
 
   public class LocalParallelTrainer : IGenTrainer
   {
-    public void Train(TrainingSeed seed, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
+    public void Train(DataSet data, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
     {
       var total = population.Count() * population.First().Chromosomes.Length;
       var numTrained = 0;
       var q = population.SelectMany(mixture => mixture.Chromosomes.Select(chrom => new { mixture, chrom })).ToList();
 
       Parallel.ForEach(q, GetParallelOptions(), z => {
-        TrainerCommon.Train(gen.Database, z.mixture.MixtureId, seed, z.chrom);
+        TrainerCommon.Train(gen.Database, z.mixture.MixtureId, data, z.chrom);
         numTrained++;
         progress(new TrainProgress(numTrained, total));
       });
     }
 
-    static ParallelOptions GetParallelOptions() { return new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }; }
-  }
-
-  public class ExpertSeed
-  {
-    public readonly Mat Input;
-    public readonly Vec Output;
-    public readonly Chromosome Chromosome;
-
-    public ExpertSeed(Mat input, Vec output, Chromosome chromosome)
+    static ParallelOptions GetParallelOptions()
     {
-      Input = input;
-      Output = output;
-      Chromosome = chromosome;
+      return new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
     }
   }
 
   static class TrainerCommon
   {
-    public static void Train(Database db, ObjectId mixtureId, TrainingSeed tSeed, Chromosome chrom)
+    public static void Train(Database db, ObjectId mixtureId, DataSet data, Chromosome chrom)
     {
-      var trimmed = TrimToWindow(tSeed, chrom);
-      var data = ExpertPreprocessing.PrepareData(trimmed, chrom);
-      var eSeed = new ExpertSeed(data.Item1, data.Item2, chrom);
+      var trimmed = TrimToWindow(data, chrom);
+      var tailoredData = DataTailoring.TailorInputs(trimmed.Input, trimmed.DatabaseAInputLength, chrom);
 
       switch (chrom.NetworkType)
       {
         case NetworkType.Rnn:
-          var rnnInfo = Training.TrainRnn(eSeed);
+          var rnnInfo = Training.TrainRnn(tailoredData, trimmed.Output, chrom);
           new RnnTrainRec(db, mixtureId, chrom, rnnInfo.InitialWeights, rnnInfo.RnnSpec, rnnInfo.CostHistory);
           break;
         case NetworkType.Rbf:
-          var rbfInfo = Training.TrainRbf(eSeed);
+          var rbfInfo = Training.TrainRbf(tailoredData, trimmed.Output, chrom);
           new RbfTrainRec(db, mixtureId, chrom, rbfInfo.Bases, rbfInfo.OutputBias, rbfInfo.Spread, rbfInfo.IsDegenerate);
           break;
         default:
-          throw new Exception("Unexpected network type: " + eSeed.Chromosome.NetworkType);
+          throw new Exception("Unexpected network type: " + chrom.NetworkType);
       }
     }
 
-    static TrainingSeed TrimToWindow(TrainingSeed tSeed, Chromosome chrom)
+    static DataSet TrimToWindow(DataSet data, Chromosome chrom)
     {
-      return new TrainingSeed(TrimInputToWindow(tSeed.Input, chrom),
-                              TrimOutputToWindow(tSeed.Output, chrom),
-                              tSeed.DatabaseAInputLength);
+      return new DataSet(TrimInputToWindow(data.Input, chrom),
+                         TrimOutputToWindow(data.Output, chrom),
+                         data.DatabaseAInputLength);
     }
 
     static Vec TrimOutputToWindow(Vec output, Chromosome chrom)

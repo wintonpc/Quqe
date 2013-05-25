@@ -181,8 +181,6 @@ namespace Quqe
       return IsDegenerate ? 0 : Propagate(input);
     }
 
-    public IPredictor Reset() { return this; } // RBFs are stateless
-
     public void Dispose()
     {
       // nothing to do

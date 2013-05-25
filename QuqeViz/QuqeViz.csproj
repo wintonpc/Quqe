@@ -79,9 +79,6 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="BacktestWindow.xaml.cs">
-      <DependentUpon>BacktestWindow.xaml</DependentUpon>
-    </Compile>
     <Compile Include="EqPlot.xaml.cs">
       <DependentUpon>EqPlot.xaml</DependentUpon>
     </Compile>
@@ -97,10 +94,6 @@
     <Compile Include="TradeWindow.xaml.cs">
       <DependentUpon>TradeWindow.xaml</DependentUpon>
     </Compile>
-    <Page Include="BacktestWindow.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="ChartWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

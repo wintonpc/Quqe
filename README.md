@@ -28,6 +28,11 @@
   - Evaluate() against validation set instead of training set.
   - remove {Rnn,Rbf}TrainRecInfo. return the TrainRec directly
   - pick better initial weights: http://www.heatonresearch.com/encog/articles/nguyen-widrow-neural-network-weight.html
+  - historical data in mongo
+  - distributed training
+  - distributed/parallel evaluation?
+  - web UI
+  - backtesting
   - catch NaN bug
   
 NEXT: implement mutate

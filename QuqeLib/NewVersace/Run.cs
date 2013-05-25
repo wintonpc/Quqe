@@ -80,6 +80,8 @@ namespace Quqe
     }
   }
 
+  public enum DatabaseType { A, B }
+
   public class Chromosome
   {
     [BsonRepresentation(BsonType.String)]

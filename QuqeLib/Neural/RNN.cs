@@ -76,10 +76,5 @@ namespace Quqe
     {
       return QuqeUtil.MakeRandomVector(size, -1, 1);
     }
-
-    public IPredictor Reset()
-    {
-      return new RNN(Spec);
-    }
   }
 }

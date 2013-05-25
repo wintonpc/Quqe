@@ -81,7 +81,7 @@ namespace Quqe
       });
     }
 
-    public static Generation MakeInitialGeneration(TrainingSeed seed, Run run, IGenTrainer trainer)
+    public static Generation MakeInitialGeneration(DataSet seed, Run run, IGenTrainer trainer)
     {
       var gen = new Generation(run, 0);
 

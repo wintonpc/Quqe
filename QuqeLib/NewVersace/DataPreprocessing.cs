@@ -10,7 +10,7 @@ using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe
 {
-  public static class Preprocessing
+  public static class DataPreprocessing
   {
     public static Vec ComplementCode(Vec input)
     {
@@ -34,10 +34,38 @@ namespace Quqe
       return x.DotProduct(pc) * pc;
     }
 
-    public static TrainingSeed MakeTrainingSeed(DateTime startDate, DateTime endDate)
+    public static DataSet MakeTrainingSet(string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignalFunc)
     {
-      var data = PreprocessEnhanced("DIA", startDate, endDate, GetIdealSignalFunc(PredictionType.NextClose));
-      return new TrainingSeed(data.Input, data.Output, data.DatabaseAInputLength);
+      var cleanSeries = GetCleanSeries(predictedSymbol, GetTickers(predictedSymbol));
+      var preprocessedInput = GetPreprocessedInput(predictedSymbol, cleanSeries);
+      var predictedSeries = cleanSeries.First(x => x.Symbol == predictedSymbol);
+      var output = GetIdealOutput(idealSignalFunc, predictedSeries);
+      var inputs = preprocessedInput.Input.Columns().Take(preprocessedInput.Input.ColumnCount - 1).ColumnsToMatrix(); // trim to output
+
+      return new DataSet(
+        TrimToWindow(inputs, startDate, endDate, predictedSeries),
+        TrimToWindow(output, startDate, endDate, predictedSeries),
+        preprocessedInput.DatabaseAInputLength);
+    }
+
+    static Mat TrimToWindow(Mat inputs, DateTime startDate, DateTime endDate, DataSeries<Bar> s)
+    {
+      var w = GetWindow(startDate, endDate, s);
+      return inputs.Columns().Skip(w.Item1).Take(w.Item2 - w.Item1 + 1).ColumnsToMatrix();
+    }
+
+    static Vec TrimToWindow(Vec outputs, DateTime startDate, DateTime endDate, DataSeries<Bar> s)
+    {
+      var w = GetWindow(startDate, endDate, s);
+      return outputs.SubVector(w.Item1, w.Item2 - w.Item1 + 1);
+    }
+
+    static Tuple2<int> GetWindow(DateTime startDate, DateTime endDate, DataSeries<Bar> s)
+    {
+      var sList = s.ToList();
+      var start = sList.FindIndex(x => x.Timestamp.Date >= startDate.Date);
+      var end = sList.FindLastIndex(x => x.Timestamp.Date <= endDate.Date);
+      return new Tuple2<int>(start, end);
     }
 
     public static List<string> GetTickers(string predictedSymbol)
@@ -46,33 +74,20 @@ namespace Quqe
         "^GDAXI", "^FTSE", /*"^CJJ", "USDCHF"*/ "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU");
     }
 
-    static PreprocessedData PreprocessEnhanced(string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignal)
+    static PreprocessedData GetPreprocessedInput(string predictedSymbol, List<DataSeries<Bar>> clean)
     {
-      var clean = GetCleanSeries(predictedSymbol, GetTickers(predictedSymbol));
       var aOnly = new List<DataSeries<Value>>();
       var bOnly = new List<DataSeries<Value>>();
 
-      if (idealSignal != null)
-      {
-        // increase endDate by one trading day, because on the true endDate,
-        // we need to look one day ahead to know the correct prediction.
-        // if the trueEnd date is the last day in the DataSeries (can't look ahead), we'll have to chop it off in the output.
-        var ds = clean.First(); // any will do, since we already cleaned them to have the exact same timestamp sequence
-        int i = 1;
-        while (i < ds.Length && ds[i].Timestamp < endDate.AddDays(1))
-          i++;
-        endDate = ds[i].Timestamp;
-      }
-
       /////////////////////
       // helper functions
-      Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker)
-        .From(startDate).To(endDate);
+      Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker);
 
       Action<string, string, Func<Bar, Value>> addSmaNorm = (ticker, tag, getValue) =>
         aOnly.Add(get(ticker).NormalizeSma10(getValue).SetTag(tag));
 
-      Action<string> addSmaNormOHLC = ticker => {
+      Action<string> addSmaNormOHLC = ticker =>
+      {
         addSmaNorm(ticker, "Open", x => x.Open);
         addSmaNorm(ticker, "High", x => x.High);
         addSmaNorm(ticker, "Low", x => x.Low);
@@ -81,10 +96,12 @@ namespace Quqe
 
       //////////////////////////////////////////
       // apply indicators and SMA normalizations
+      #region
       var predicted = get(predictedSymbol);
 
       // % ROC Close
-      bOnly.Add(predicted.MapElements<Value>((s, v) => {
+      bOnly.Add(predicted.MapElements<Value>((s, v) =>
+      {
         if (s.Pos == 0)
           return 0;
         else
@@ -138,33 +155,20 @@ namespace Quqe
       // % Diff. between Normalized DJIA and Normalized T Bond
       bOnly.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0])
         .SetTag("% Diff. between Normalized DJIA and Normalized T Bond"));
+      #endregion
 
       var allInputSeries = aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList();
       if (!allInputSeries.All(s => s.All(x => !double.IsNaN(x.Val))))
         throw new Exception("Some input values are NaN!");
 
       var unalignedInputs = allInputSeries.SeriesToMatrix();
-      if (idealSignal == null)
-        return new PreprocessedData(predicted, null, unalignedInputs, null, aOnly.Count);
-
-      var unalignedOutput = List.Create(predicted.MapElements<Value>((s, _) => idealSignal(s))).SeriesToMatrix();
-
-      var data = unalignedInputs.Columns().Take(unalignedInputs.ColumnCount - 1).ColumnsToMatrix();
-      var output = unalignedOutput.Columns().Skip(1).ColumnsToMatrix();
-      return new PreprocessedData(predicted, allInputSeries, data, new DenseVector(output.Row(0).ToArray()), aOnly.Count);
+      return new PreprocessedData(predicted, allInputSeries, unalignedInputs, aOnly.Count);
     }
 
-    public static Func<DataSeries<Bar>, double> GetIdealSignalFunc(PredictionType pt)
+    static Vec GetIdealOutput(Func<DataSeries<Bar>, double> idealSignal, DataSeries<Bar> predicted)
     {
-      if (pt == PredictionType.NextClose)
-        return s => {
-          if (s.Pos == 0) return 0;
-          var ideal = Math.Sign(s[0].Close - s[1].Close);
-          if (ideal == 0) return 1; // we never predict "no change", so if there actually was no change, consider it a buy
-          return ideal;
-        };
-      else
-        throw new Exception("Unexpected PredictionType: " + pt);
+      var outputSignal = predicted.MapElements<Value>((s, _) => idealSignal(s));
+      return new DenseVector(outputSignal.Skip(1).Select(x => x.Val).ToArray());
     }
 
     static List<DataSeries<Bar>> GetCleanSeries(string predictedSymbol, List<string> tickers)
@@ -196,6 +200,22 @@ namespace Quqe
         }
       }
       return new DataSeries<Bar>(s.Symbol, newElements);
+    }
+  }
+
+  public class PreprocessedData
+  {
+    public readonly DataSeries<Bar> PredictedSeries;
+    public readonly List<DataSeries<Value>> AllInputSeries;
+    public readonly Mat Input;
+    public readonly int DatabaseAInputLength;
+
+    public PreprocessedData(DataSeries<Bar> predictedSeries, List<DataSeries<Value>> allInputSeries, Mat input, int databaseAInputLength)
+    {
+      PredictedSeries = predictedSeries;
+      AllInputSeries = allInputSeries;
+      Input = input;
+      DatabaseAInputLength = databaseAInputLength;
     }
   }
 }

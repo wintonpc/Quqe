@@ -7,16 +7,16 @@ using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra.Generic;
 using Quqe;
+using Quqe.NewVersace;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 
 namespace QuqeTest
 {
   static class NNTestUtils
   {
-    public static PreprocessedData GetData(string startDate, string endDate)
+    public static DataSet GetData(string startDate, string endDate)
     {
-      return Versace.GetPreprocessedValues(PreprocessingType.Enhanced, "DIA", DateTime.Parse(startDate), DateTime.Parse(endDate),
-        Versace.GetIdealSignalFunc(PredictionType.NextClose));
+      return DataPreprocessing.MakeTrainingSet("DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), Signals.NextClose);
     }
 
     public static string Checksum(Vec v)

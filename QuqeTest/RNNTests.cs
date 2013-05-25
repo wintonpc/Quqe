@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using Quqe.NewVersace;
 using List = PCW.List;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 
@@ -32,9 +33,9 @@ namespace QuqeTest
     public void RNNPredictsWell()
     {
       QuqeUtil.Random = new Random(42);
-      var trainingData = NNTestUtils.GetData("2004-01-01", "2004-07-01");
-      var trainResult = Train(trainingData, 8, 4, 1000);
-      var trainingFitness = VMixture.ComputePredictorFitness(new RNN(trainResult.RNNSpec), trainingData.Input, trainingData.Output);
+      var data = NNTestUtils.GetData("2004-01-01", "2004-07-01");
+      var trainResult = Train(data, 8, 4, 1000);
+      var trainingFitness = Functions.ComputeFitness(new PredictorWithInputs(new RNN(trainResult.RNNSpec), data.Input), data);
       
       Trace.WriteLine("Training fitness: " + trainingFitness);
       trainingFitness.ShouldEqual(0.968);
@@ -51,9 +52,9 @@ namespace QuqeTest
       sw.ElapsedMilliseconds.ShouldBeGreaterThan(2000).ShouldBeLessThan(17000);
     }
 
-    static RnnTrainResult Train(PreprocessedData trainingData, int layer1NodeCount, int layer2NodeCount, int epochMax)
+    static RnnTrainResult Train(DataSet data, int layer1NodeCount, int layer2NodeCount, int epochMax)
     {
-      var numInputs = trainingData.Input.RowCount;
+      var numInputs = data.Input.RowCount;
       var layers = new List<LayerSpec> {
         new LayerSpec(layer1NodeCount, true, ActivationType.LogisticSigmoid),
         new LayerSpec(layer2NodeCount, true, ActivationType.LogisticSigmoid),
@@ -62,7 +63,7 @@ namespace QuqeTest
 
       var weightCount = RNN.GetWeightCount(layers, numInputs);
       var initialWeights = QuqeUtil.MakeRandomVector(weightCount, -1, 1);
-      return RNN.TrainSCG(layers, initialWeights, epochMax, trainingData.Input, trainingData.Output);
+      return RNN.TrainSCG(layers, initialWeights, epochMax, data.Input, data.Output);
     }
   }
 }

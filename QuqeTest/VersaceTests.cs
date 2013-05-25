@@ -1,5 +1,6 @@
 ﻿using NUnit.Framework;
 using Quqe;
+using Quqe.NewVersace;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,8 +16,6 @@ namespace QuqeTest
     [Test]
     public void IdealSignalNextClose()
     {
-      var predictionFunc = Versace.GetIdealSignalFunc(PredictionType.NextClose);
-
       var bars = new DataSeries<Bar>("", new[] {
         new Bar(5, 0, 0, 10, 0),
         new Bar(6, 0, 0, 11, 0),
@@ -27,7 +26,7 @@ namespace QuqeTest
         new Bar(10, 0, 0, 12, 0)
       });
 
-      var signal = bars.MapElements<Value>((s, _) => predictionFunc(s)).Select(x => x.Val).ToList();
+      var signal = bars.MapElements<Value>((s, _) => Signals.NextClose(s)).Select(x => x.Val).ToList();
       signal.ShouldEnumerateLike(List.Create<double>(0, 1, 1, -1, -1, 1, 1)); 
     }
 

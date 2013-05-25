@@ -16,7 +16,7 @@ namespace Quqe
       if (!Directory.Exists(dir))
         Directory.CreateDirectory(dir);
 
-      foreach (var ticker in Versace.GetTickers(predictedSymbol))
+      foreach (var ticker in DataPreprocessing.GetTickers(predictedSymbol))
       {
         using (var c = new WebClient())
         {

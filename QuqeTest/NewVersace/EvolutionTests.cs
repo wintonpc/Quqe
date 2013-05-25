@@ -1,6 +1,7 @@
 ﻿using MongoDB.Driver;
 using NUnit.Framework;
 using Quqe;
+using Quqe.NewVersace;
 using List = PCW.List;
 using System;
 using System.Collections.Generic;
@@ -24,7 +25,7 @@ namespace QuqeTest
       var db = new Database(mongoDb);
 
       var protoRun = new ProtoRun(db, "EvolveTest", 3, Initialization.MakeFastestProtoChromosome(), 10, 6, 4, 5, 0.05);
-      var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
+      var seed = MakeTrainingSet("11/11/2001", "02/12/2003");
       var run = Functions.Evolve(protoRun, new LocalParallelTrainer(), seed);
       run.Id.ShouldBeOfType<ObjectId>();
       run.ProtoChromosome.Genes.Length.ShouldEqual(11);
@@ -51,7 +52,7 @@ namespace QuqeTest
       var db = new Database(mongoDb);
 
       var protoRun = new ProtoRun(db, "LocalEvolveTest", 3, Initialization.MakeProtoChromosome(), 10, 10, 0, 5, 0.05);
-      var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
+      var seed = MakeTrainingSet("11/11/2001", "02/12/2003");
       var run = Functions.Evolve(protoRun, new LocalParallelTrainer(), seed);
       Trace.WriteLine("Generation fitnesses: " + run.Generations.Select(x => x.Evaluated.Fitness).Join(", "));
     }
@@ -63,7 +64,7 @@ namespace QuqeTest
       var protoChrom = Initialization.MakeFastestProtoChromosome();
       var protoRun = new ProtoRun(db, "MixtureCrossoverTest", -1, protoChrom, 2, 10, 0, 10, 0.05);
       var run = new Run(protoRun, protoChrom);
-      var seed = Preprocessing.MakeTrainingSeed(DateTime.Parse("11/11/2001"), DateTime.Parse("02/12/2003"));
+      var seed = MakeTrainingSet("11/11/2001", "02/12/2003");
       var gen = Initialization.MakeInitialGeneration(seed, run, new LocalTrainer());
       gen.Mixtures.Length.ShouldEqual(2);
       var m1 = gen.Mixtures[0];
@@ -76,6 +77,11 @@ namespace QuqeTest
       for (int i = 0; i < m1.Chromosomes.Length; i++)
         AssertIsCrossedOverVersionOf(Tuple2.Create(curr.Item1[i], curr.Item2[i]),
                                      Tuple2.Create(prev.Item1[i], prev.Item2[i]));
+    }
+
+    static DataSet MakeTrainingSet(string startDate, string endDate)
+    {
+      return DataPreprocessing.MakeTrainingSet("DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), Signals.NextClose);
     }
 
     [Test]

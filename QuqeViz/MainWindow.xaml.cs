@@ -26,10 +26,10 @@ namespace QuqeViz
     {
       InitializeComponent();
       Initialize();
-      Update();
-      var btw = new BacktestWindow();
-      btw.Show();
-      this.Loaded += delegate { btw.Activate(); };
+      //Update();
+      //var btw = new BacktestWindow();
+      //btw.Show();
+      //this.Loaded += delegate { btw.Activate(); };
     }
 
     //public void DoBacktest(string symbol, string strategyName, double initialValue, int marginFactor, bool isValidation)
@@ -176,16 +176,16 @@ namespace QuqeViz
 
     private void DIAButton_Click(object sender, RoutedEventArgs e)
     {
-      var dia = Versace.GetCleanSeries("DIA", Versace.GetTickers("DIA")).First(s => s.Symbol == "DIA");
-      var w = new ChartWindow();
-      var g1 = w.Chart.AddGraph();
-      g1.Plots.Add(new Plot {
-        Title = "DIA",
-        DataSeries = dia,
-        Type = PlotType.Candlestick
-      });
-      var g2 = w.Chart.AddGraph();
-      w.Show();
+      //var dia = Versace.GetCleanSeries("DIA", Versace.GetTickers("DIA")).First(s => s.Symbol == "DIA");
+      //var w = new ChartWindow();
+      //var g1 = w.Chart.AddGraph();
+      //g1.Plots.Add(new Plot {
+      //  Title = "DIA",
+      //  DataSeries = dia,
+      //  Type = PlotType.Candlestick
+      //});
+      //var g2 = w.Chart.AddGraph();
+      //w.Show();
     }
 
     private void VersaceEvolveButton_Click(object sender, RoutedEventArgs e)

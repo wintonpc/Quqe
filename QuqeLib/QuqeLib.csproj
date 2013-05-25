@@ -86,17 +86,19 @@
     <Compile Include="Misc\QuqeUtil.cs" />
     <Compile Include="NewVersace\Database.cs" />
     <Compile Include="NewVersace\EvolutionAux.cs" />
-    <Compile Include="NewVersace\ExpertPreprocessing.cs" />
+    <Compile Include="NewVersace\DataTailoring.cs" />
     <Compile Include="NewVersace\Functions.cs" />
     <Compile Include="NewVersace\GenericFunctions.cs" />
     <Compile Include="NewVersace\Initialization.cs" />
     <Compile Include="NewVersace\LittleEndian.cs" />
     <Compile Include="NewVersace\MathEx.cs" />
     <Compile Include="NewVersace\MongoTopLevelObject.cs" />
-    <Compile Include="NewVersace\GlobalPreprocessing.cs" />
+    <Compile Include="NewVersace\DataPreprocessing.cs" />
+    <Compile Include="NewVersace\Predictors.cs" />
     <Compile Include="NewVersace\RbfTrainRec.cs" />
     <Compile Include="NewVersace\RnnTrainRec.cs" />
     <Compile Include="NewVersace\Run.cs" />
+    <Compile Include="NewVersace\Signals.cs" />
     <Compile Include="NewVersace\Trainers.cs" />
     <Compile Include="NewVersace\Training.cs" />
     <Compile Include="NewVersace\VectorSerializer.cs" />
@@ -108,17 +110,7 @@
     <Compile Include="Neural\RNNViz.cs" />
     <Compile Include="Misc\Strategy.cs" />
     <Compile Include="Data\Transforms.cs" />
-    <Compile Include="Versace\Experts.cs" />
-    <Compile Include="Versace\VersaceContext.cs" />
-    <Compile Include="Versace\Trainer.cs" />
-    <Compile Include="Versace\VChromosome.cs" />
-    <Compile Include="Versace\Versace.cs" />
     <Compile Include="Data\VersaceDataFetching.cs" />
-    <Compile Include="Versace\VersacePreprocessing.cs" />
-    <Compile Include="Versace\VersaceResult.cs" />
-    <Compile Include="Versace\VersaceSettings.cs" />
-    <Compile Include="Versace\VGene.cs" />
-    <Compile Include="Versace\VMixture.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">

@@ -8,15 +8,9 @@ using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe.NewVersace
 {
-  public static class ExpertPreprocessing
+  public static class DataTailoring
   {
-    public static Tuple<Mat, Vec> PrepareData(TrainingSeed tSeed, Chromosome chrom)
-    {
-      return new Tuple<Mat, Vec>(PreprocessInputs(tSeed.Input, chrom, tSeed.DatabaseAInputLength),
-                                 tSeed.Output);
-    }
-
-    static Mat PreprocessInputs(Mat inputMatrix, Chromosome chrom, int databaseAInputLength)
+    public static Mat TailorInputs(Mat inputMatrix, int databaseAInputLength, Chromosome chrom)
     {
       var inputs = inputMatrix.Columns();
 
@@ -26,14 +20,14 @@ namespace Quqe.NewVersace
 
       // complement coding
       if (chrom.UseComplementCoding)
-        inputs = inputs.Select(Preprocessing.ComplementCode).ToList();
+        inputs = inputs.Select(DataPreprocessing.ComplementCode).ToList();
 
       // PCA
       if (chrom.UsePCA)
       {
-        var principalComponents = Preprocessing.PrincipleComponents(inputs.ColumnsToMatrix());
+        var principalComponents = DataPreprocessing.PrincipleComponents(inputs.ColumnsToMatrix());
         var pcNumber = Math.Min(chrom.PrincipalComponent, principalComponents.ColumnCount - 1);
-        inputs = inputs.Select(x => Preprocessing.NthPrincipleComponent(principalComponents, pcNumber, x)).ToList();
+        inputs = inputs.Select(x => DataPreprocessing.NthPrincipleComponent(principalComponents, pcNumber, x)).ToList();
       }
 
       return inputs.ColumnsToMatrix();

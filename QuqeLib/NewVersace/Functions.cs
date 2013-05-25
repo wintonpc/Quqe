@@ -11,7 +11,7 @@ namespace Quqe
 {
   public static partial class Functions
   {
-    public static Run Evolve(ProtoRun protoRun, IGenTrainer trainer, TrainingSeed seed)
+    public static Run Evolve(ProtoRun protoRun, IGenTrainer trainer, DataSet seed)
     {
       var run = new Run(protoRun, protoRun.ProtoChromosome);
       var gen = Initialization.MakeInitialGeneration(seed, run, trainer);
@@ -30,7 +30,7 @@ namespace Quqe
       }
     }
 
-    static Generation Train(IGenTrainer trainer, TrainingSeed seed, Run run, int generationNum, MixtureInfo[] pop)
+    static Generation Train(IGenTrainer trainer, DataSet seed, Run run, int generationNum, MixtureInfo[] pop)
     {
       var gen = new Generation(run, generationNum);
       trainer.Train(seed, gen, pop.Select(mi => new MixtureInfo(new Mixture(gen, mi.Parents).Id, mi.Chromosomes)).ToArray(),
@@ -39,64 +39,24 @@ namespace Quqe
       return gen;
     }
 
-    static MixtureEval[] Evaluate(Generation gen, TrainingSeed seed)
+    static MixtureEval[] Evaluate(Generation gen, DataSet data)
     {
-      var evaluatedMixtures = gen.Mixtures.Select(m => EvaluateMixture(m, seed)).ToArray();
+      var evaluatedMixtures = gen.Mixtures.Select(m => EvaluateMixture(m, data)).ToArray();
       new GenEval(gen, evaluatedMixtures.Max(x => x.Fitness));
       return evaluatedMixtures;
     }
 
-    static MixtureEval EvaluateMixture(Mixture m, TrainingSeed seed)
+    static MixtureEval EvaluateMixture(Mixture m, DataSet data)
     {
-      var fitness = MixtureFitness(m, seed);
-      return new MixtureEval(m, fitness);
+      using (var mixturePredictor = new MixturePredictor(m.Experts.Select(x => new ExpertPredictor(x, data.Input, data.DatabaseAInputLength))))
+        return new MixtureEval(m, ComputeFitness(mixturePredictor, data));
     }
-
-    static double MixtureFitness(Mixture m, TrainingSeed tSeed)
+  
+    public static double ComputeFitness(IPredictorWithInputs predictor, DataSet data)
     {
-      var expertPredictors = m.Experts.Select(x => new ExpertPredictor(tSeed, x)).ToList();
-      var predictions = List.Repeat(tSeed.Input.ColumnCount, t => MixturePredict(expertPredictors, t));
-      var accuracy = predictions.Zip(tSeed.Output, (predicted, actual) => Math.Sign(predicted) == Math.Sign(actual) ? 1 : 0).Average();
+      var predictions = List.Repeat(data.Input.ColumnCount, t => predictor.Predict(t));
+      var accuracy = predictions.Zip(data.Output, (predicted, actual) => Math.Sign(predicted) == Math.Sign(actual) ? 1 : 0).Average();
       return accuracy;
-    }
-
-    class ExpertPredictor
-    {
-      public readonly ExpertSeed ExpertSeed;
-      public readonly IPredictor Predictor;
-
-      public ExpertPredictor(TrainingSeed tSeed, Expert expert)
-      {
-        var data = ExpertPreprocessing.PrepareData(tSeed, expert.Chromosome);
-        ExpertSeed = new ExpertSeed(data.Item1, data.Item2, expert.Chromosome);
-        Predictor = MakePredictor(expert);
-      }
-    }
-
-    static double MixturePredict(List<ExpertPredictor> expertPredictors, int t)
-    {
-      //return Math.Sign(expertPredictors.Select(p => p.Predict(inputs)).Average());
-      var outputs = expertPredictors.Select(ep => {
-        var prediction = ep.Predictor.Predict(ep.ExpertSeed.Input.Column(t));
-        return prediction;
-      }).ToArray();
-      return Math.Sign(outputs.Average());
-    }
-
-    static IPredictor MakePredictor(Expert expert)
-    {
-      if (expert is RnnTrainRec)
-      {
-        var trainRec = (RnnTrainRec)expert;
-        return new RNN(trainRec.RnnSpec.ToRnnSpec());
-      }
-      else if (expert is RbfTrainRec)
-      {
-        var trainRec = (RbfTrainRec)expert;
-        return new RBFNet(trainRec.Bases.Select(b => b.ToRadialBasis()), trainRec.OutputBias, trainRec.Spread, trainRec.IsDegenerate);
-      }
-      else
-        throw new Exception("Unexpected expert type");
     }
 
     static MixtureEval[] Select(int selectionSize, IEnumerable<MixtureEval> ms)
@@ -157,5 +117,10 @@ namespace Quqe
     {
       return Quantize(RandomDouble(gd.MinValue, gd.MaxValue), gd.MinValue, gd.Granularity);
     }
+  }
+
+  public interface IPredictor : IDisposable
+  {
+    double Predict(Vec input);
   }
 }
