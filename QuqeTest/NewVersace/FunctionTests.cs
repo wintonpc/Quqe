@@ -81,9 +81,9 @@ namespace QuqeTest
     public void ChromosomeInitialization()
     {
       var protoChrom = Initialization.MakeProtoChromosome();
-      var a = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom);
-      var b = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom);
-      var c = Initialization.RandomChromosome(NetworkType.Rbf, protoChrom);
+      var a = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom, 0);
+      var b = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom, 0);
+      var c = Initialization.RandomChromosome(NetworkType.Rbf, protoChrom, 0);
       new Action(() => a.Genes.ShouldEnumerateLike(b.Genes)).ShouldThrow<SpecificationException>();
       a.NetworkType.ShouldEqual(NetworkType.Rnn);
       c.NetworkType.ShouldEqual(NetworkType.Rbf);

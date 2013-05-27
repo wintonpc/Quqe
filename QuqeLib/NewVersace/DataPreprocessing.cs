@@ -48,6 +48,15 @@ namespace Quqe
         preprocessedInput.DatabaseAInputLength);
     }
 
+    public static Tuple2<DataSet> MakeTrainingAndValidationSets(string predictedSymbol, DateTime startDate, DateTime endDate,
+      double validationPct, Func<DataSeries<Bar>, double> idealSignalFunc)
+    {
+      DateTime splitDate = startDate.AddDays((endDate - startDate).TotalDays * (1.0 - validationPct)).Date;
+      return new Tuple2<DataSet>(
+        MakeTrainingSet(predictedSymbol, startDate, splitDate, idealSignalFunc),
+        MakeTrainingSet(predictedSymbol, splitDate.AddDays(1), endDate, idealSignalFunc));
+    }
+
     static Mat TrimToWindow(Mat inputs, DateTime startDate, DateTime endDate, DataSeries<Bar> s)
     {
       var w = GetWindow(startDate, endDate, s);

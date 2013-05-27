@@ -60,6 +60,11 @@ namespace Quqe.NewVersace
       ExpertPredictors = expertPredictors.ToList();
     }
 
+    public MixturePredictor(Mixture mixture, DataSet data)
+    {
+      ExpertPredictors = mixture.Experts.Select(x => new ExpertPredictor(x, data.Input, data.DatabaseAInputLength)).ToList();
+    }
+
     public double Predict(int t)
     {
       return Math.Sign(ExpertPredictors.Select(ep => ep.Predict(t)).Average());

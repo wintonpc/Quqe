@@ -87,11 +87,13 @@ namespace Quqe
     [BsonRepresentation(BsonType.String)]
     public NetworkType NetworkType { get; private set; }
     public Gene[] Genes { get; private set; }
+    public int OrderInMixture { get; private set; }
 
-    public Chromosome(NetworkType networkType, IEnumerable<Gene> genes)
+    public Chromosome(NetworkType networkType, IEnumerable<Gene> genes, int order)
     {
       NetworkType = networkType;
       Genes = genes.ToArray();
+      OrderInMixture = order;
     }
 
     // input data window
@@ -193,7 +195,7 @@ namespace Quqe
       {
         var rnnExperts = Database.QueryAll<RnnTrainRec>(x => x.MixtureId == this.Id);
         var rbfExperts = Database.QueryAll<RbfTrainRec>(x => x.MixtureId == this.Id);
-        return rnnExperts.Concat<Expert>(rbfExperts).ToArray();
+        return rnnExperts.Concat<Expert>(rbfExperts).OrderBy(x => x.Chromosome.OrderInMixture).ToArray();
       }
     }
     public MixtureEval Evaluated { get { return Database.QueryOne<MixtureEval>(x => x.MixtureId == this.Id); } }

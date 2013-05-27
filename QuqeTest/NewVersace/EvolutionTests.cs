@@ -25,8 +25,8 @@ namespace QuqeTest
       var db = new Database(mongoDb);
 
       var protoRun = new ProtoRun(db, "EvolveTest", 3, Initialization.MakeFastestProtoChromosome(), 10, 6, 4, 5, 0.05);
-      var seed = MakeTrainingSet("11/11/2001", "02/12/2003");
-      var run = Functions.Evolve(protoRun, new LocalParallelTrainer(), seed);
+      var dataSets = MakeTrainingAndValidationSets("11/11/2001", "02/12/2002");
+      var run = Functions.Evolve(protoRun, new LocalParallelTrainer(), dataSets.Item1, dataSets.Item2);
       run.Id.ShouldBeOfType<ObjectId>();
       run.ProtoChromosome.Genes.Length.ShouldEqual(11);
 
@@ -43,6 +43,11 @@ namespace QuqeTest
       gen2.Mixtures.Count().ShouldEqual(10);
       gen2.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rnn).ShouldEqual(6);
       gen2.Mixtures.First().Experts.Count(x => x.Chromosome.NetworkType == NetworkType.Rbf).ShouldEqual(4);
+
+      foreach (var gen in run.Generations)
+        foreach (var mixture in gen.Mixtures)
+          mixture.Chromosomes.Select(x => x.OrderInMixture).ShouldEnumerateLike(
+            mixture.Chromosomes.OrderBy(x => x.OrderInMixture).Select(x => x.OrderInMixture));
     }
 
     [Test]
@@ -51,10 +56,41 @@ namespace QuqeTest
       var mongoDb = TestHelpers.GetCleanDatabase();
       var db = new Database(mongoDb);
 
-      var protoRun = new ProtoRun(db, "LocalEvolveTest", 3, Initialization.MakeProtoChromosome(), 10, 10, 0, 5, 0.05);
-      var seed = MakeTrainingSet("11/11/2001", "02/12/2003");
-      var run = Functions.Evolve(protoRun, new LocalParallelTrainer(), seed);
+      var protoRun = new ProtoRun(db, "LocalEvolveTest", 4, Initialization.MakeProtoChromosome(), 10, 6, 4, 4, 0.05);
+      var trainingStart = "11/11/2001";
+      var validationEnd = "05/12/2003";
+      var dataSets = MakeTrainingAndValidationSets(trainingStart, validationEnd);
+      var run = Functions.Evolve(protoRun, new LocalParallelTrainer(), dataSets.Item1, dataSets.Item2);
       Trace.WriteLine("Generation fitnesses: " + run.Generations.Select(x => x.Evaluated.Fitness).Join(", "));
+      var bestMixtures = run.Generations.SelectMany(g => g.Mixtures).OrderByDescending(m => m.Evaluated.Fitness).Take(10).ToList();
+
+      var testingSet = MakeTrainingSet(validationEnd, "12/12/2003");
+      List.Repeat(bestMixtures.Count, i => {
+        var predictor = new MixturePredictor(bestMixtures[i], testingSet);
+        var testedFitness = Functions.ComputeFitness(predictor, testingSet, 20);
+        Trace.WriteLine(string.Format("Tested fitness for best mixture #{0}: {1}", i, testedFitness));
+      });
+    }
+
+    [Test]
+    public void InitialPopulationTest()
+    {
+      var mongoDb = TestHelpers.GetCleanDatabase();
+      var db = new Database(mongoDb);
+      var protoRun = new ProtoRun(db, "InitialPopulationTest", 3, Initialization.MakeFastestProtoChromosome(), 10, 6, 4, 5, 0.05);
+      var gen = Initialization.MakeInitialGeneration(MakeTrainingSet("11/11/2001", "12/11/2001"),
+                                                     new Run(protoRun, Initialization.MakeFastestProtoChromosome()),
+                                                     new LocalParallelTrainer());
+      foreach (var mixture in gen.Mixtures)
+      {
+        var ordered = mixture.Chromosomes.OrderBy(c => c.OrderInMixture).ToArray();
+        var rnns = ordered.Take(6).ToArray();
+        var rbfs = ordered.Skip(6).ToArray();
+        rnns.Length.ShouldEqual(6);
+        rbfs.Length.ShouldEqual(4);
+        rnns.Select(c => c.NetworkType).Distinct().Single().ShouldEqual(NetworkType.Rnn);
+        rbfs.Select(c => c.NetworkType).Distinct().Single().ShouldEqual(NetworkType.Rbf);
+      }
     }
 
     [Test]
@@ -62,7 +98,7 @@ namespace QuqeTest
     {
       var db = new Database(TestHelpers.GetCleanDatabase());
       var protoChrom = Initialization.MakeFastestProtoChromosome();
-      var protoRun = new ProtoRun(db, "MixtureCrossoverTest", -1, protoChrom, 2, 10, 0, 10, 0.05);
+      var protoRun = new ProtoRun(db, "MixtureCrossoverTest", -1, protoChrom, 2, 6, 4, 10, 0.05);
       var run = new Run(protoRun, protoChrom);
       var seed = MakeTrainingSet("11/11/2001", "02/12/2003");
       var gen = Initialization.MakeInitialGeneration(seed, run, new LocalTrainer());
@@ -84,12 +120,17 @@ namespace QuqeTest
       return DataPreprocessing.MakeTrainingSet("DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), Signals.NextClose);
     }
 
+    static Tuple2<DataSet> MakeTrainingAndValidationSets(string startDate, string endDate)
+    {
+      return DataPreprocessing.MakeTrainingAndValidationSets("DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), 0.20, Signals.NextClose);
+    }
+
     [Test]
     public void ChromosomeCrossover()
     {
       var protoChrom = Initialization.MakeProtoChromosome();
-      var a = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom);
-      var b = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom);
+      var a = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom, 0);
+      var b = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom, 0);
       a.ShouldNotLookLike(b);
 
       var crossedOverChroms = Functions.CrossOverChromosomes(a, b);

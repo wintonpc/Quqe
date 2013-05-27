@@ -25,7 +25,10 @@
   
   
 - TODO
-  - Evaluate() against validation set instead of training set.
+  - why is the GA overfitting the blind set? something about the mixtures must be degenerate
+  - things to try
+    - feed training set into experts to build up state before evaluating validation set?
+    - experts vote either -1 or 1, or their vote is weighed by their certainty (magnitude of output)
   - remove {Rnn,Rbf}TrainRecInfo. return the TrainRec directly
   - pick better initial weights: http://www.heatonresearch.com/encog/articles/nguyen-widrow-neural-network-weight.html
   - historical data in mongo
@@ -34,5 +37,3 @@
   - web UI
   - backtesting
   - catch NaN bug
-  
-NEXT: implement mutate

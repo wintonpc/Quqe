@@ -11,18 +11,18 @@ namespace Quqe
 {
   public static partial class Functions
   {
-    public static Run Evolve(ProtoRun protoRun, IGenTrainer trainer, DataSet seed)
+    public static Run Evolve(ProtoRun protoRun, IGenTrainer trainer, DataSet trainingSet, DataSet validationSet)
     {
       var run = new Run(protoRun, protoRun.ProtoChromosome);
-      var gen = Initialization.MakeInitialGeneration(seed, run, trainer);
+      var gen = Initialization.MakeInitialGeneration(trainingSet, run, trainer);
 
       while (true)
       {
-        var evaluated = Evaluate(gen, seed);
+        var evaluated = Evaluate(gen, validationSet);
         if (gen.Order == protoRun.NumGenerations - 1)
           return run;
 
-        gen = Train(trainer, seed, run, gen.Order + 1,
+        gen = Train(trainer, trainingSet, run, gen.Order + 1,
                     Mutate(run,
                            Combine(protoRun.MixturesPerGeneration,
                                    Select(protoRun.SelectionSize,
@@ -48,14 +48,14 @@ namespace Quqe
 
     static MixtureEval EvaluateMixture(Mixture m, DataSet data)
     {
-      using (var mixturePredictor = new MixturePredictor(m.Experts.Select(x => new ExpertPredictor(x, data.Input, data.DatabaseAInputLength))))
+      using (var mixturePredictor = new MixturePredictor(m, data))
         return new MixtureEval(m, ComputeFitness(mixturePredictor, data));
     }
-  
-    public static double ComputeFitness(IPredictorWithInputs predictor, DataSet data)
+
+    public static double ComputeFitness(IPredictorWithInputs predictor, DataSet data, int preloadCount = 0)
     {
       var predictions = List.Repeat(data.Input.ColumnCount, t => predictor.Predict(t));
-      var accuracy = predictions.Zip(data.Output, (predicted, actual) => Math.Sign(predicted) == Math.Sign(actual) ? 1 : 0).Average();
+      var accuracy = predictions.Zip(data.Output, (predicted, actual) => Math.Sign(predicted) == Math.Sign(actual) ? 1 : 0).Skip(preloadCount).Average();
       return accuracy;
     }
 
@@ -73,24 +73,23 @@ namespace Quqe
     {
       var parents = SelectTwoAccordingToQuality(ms, x => x.Fitness);
 
-      Func<MixtureEval, Chromosome[]> chromosomesOf = me => me.Mixture.Experts.Select(x => x.Chromosome).ToArray();
+      Func<IEnumerable<Chromosome>, MixtureInfo> chromosomesToMixture =
+        chromosomes => new MixtureInfo(parents.Select(p => p.Mixture), chromosomes);
 
-      Func<IEnumerable<Chromosome>, MixtureInfo> chromosomesToMixture = chromosomes =>
-                                                                        new MixtureInfo(parents.Select(p => p.Mixture), chromosomes);
-
-      return CrossOver(chromosomesOf(parents.Item1), chromosomesOf(parents.Item2), CrossOverChromosomes, chromosomesToMixture);
+      return CrossOver(parents.Item1.Mixture.Chromosomes, parents.Item2.Mixture.Chromosomes, CrossOverChromosomes, chromosomesToMixture);
     }
 
     internal static Tuple2<Chromosome> CrossOverChromosomes(Chromosome a, Chromosome b)
     {
       Debug.Assert(a.NetworkType == b.NetworkType);
+      Debug.Assert(a.OrderInMixture == b.OrderInMixture);
 
       Func<Gene, Gene, Tuple2<Gene>> crossGenes = (x, y) => {
         Debug.Assert(x.Name == y.Name);
-        return QuqeUtil.Random.Next(2) == 0 ? Tuple2.Create(x, y) : Tuple2.Create(y, x);
+        return QuqeUtil.WithProb(0.5) ? Tuple2.Create(x, y) : Tuple2.Create(y, x);
       };
 
-      return CrossOver(a.Genes, b.Genes, crossGenes, genes => new Chromosome(a.NetworkType, genes));
+      return CrossOver(a.Genes, b.Genes, crossGenes, genes => new Chromosome(a.NetworkType, genes, a.OrderInMixture));
     }
 
     static MixtureInfo[] Mutate(Run run, IEnumerable<MixtureInfo> ms)
@@ -105,7 +104,7 @@ namespace Quqe
 
     static Chromosome MutateChromosome(Chromosome c, Run run)
     {
-      return new Chromosome(c.NetworkType, c.Genes.Select(x => MutateGene(x, run)));
+      return new Chromosome(c.NetworkType, c.Genes.Select(x => MutateGene(x, run)), c.OrderInMixture);
     }
 
     static Gene MutateGene(Gene g, Run run)

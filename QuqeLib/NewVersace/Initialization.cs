@@ -14,7 +14,7 @@ namespace Quqe
       return new ProtoChromosome(new[] {
         // input data window
         ProtoGene.Create("TrainingOffsetPct", 0, 1, GeneType.Continuous),
-        ProtoGene.Create("TrainingSizePct", 0, 1, GeneType.Continuous),
+        ProtoGene.Create("TrainingSizePct", 0.03, 1, GeneType.Continuous),
         
         // transformations
         ProtoGene.Create("DatabaseType", 0, 1, GeneType.Discrete),
@@ -85,12 +85,12 @@ namespace Quqe
     {
       var gen = new Generation(run, 0);
 
-      Func<int, NetworkType, Chromosome[]> makeChromosomes = (n, type) =>
-        List.Repeat(n, _ => RandomChromosome(type, run.ProtoRun.ProtoChromosome)).ToArray();
+      Func<int, NetworkType, int, Chromosome[]> makeChromosomes = (n, type, orderOffset) =>
+        List.Repeat(n, i => RandomChromosome(type, run.ProtoRun.ProtoChromosome, orderOffset + i)).ToArray();
 
       Func<Chromosome[]> makeMixtureChromosomes = () =>
-        makeChromosomes(run.ProtoRun.RnnPerMixture, NetworkType.Rnn).Concat(
-        makeChromosomes(run.ProtoRun.RbfPerMixture, NetworkType.Rbf)).ToArray();
+        makeChromosomes(run.ProtoRun.RnnPerMixture, NetworkType.Rnn, 0).Concat(
+        makeChromosomes(run.ProtoRun.RbfPerMixture, NetworkType.Rbf, run.ProtoRun.RnnPerMixture)).ToArray();
 
       Func<Mixture> makeMixture = () => new Mixture(gen, new Mixture[0]);
 
@@ -103,9 +103,9 @@ namespace Quqe
       return gen;
     }
 
-    public static Chromosome RandomChromosome(NetworkType networkType, ProtoChromosome protoChrom)
+    public static Chromosome RandomChromosome(NetworkType networkType, ProtoChromosome protoChrom, int order)
     {
-      return new Chromosome(networkType, protoChrom.Genes.Select(gd => new Gene(gd.Name, Functions.RandomGeneValue(gd))));
+      return new Chromosome(networkType, protoChrom.Genes.Select(gd => new Gene(gd.Name, Functions.RandomGeneValue(gd))), order);
     }
   }
 }
