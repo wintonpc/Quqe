@@ -6,6 +6,7 @@ using Indigo.Util.Lisp;
 using Machine.Specifications;
 using List = PCW.List;
 using PCW;
+using System.Diagnostics;
 
 namespace Quqe
 {

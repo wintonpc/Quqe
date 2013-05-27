@@ -29,34 +29,4 @@ namespace Quqe
       Chromosomes = chromosomes.ToArray();
     }
   }
-
-  public class RnnTrainRecInfo
-  {
-    public readonly Vec InitialWeights;
-    public readonly MRnnSpec RnnSpec;
-    public readonly double[] CostHistory;
-
-    public RnnTrainRecInfo(Vec initialWeights, MRnnSpec rnnSpec, IEnumerable<double> costHistory)
-    {
-      InitialWeights = initialWeights;
-      RnnSpec = rnnSpec;
-      CostHistory = costHistory.ToArray();
-    }
-  }
-
-  public class RbfTrainRecInfo
-  {
-    public readonly MRadialBasis[] Bases;
-    public readonly double OutputBias;
-    public readonly double Spread;
-    public readonly bool IsDegenerate;
-
-    public RbfTrainRecInfo(IEnumerable<MRadialBasis> bases, double outputBias, double spread, bool isDegenerate)
-    {
-      Bases = bases.ToArray();
-      OutputBias = outputBias;
-      Spread = spread;
-      IsDegenerate = isDegenerate;
-    }
-  }
 }

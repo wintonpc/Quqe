@@ -102,7 +102,7 @@ namespace Quqe
       return chromosomes.Select(x => MutateChromosome(x, run)).ToArray();
     }
 
-    static Chromosome MutateChromosome(Chromosome c, Run run)
+    internal static Chromosome MutateChromosome(Chromosome c, Run run)
     {
       return new Chromosome(c.NetworkType, c.Genes.Select(x => MutateGene(x, run)), c.OrderInMixture);
     }

@@ -12,7 +12,7 @@ namespace Quqe
 {
   public static class Training
   {
-    public static RnnTrainRecInfo TrainRnn(Mat input, Vec output, Chromosome chrom)
+    public static RnnTrainRec TrainRnn(Mat input, Vec output, Chromosome chrom, MakeRnnTrainRecFunc makeResult)
     {
       Func<int, LayerSpec> logisticSigmoidRecurrent = nodeCount =>
                                                       new LayerSpec(nodeCount, true, ActivationType.LogisticSigmoid);
@@ -29,13 +29,13 @@ namespace Quqe
       var initialWeights = RNN.MakeRandomWeights(rnnWeightCount);
       var trainResult = RNN.TrainSCG(layers, initialWeights, epochMax, input, output);
 
-      return new RnnTrainRecInfo(initialWeights, MRnnSpec.FromRnnSpec(trainResult.RNNSpec), trainResult.CostHistory);
+      return makeResult(initialWeights, MRnnSpec.FromRnnSpec(trainResult.RNNSpec), trainResult.CostHistory);
     }
 
-    public static RbfTrainRecInfo TrainRbf(Mat input, Vec output, Chromosome chrom)
+    public static RbfTrainRec TrainRbf(Mat input, Vec output, Chromosome chrom, MakeRbfTrainRecFunc makeResult)
     {
       using (var rbf = RBFNet.Train(input, output, chrom.RbfNetTolerance, chrom.RbfGaussianSpread))
-        return new RbfTrainRecInfo(rbf.Bases.Select(MRadialBasis.FromRadialBasis), rbf.OutputBias, rbf.Spread, rbf.IsDegenerate);
+        return makeResult(rbf.Bases.Select(MRadialBasis.FromRadialBasis), rbf.OutputBias, rbf.Spread, rbf.IsDegenerate);
     }
   }
 }

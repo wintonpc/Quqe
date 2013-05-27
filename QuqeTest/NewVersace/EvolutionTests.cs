@@ -47,10 +47,10 @@ namespace QuqeTest
       foreach (var gen in run.Generations)
         foreach (var mixture in gen.Mixtures)
           mixture.Chromosomes.Select(x => x.OrderInMixture).ShouldEnumerateLike(
-            mixture.Chromosomes.OrderBy(x => x.OrderInMixture).Select(x => x.OrderInMixture));
+                                                                                mixture.Chromosomes.OrderBy(x => x.OrderInMixture).Select(x => x.OrderInMixture));
     }
 
-    [Test]
+    //[Test]
     public void LocalEvolveTest()
     {
       var mongoDb = TestHelpers.GetCleanDatabase();
@@ -97,11 +97,11 @@ namespace QuqeTest
     public void MixtureCrossover()
     {
       var db = new Database(TestHelpers.GetCleanDatabase());
-      var protoChrom = Initialization.MakeFastestProtoChromosome();
+      var protoChrom = Initialization.MakeProtoChromosome();
       var protoRun = new ProtoRun(db, "MixtureCrossoverTest", -1, protoChrom, 2, 6, 4, 10, 0.05);
       var run = new Run(protoRun, protoChrom);
-      var seed = MakeTrainingSet("11/11/2001", "02/12/2003");
-      var gen = Initialization.MakeInitialGeneration(seed, run, new LocalTrainer());
+      var seed = MakeTrainingSet("11/11/2001", "12/11/2001");
+      var gen = Initialization.MakeInitialGeneration(seed, run, new LocalParallelTrainer());
       gen.Mixtures.Length.ShouldEqual(2);
       var m1 = gen.Mixtures[0];
       var m2 = gen.Mixtures[1];
@@ -113,6 +113,31 @@ namespace QuqeTest
       for (int i = 0; i < m1.Chromosomes.Length; i++)
         AssertIsCrossedOverVersionOf(Tuple2.Create(curr.Item1[i], curr.Item2[i]),
                                      Tuple2.Create(prev.Item1[i], prev.Item2[i]));
+    }
+
+    [Test]
+    public void BoolMutation()
+    {
+      var db = new Database(TestHelpers.GetCleanDatabase());
+      var protoChrom = Initialization.MakeProtoChromosome();
+      var protoRun = new ProtoRun(db, "MixtureCrossoverTest", -1, protoChrom, 2, 6, 4, 10, 0.05);
+      var run = new Run(protoRun, protoChrom);
+
+      int trues = 0;
+      int falses = 0;
+
+      var chrom = Initialization.MakeRandomChromosome(NetworkType.Rnn, protoChrom, 0);
+      List.Repeat(10000, _ => {
+        chrom = Functions.MutateChromosome(chrom, run);
+        if (chrom.UsePCA)
+          trues++;
+        else
+          falses++;
+      });
+
+      Trace.WriteLine("Trues: " + trues);
+      Trace.WriteLine("Falses: " + falses);
+      ((double)trues / falses).ShouldBeGreaterThan(0.9).ShouldBeLessThan(1.1);
     }
 
     static DataSet MakeTrainingSet(string startDate, string endDate)
@@ -129,8 +154,8 @@ namespace QuqeTest
     public void ChromosomeCrossover()
     {
       var protoChrom = Initialization.MakeProtoChromosome();
-      var a = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom, 0);
-      var b = Initialization.RandomChromosome(NetworkType.Rnn, protoChrom, 0);
+      var a = Initialization.MakeRandomChromosome(NetworkType.Rnn, protoChrom, 0);
+      var b = Initialization.MakeRandomChromosome(NetworkType.Rnn, protoChrom, 0);
       a.ShouldNotLookLike(b);
 
       var crossedOverChroms = Functions.CrossOverChromosomes(a, b);
@@ -143,6 +168,12 @@ namespace QuqeTest
       var b1 = curr.Item2;
       var a0 = prev.Item1;
       var b0 = prev.Item2;
+
+      Trace.WriteLine("");
+      Trace.WriteLine("a0: " + a0);
+      Trace.WriteLine("a1: " + a1);
+      Trace.WriteLine("b0: " + b0);
+      Trace.WriteLine("b1: " + b1);
 
       a1.ShouldNotLookLike(a0);
       b1.ShouldNotLookLike(b0);

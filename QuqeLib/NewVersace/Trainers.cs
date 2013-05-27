@@ -80,6 +80,10 @@ namespace Quqe
     }
   }
 
+  public delegate RnnTrainRec MakeRnnTrainRecFunc(Vec initialWeights, MRnnSpec rnnSpec, IEnumerable<double> costHistory);
+
+  public delegate RbfTrainRec MakeRbfTrainRecFunc(IEnumerable<MRadialBasis> bases, double outputBias, double spread, bool isDegenerate);
+
   static class TrainerCommon
   {
     public static void Train(Database db, ObjectId mixtureId, DataSet data, Chromosome chrom)
@@ -90,12 +94,10 @@ namespace Quqe
       switch (chrom.NetworkType)
       {
         case NetworkType.Rnn:
-          var rnnInfo = Training.TrainRnn(tailoredData, trimmed.Output, chrom);
-          new RnnTrainRec(db, mixtureId, chrom, rnnInfo.InitialWeights, rnnInfo.RnnSpec, rnnInfo.CostHistory);
+          Training.TrainRnn(tailoredData, trimmed.Output, chrom, (a, b, c) => new RnnTrainRec(db, mixtureId, chrom, a, b, c));
           break;
         case NetworkType.Rbf:
-          var rbfInfo = Training.TrainRbf(tailoredData, trimmed.Output, chrom);
-          new RbfTrainRec(db, mixtureId, chrom, rbfInfo.Bases, rbfInfo.OutputBias, rbfInfo.Spread, rbfInfo.IsDegenerate);
+          Training.TrainRbf(tailoredData, trimmed.Output, chrom, (a, b, c, d) => new RbfTrainRec(db, mixtureId, chrom, a, b, c, d));
           break;
         default:
           throw new Exception("Unexpected network type: " + chrom.NetworkType);

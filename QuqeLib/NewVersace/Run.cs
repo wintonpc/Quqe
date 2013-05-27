@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics;
+using System.Reflection;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Attributes;
@@ -118,6 +119,13 @@ namespace Quqe
     T GetGeneValue<T>(string name) where T : struct
     {
       return Genes.First(g => g.Name == name).Value.As<T>();
+    }
+
+    //static T DoubleToValue(
+
+    public override string ToString()
+    {
+      return NetworkType + "-" + OrderInMixture + "-" + Genes.Join("-", g => g.Name + ":" + g.Value);
     }
   }
 

@@ -86,7 +86,7 @@ namespace Quqe
       var gen = new Generation(run, 0);
 
       Func<int, NetworkType, int, Chromosome[]> makeChromosomes = (n, type, orderOffset) =>
-        List.Repeat(n, i => RandomChromosome(type, run.ProtoRun.ProtoChromosome, orderOffset + i)).ToArray();
+        List.Repeat(n, i => MakeRandomChromosome(type, run.ProtoRun.ProtoChromosome, orderOffset + i)).ToArray();
 
       Func<Chromosome[]> makeMixtureChromosomes = () =>
         makeChromosomes(run.ProtoRun.RnnPerMixture, NetworkType.Rnn, 0).Concat(
@@ -103,7 +103,7 @@ namespace Quqe
       return gen;
     }
 
-    public static Chromosome RandomChromosome(NetworkType networkType, ProtoChromosome protoChrom, int order)
+    public static Chromosome MakeRandomChromosome(NetworkType networkType, ProtoChromosome protoChrom, int order)
     {
       return new Chromosome(networkType, protoChrom.Genes.Select(gd => new Gene(gd.Name, Functions.RandomGeneValue(gd))), order);
     }
