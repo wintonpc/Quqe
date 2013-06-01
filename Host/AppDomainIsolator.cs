@@ -22,6 +22,7 @@ namespace Host
     {
       var appDomainSetup = new AppDomainSetup { ApplicationBase = AppDomain.CurrentDomain.SetupInformation.ApplicationBase };
       var domain = AppDomain.CreateDomain("AppDomainIsolator" + Guid.NewGuid().ToString("N"), null, appDomainSetup);
+      Console.WriteLine("Created  " + domain.FriendlyName);
       try
       {
         var t = typeof(Runner<T, R>);
@@ -38,6 +39,9 @@ namespace Host
     {
       public R Run(Func<T, R> f, T arg1)
       {
+        AppDomain.CurrentDomain.DomainUnload += (sender, args) => {
+          Console.WriteLine("Unloaded " + AppDomain.CurrentDomain.FriendlyName);
+        };
         return f(arg1);
       }
     }

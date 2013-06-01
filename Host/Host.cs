@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using HostLib;
@@ -11,24 +12,40 @@ namespace Host
   {
     const string StartEvolutionCommand = "StartEvolution";
     const string StopEvolutionCommand = "StopEvolution";
-    const string ReloadCommand = "Reload";
     const string ShutdownCommand = "Shutdown";
 
     static void Main(string[] cmdLine)
     {
+      //Test();
+
       var cmd = cmdLine[0];
       if (cmd == "start")
         SendBroadcast(StartEvolutionCommand);
       else if (cmd == "stop")
         SendBroadcast(StopEvolutionCommand);
-      else if (cmd == "reload")
-        SendBroadcast(ReloadCommand);
       else if (cmd == "shutdown")
         SendBroadcast(ShutdownCommand);
       else if (cmd == "controller")
-        ReloadRestart(cmdLine, RunController);
+        RunController();
       else
         Console.WriteLine("Unknown command: " + cmd);
+    }
+
+    static void Test()
+    {
+      while (true)
+      {
+        Console.WriteLine("press any key to enter domain...");
+        Console.ReadKey();
+        AppDomainIsolator.Run(true, dummy => {
+          Console.WriteLine("entered domain");
+          Thinger.Go();
+          Console.WriteLine("press any key to exit domain...");
+          Console.ReadKey();
+          return true;
+        });
+        Console.WriteLine("exited domain");
+      }
     }
 
     static void SendBroadcast(string msg)
@@ -37,69 +54,71 @@ namespace Host
         rabbit.SendBroadcast(msg);
     }
 
-    static void ReloadRestart(string[] args, Func<string[], bool> f) { while (AppDomainIsolator.Run(args, f)) ; }
-
-    static bool RunController(string[] args)
+    static void RunController()
     {
-      var controllerName = Guid.NewGuid().ToString();
       using (var rabbit = new Rabbit())
       {
-        try
+        bool shouldContinue = true;
+        while (shouldContinue)
         {
-          rabbit.SendBroadcast("ControllerUp " + controllerName);
-          Console.WriteLine("ControllerUp " + controllerName);
-          while (true)
+          try
           {
+            Console.WriteLine("Waiting for evolution to start");
             WaitForEvolutionToStart(rabbit);
-            using (var supervisor = new Supervisor(Environment.ProcessorCount))
-            {
-              WaitForEvolutionToStop(rabbit);
-              supervisor.Dispose();
-            }
+            shouldContinue = AppDomainIsolator.Run(rabbit, rab => {
+              var nodeName = Guid.NewGuid().ToString();
+              rab.SendBroadcast("NodeUp " + nodeName);
+              Console.WriteLine("NodeUp " + nodeName);
+              try
+              {
+                using (new Supervisor(Environment.ProcessorCount))
+                  WaitForEvolutionToStop(rab);
+              }
+              finally
+              {
+                rab.SendBroadcast("NodeDown " + nodeName);
+                Console.WriteLine("NodeDown " + nodeName);
+              }
+              return true;
+            });
           }
-        }
-        catch (ReloadException)
-        {
-          Console.WriteLine("Got reload command");
-          return true;
-        }
-        catch (ShutdownException)
-        {
-          Console.WriteLine("Got shutdown command");
-          return false;
-        }
-        finally
-        {
-          rabbit.SendBroadcast("ControllerDown " + controllerName);
-          Console.WriteLine("ControllerDown " + controllerName);
+          catch (ShutdownException)
+          {
+            Console.WriteLine("Shutting down");
+          }
         }
       }
     }
 
-    static void WaitForEvolutionToStart(Rabbit rabbit) { WaitForBroadcast(rabbit, StartEvolutionCommand); }
-
-    static void WaitForEvolutionToStop(Rabbit rabbit) { WaitForBroadcast(rabbit, StopEvolutionCommand); }
-
-    static void WaitForBroadcast(Rabbit rabbit, string waitMsg)
+    static void WaitForEvolutionToStart(Rabbit rabbit)
     {
       while (true)
       {
         var msg = rabbit.GetBroadcast();
-        if (msg == waitMsg)
+        if (msg == StartEvolutionCommand)
           return;
-        if (msg == ReloadCommand)
-          throw new ReloadException();
+        if (msg == ShutdownCommand)
+          throw new ShutdownException();
+      }
+    }
+
+    static void WaitForEvolutionToStop(Rabbit rabbit)
+    {
+      while (true)
+      {
+        var msg = rabbit.GetBroadcast();
+        if (msg == StopEvolutionCommand)
+          return;
         if (msg == ShutdownCommand)
           throw new ShutdownException();
       }
     }
   }
 
-  class ReloadException : Exception
-  {
-  }
-
+  [Serializable]
   class ShutdownException : Exception
   {
+    public ShutdownException() { }
+    ShutdownException(SerializationInfo info, StreamingContext context) : base(info, context) { }
   }
 }

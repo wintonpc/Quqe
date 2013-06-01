@@ -1,4 +1,5 @@
-﻿using RabbitMQ.Client;
+﻿using System.Configuration;
+using RabbitMQ.Client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,15 +9,18 @@ using RabbitMQ.Client.Events;
 
 namespace Host
 {
-  class Rabbit : IDisposable
+  class Rabbit : MarshalByRefObject, IDisposable
   {
     readonly IConnection Connection;
     readonly IModel Model;
 
     public Rabbit()
     {
-      var cf = new ConnectionFactory { HostName = "localhost" };
+      var hostname = ConfigurationManager.AppSettings["RabbitHost"];
+      var cf = new ConnectionFactory { HostName = hostname };
+      Console.Write("Connecting to rabbit host '{0}' ...", hostname);
       Connection = cf.CreateConnection();
+      Console.WriteLine("Connected.");
       Model = Connection.CreateModel();
       Model.ExchangeDeclare("VersaceBroadcast", ExchangeType.Fanout, false, false, null);
     }

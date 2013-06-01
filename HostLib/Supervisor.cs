@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -17,6 +18,7 @@ namespace HostLib
 
     public Supervisor(int slaveCount)
     {
+      Console.WriteLine("Supervisor created");
       SlaveCount = slaveCount;
 
       MyThread = new Thread(Supervise) {
@@ -32,6 +34,7 @@ namespace HostLib
       MasterTask = Task.Factory.StartNew(() => new Master(() => Cancellation.Token.ThrowIfCancellationRequested()));
       for (int i = 0; i < SlaveCount; i++)
         SlaveTasks.Add(startNewSlaveTask());
+      Console.WriteLine("Supervisor started a master and {0} slaves", SlaveCount);
 
       while (true)
       {

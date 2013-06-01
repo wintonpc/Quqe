@@ -17,7 +17,7 @@ namespace Quqe.NewVersace
   {
     public void Serialize(BsonWriter bsonWriter, Type nominalType, object value, IBsonSerializationOptions options)
     {
-      bsonWriter.WriteBinaryData(LittleEndian.DoublesToBytes(((Vec)value).ToArray()), BsonBinarySubType.Binary);
+      bsonWriter.WriteBinaryData(new BsonBinaryData(LittleEndian.DoublesToBytes(((Vec)value).ToArray()), BsonBinarySubType.Binary));
     }
 
     public object Deserialize(BsonReader bsonReader, Type nominalType, Type actualType, IBsonSerializationOptions options)
@@ -32,10 +32,7 @@ namespace Quqe.NewVersace
 
     static Vec Deserialize(BsonReader bsonReader)
     {
-      byte[] bs;
-      BsonBinarySubType subType;
-      bsonReader.ReadBinaryData(out bs, out subType);
-      return new DenseVector(LittleEndian.BytesToDoubles(bs));
+      return new DenseVector(LittleEndian.BytesToDoubles(bsonReader.ReadBinaryData().Bytes));
     }
 
     public IBsonSerializationOptions GetDefaultSerializationOptions()

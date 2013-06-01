@@ -140,7 +140,7 @@ namespace Quqe
       //Trace.WriteLine(string.Format("Centers: {0}, Spread: {1}, Tolerance: {2}", selectedBases.Count, spread, tolerance));
 
       var weights = SolveLS(
-        new Vec[] { new DenseVector(n, 1) }.Concat(selectedBases.Select(sb => sb.Basis)).ColumnsToMatrix(),
+        new Vec[] { DenseVector.Create(n, _ => 1) }.Concat(selectedBases.Select(sb => sb.Basis)).ColumnsToMatrix(),
         new DenseVector(ys.ToArray()));
       bool isDegenerate = false;
       if (weights.Any(w => double.IsNaN(w)))
