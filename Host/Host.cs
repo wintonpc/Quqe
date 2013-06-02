@@ -16,8 +16,6 @@ namespace Host
 
     static void Main(string[] cmdLine)
     {
-      //Test();
-
       var cmd = cmdLine[0];
       if (cmd == "start")
         SendBroadcast(StartEvolutionCommand);
@@ -29,23 +27,6 @@ namespace Host
         RunController();
       else
         Console.WriteLine("Unknown command: " + cmd);
-    }
-
-    static void Test()
-    {
-      while (true)
-      {
-        Console.WriteLine("press any key to enter domain...");
-        Console.ReadKey();
-        AppDomainIsolator.Run(true, dummy => {
-          Console.WriteLine("entered domain");
-          Thinger.Go();
-          Console.WriteLine("press any key to exit domain...");
-          Console.ReadKey();
-          return true;
-        });
-        Console.WriteLine("exited domain");
-      }
     }
 
     static void SendBroadcast(string msg)

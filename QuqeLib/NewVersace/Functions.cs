@@ -11,7 +11,7 @@ namespace Quqe
 {
   public static partial class Functions
   {
-    public static Run Evolve(ProtoRun protoRun, IGenTrainer trainer, DataSet trainingSet, DataSet validationSet)
+    public static Run Evolve(ProtoRun protoRun, IGenTrainer trainer, DataSet trainingSet, DataSet validationSet, Action<Generation> onGenerationComplete = null)
     {
       var run = new Run(protoRun, protoRun.ProtoChromosome);
       var gen = Initialization.MakeInitialGeneration(trainingSet, run, trainer);
@@ -19,6 +19,7 @@ namespace Quqe
       while (true)
       {
         var evaluated = Evaluate(gen, validationSet);
+        onGenerationComplete(gen);
         if (gen.Order == protoRun.NumGenerations - 1)
           return run;
 

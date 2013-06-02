@@ -6,8 +6,7 @@ using System.Threading.Tasks;
 
 namespace HostLib
 {
-  public static class Thinger
+  class Mongo
   {
-    public static void Go() { Console.WriteLine("thunar"); }
   }
 }

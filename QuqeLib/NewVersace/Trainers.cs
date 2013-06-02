@@ -80,6 +80,14 @@ namespace Quqe
     }
   }
 
+  public class DistrubutedTrainer : IGenTrainer
+  {
+    public void Train(DataSet data, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
+    {
+      throw new NotImplementedException();
+    }
+  }
+
   public delegate RnnTrainRec MakeRnnTrainRecFunc(Vec initialWeights, MRnnSpec rnnSpec, IEnumerable<double> costHistory);
 
   public delegate RbfTrainRec MakeRbfTrainRecFunc(IEnumerable<MRadialBasis> bases, double outputBias, double spread, bool isDegenerate);
