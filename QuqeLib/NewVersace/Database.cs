@@ -83,6 +83,14 @@ namespace Quqe
     //  return obj;
     //}
 
+    public static Database GetProductionDatabase(string mongoHost)
+    {
+      var mongoClient = new MongoClient(mongoHost);
+      var mongoServer = mongoClient.GetServer();
+      var mongoDb = mongoServer.GetDatabase("versace");
+      return new Database(mongoDb);
+    }
+
     void StoreInMongo<T>(T value) where T : MongoTopLevelObject
     {
       var coll = MDB.GetCollection(typeof(T).Name);

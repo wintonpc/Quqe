@@ -36,11 +36,13 @@ namespace HostLib
   public class MasterUpdate : RabbitMessage
   {
     public ObjectId GenerationId { get; private set; }
+    public int GenerationNumber { get; private set; }
     public double Fitness { get; private set; }
 
-    public MasterUpdate(ObjectId generationId, double fitness)
+    public MasterUpdate(ObjectId generationId, int genNumber, double fitness)
     {
       GenerationId = generationId;
+      GenerationNumber = genNumber;
       Fitness = fitness;
     }
   }
@@ -55,6 +57,7 @@ namespace HostLib
   public abstract class RabbitMessage
   {
     ulong? _DeliveryTag;
+
     [BsonIgnore]
     public ulong DeliveryTag
     {
@@ -63,7 +66,7 @@ namespace HostLib
       {
         if (_DeliveryTag.HasValue && _DeliveryTag.Value != value)
           throw new InvalidOperationException(string.Format("Cannot set DeliveryTag to {0}. It is already set to {1}",
-            value, _DeliveryTag.Value));
+                                                            value, _DeliveryTag.Value));
         _DeliveryTag = value;
       }
     }
@@ -76,5 +79,7 @@ namespace HostLib
       bsonDoc.InsertAt(0, new BsonElement("Type", type));
       return bsonDoc.ToJson();
     }
+
+    public byte[] ToUTF8() { return Encoding.UTF8.GetBytes(ToJson()); }
   }
 }

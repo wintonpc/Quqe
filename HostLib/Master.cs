@@ -15,24 +15,24 @@ namespace HostLib
   {
     public Master(Action onGenerationComplete)
     {
-      var req = Rabbit.TryGetMasterRequest();
-      if (req == null)
-        return;
+      using (var rabbit = new Rabbit(ConfigurationManager.AppSettings["RabbitHost"]))
+      {
+        var req = rabbit.TryGetMasterRequest();
+        if (req == null)
+          return;
 
-      var mongoClient = new MongoClient(ConfigurationManager.AppSettings["MongoHost"]);
-      var mongoServer = mongoClient.GetServer();
-      var mongoDb = mongoServer.GetDatabase("versace");
-      Database db = new Database(mongoDb);
-      var protoRun = db.Get<ProtoRun>(req.ProtoRunId);
+        var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
+        var protoRun = db.Get<ProtoRun>(req.ProtoRunId);
 
-      var dataSets = DataPreprocessing.MakeTrainingAndValidationSets(req.Symbol, req.StartDate, req.EndDate, req.ValidationPct, GetSignalFunc(req.SignalType));
+        var dataSets = DataPreprocessing.MakeTrainingAndValidationSets(req.Symbol, req.StartDate, req.EndDate, req.ValidationPct, GetSignalFunc(req.SignalType));
 
-      var run = Functions.Evolve(protoRun, new DistrubutedTrainer(), dataSets.Item1, dataSets.Item2, completedGeneration => {
-        Rabbit.SendMasterUpdate(new MasterUpdate(completedGeneration.Id, completedGeneration.Evaluated.Fitness));
-        onGenerationComplete();
-      });
+        var run = Functions.Evolve(protoRun, new DistrubutedTrainer(), dataSets.Item1, dataSets.Item2, gen => {
+          rabbit.SendMasterUpdate(new MasterUpdate(gen.Id, gen.Order, gen.Evaluated.Fitness));
+          onGenerationComplete();
+        });
 
-      Rabbit.SendMasterResult(new MasterResult(run.Id));
+        rabbit.SendMasterResult(new MasterResult(run.Id));
+      }
     }
 
     public static Func<DataSeries<Bar>, double> GetSignalFunc(SignalType sigType)
