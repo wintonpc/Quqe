@@ -21,8 +21,10 @@ namespace HostLib
         if (req == null)
           return;
 
+        Console.WriteLine("I AM THE MASTER!");
+
         var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
-        var protoRun = db.Get<ProtoRun>(req.ProtoRunId);
+        var protoRun = db.QueryOne<ProtoRun>(x => x.Name == req.ProtoRunName);
 
         var dataSets = DataPreprocessing.MakeTrainingAndValidationSets(req.Symbol, req.StartDate, req.EndDate, req.ValidationPct, GetSignalFunc(req.SignalType));
 

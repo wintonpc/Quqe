@@ -15,16 +15,16 @@ namespace HostLib
 
   public class MasterRequest : RabbitMessage
   {
-    public ObjectId ProtoRunId { get; private set; }
+    public string ProtoRunName { get; private set; }
     public string Symbol { get; private set; }
     public DateTime StartDate { get; private set; }
     public DateTime EndDate { get; private set; }
     public double ValidationPct { get; private set; }
     public SignalType SignalType { get; private set; }
 
-    public MasterRequest(ObjectId protoRunId, string symbol, DateTime startDate, DateTime endDate, double validationPct, SignalType signalType)
+    public MasterRequest(string protoRunName, string symbol, DateTime startDate, DateTime endDate, double validationPct, SignalType signalType)
     {
-      ProtoRunId = protoRunId;
+      ProtoRunName = protoRunName;
       Symbol = symbol;
       StartDate = startDate;
       EndDate = endDate;

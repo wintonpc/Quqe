@@ -13,7 +13,7 @@ using System.Diagnostics;
 
 namespace versace
 {
-  class Versace
+  class VersaceCmd
   {
     static void Main(string[] args)
     {
@@ -30,7 +30,7 @@ namespace versace
         var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
         while (true)
         {
-          RabbitMessage msg = rabbit.GetMasterMessage();
+          RabbitMessage msg = rabbit.GetMasterNotification();
           if (msg is MasterUpdate)
           {
             var update = (MasterUpdate)msg;
@@ -41,6 +41,7 @@ namespace versace
             var result = (MasterResult)msg;
             var run = db.Get<Run>(result.RunId);
             Console.WriteLine("Finished Run {0} with fitness {1} in {2}", run.Id, run.Generations.Max(x => x.Evaluated.Fitness), sw.Elapsed);
+            return;
           }
         }
       }

@@ -12,24 +12,33 @@ namespace HostLib
   {
     readonly IConnection Connection;
     readonly IModel Model;
+    readonly string BroadcastQueueName;
+
+    public static readonly string HostBroadcast = "HostBroadcast";
+    public static readonly string MasterRequests = "MasterRequests";
+    public static readonly string VersaceBroadcast = "VersaceBroadcast";
 
     public Rabbit(string host)
     {
       var cf = new ConnectionFactory { HostName = host };
       Connection = cf.CreateConnection();
       Model = Connection.CreateModel();
-      Model.QueueDeclare("MasterRequests", false, false, true, null);
-      Model.ExchangeDeclare("VersaceBroadcast", ExchangeType.Fanout, false, false, null);
+      Model.QueueDeclare(MasterRequests, false, false, true, null);
+      Model.ExchangeDeclare(VersaceBroadcast, ExchangeType.Fanout, false, false, null);
+      Model.ExchangeDeclare(HostBroadcast, ExchangeType.Fanout, false, false, null);
+      var q = Model.QueueDeclare("", false, true, true, null);
+      BroadcastQueueName = q.QueueName;
+      Model.QueueBind(BroadcastQueueName, VersaceBroadcast, "");
     }
 
     public MasterRequest TryGetMasterRequest()
     {
-      return Receive<MasterRequest>("MasterRequests", false, true);
+      return Receive<MasterRequest>(MasterRequests, false, true);
     }
 
-    public RabbitMessage GetMasterMessage()
+    public RabbitMessage GetMasterNotification()
     {
-      return Receive<RabbitMessage>("MasterRequests", false, false);
+      return Receive<RabbitMessage>(BroadcastQueueName, false, false);
     }
 
     public T Receive<T>(string queueName, bool requiresAck, bool noWait)
@@ -41,11 +50,14 @@ namespace HostLib
       {
         BasicDeliverEventArgs msg = null;
         if (noWait)
-          msg = (BasicDeliverEventArgs)consumer.Queue.DequeueNoWait(null);
+        {
+          object obj;
+          if (!consumer.Queue.Dequeue(3000, out obj))
+            return null;
+          msg = (BasicDeliverEventArgs)obj;
+        }
         else
           msg = (BasicDeliverEventArgs)consumer.Queue.Dequeue();
-        if (msg == null)
-          return null;
         return (T)RabbitMessageReader.Read(msg.DeliveryTag, msg.Body);
       }
       finally
@@ -74,22 +86,22 @@ namespace HostLib
 
     public void SendMasterUpdate(MasterUpdate masterUpdate)
     {
-      SendToExchange("VersaceBroadcast", masterUpdate);
+      SendToExchange(VersaceBroadcast, masterUpdate);
     }
 
     public void SendMasterResult(MasterResult masterResult)
     {
-      SendToExchange("VersaceBroadcast", masterResult);
+      SendToExchange(VersaceBroadcast, masterResult);
     }
 
     public void SendMasterRequest(RabbitMessage masterReq)
     {
-      SendToExchange("VersaceBroadcast", masterReq);
+      SendToQueue(MasterRequests, masterReq);
     }
 
     public void StartEvolution()
     {
-      SendToExchange("VersaceBroadcast", "StartEvolution");
+      SendToExchange(HostBroadcast, "StartEvolution");
     }
 
     bool IsDisposed;

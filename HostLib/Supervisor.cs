@@ -34,17 +34,28 @@ namespace HostLib
       MasterTask = Task.Factory.StartNew(() => new Master(() => Cancellation.Token.ThrowIfCancellationRequested()));
       for (int i = 0; i < SlaveCount; i++)
         SlaveTasks.Add(startNewSlaveTask());
+
       Console.WriteLine("Supervisor started a master and {0} slaves", SlaveCount);
 
       while (true)
       {
-        var allTasks = new[] { MasterTask }.Concat(SlaveTasks).ToArray();
+        var allTasks = (MasterTask == null ? SlaveTasks : new[] { MasterTask }.Concat(SlaveTasks)).ToArray();
         var taskIdx = Task.WaitAny(allTasks);
         if (_isDisposed)
           break;
-        if (taskIdx != 0)
+
+        var task = allTasks[taskIdx];
+        if (task.IsFaulted)
+          Console.WriteLine("Task faulted: " + task.Exception);
+
+        if (task == MasterTask)
         {
-          SlaveTasks.RemoveAt(taskIdx - 1);
+          MasterTask = null;
+          Console.WriteLine("Master quit.");
+        }
+        else
+        {
+          SlaveTasks.Remove(task);
           SlaveTasks.Add(startNewSlaveTask());
         }
       }

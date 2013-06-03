@@ -151,6 +151,13 @@ namespace QuqeTest
     }
 
     [Test]
+    public void AddProtoRun()
+    {
+      var db = Database.GetProductionDatabase("mongodb://localhost/?safe=true");
+      new ProtoRun(db, "Dist1", 4, Initialization.MakeProtoChromosome(), 10, 6, 4, 4, 0.05);
+    }
+
+    [Test]
     public void ChromosomeCrossover()
     {
       var protoChrom = Initialization.MakeProtoChromosome();

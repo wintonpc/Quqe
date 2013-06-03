@@ -13,6 +13,7 @@ namespace Host
   {
     readonly IConnection Connection;
     readonly IModel Model;
+    public static readonly string HostBroadcast = "HostBroadcast";
 
     public Rabbit()
     {
@@ -22,19 +23,19 @@ namespace Host
       Connection = cf.CreateConnection();
       Console.WriteLine("Connected.");
       Model = Connection.CreateModel();
-      Model.ExchangeDeclare("VersaceBroadcast", ExchangeType.Fanout, false, false, null);
+      Model.ExchangeDeclare(HostBroadcast, ExchangeType.Fanout, false, false, null);
     }
 
     public void SendBroadcast(string msg)
     {
       var props = Model.CreateBasicProperties();
-      Model.BasicPublish("VersaceBroadcast", "", props, Encoding.UTF8.GetBytes(msg));
+      Model.BasicPublish(HostBroadcast, "", props, Encoding.UTF8.GetBytes(msg));
     }
 
     public string GetBroadcast()
     {
       var q = Model.QueueDeclare("", false, true, true, null);
-      Model.QueueBind(q.QueueName, "VersaceBroadcast", "");
+      Model.QueueBind(q.QueueName, HostBroadcast, "");
       var consumer = new QueueingBasicConsumer(Model);
       Model.BasicConsume(q.QueueName, true, consumer);
       var result = (BasicDeliverEventArgs)consumer.Queue.Dequeue();

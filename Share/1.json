@@ -1,9 +1,9 @@
 {
   "Type" : "MasterRequest",
-  "ProtoRunId" : ObjectId("51abbe92aef8e8221c31b3c0"),
+  "ProtoRunName" : "Dist1",
   "Symbol" : "DIA",
-  "StartDate" : ISODate("2013-06-02T21:52:18.207Z"),
-  "EndDate" : ISODate("2013-06-03T21:52:18.207Z"),
+  "StartDate" : ISODate("2005-06-02T21:52:18.207Z"),
+  "EndDate" : ISODate("2005-09-03T21:52:18.207Z"),
   "ValidationPct" : 0.7,
   "SignalType" : 0
 }
