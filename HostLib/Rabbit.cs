@@ -104,6 +104,16 @@ namespace HostLib
       SendToExchange(HostBroadcast, "StartEvolution");
     }
 
+    public void StopEvolution()
+    {
+      SendToExchange(HostBroadcast, "StopEvolution");
+    }
+
+    public void ShutdownHosts()
+    {
+      SendToExchange(HostBroadcast, "Shutdown");
+    }
+
     bool IsDisposed;
 
     public void Dispose()

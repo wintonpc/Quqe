@@ -60,11 +60,24 @@ namespace HostLib
         }
       }
 
-      Task.WaitAll(SlaveTasks.ToArray());
+      Console.Write("Waiting for slaves to stop");
+      while (SlaveTasks.Any())
+      {
+        Console.Write("..." + SlaveTasks.Count);
+        Console.Out.Flush();
+        var idx = Task.WaitAny(SlaveTasks.ToArray());
+        SlaveTasks.RemoveAt(idx);
+      }
+      Console.WriteLine();
+
+      Console.WriteLine("Waiting for master to stop...");
+      if (MasterTask != null)
+        Task.WaitAny(new[] { MasterTask });
     }
 
     void StopWorkers()
     {
+      //Console.WriteLine("Supervisor shutting down... ");
       Cancellation.Cancel();
       MyThread.Join();
     }

@@ -22,6 +22,13 @@ namespace versace
 
       using (var rabbit = new Rabbit(ConfigurationManager.AppSettings["RabbitHost"]))
       {
+        Console.CancelKeyPress += (sender, eventArgs) => {
+          if (eventArgs.SpecialKey == ConsoleSpecialKey.ControlC)
+            rabbit.StopEvolution();
+          if (eventArgs.SpecialKey == ConsoleSpecialKey.ControlBreak)
+            rabbit.ShutdownHosts();
+        };
+
         rabbit.SendMasterRequest(masterReq);
         rabbit.StartEvolution();
         var sw = new Stopwatch();

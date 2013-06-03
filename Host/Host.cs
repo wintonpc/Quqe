@@ -53,7 +53,11 @@ namespace Host
               try
               {
                 using (new Supervisor(Environment.ProcessorCount))
+                {
+                  Console.WriteLine("Waiting for evolution to stop");
                   WaitForEvolutionToStop(rab);
+                  Console.WriteLine("Evolution stopped");
+                }
               }
               finally
               {
@@ -66,6 +70,7 @@ namespace Host
           catch (ShutdownException)
           {
             Console.WriteLine("Shutting down");
+            return;
           }
         }
       }
