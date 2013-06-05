@@ -16,6 +16,7 @@ namespace HostLib
 
     public static readonly string HostBroadcast = "HostBroadcast";
     public static readonly string MasterRequests = "MasterRequests";
+    public static readonly string TrainRequests = "TrainRequests";
     public static readonly string VersaceBroadcast = "VersaceBroadcast";
 
     public Rabbit(string host)
@@ -112,6 +113,11 @@ namespace HostLib
     public void ShutdownHosts()
     {
       SendToExchange(HostBroadcast, "Shutdown");
+    }
+
+    internal Quqe.NewVersace.TrainRequest GetTrainRequest()
+    {
+      throw new NotImplementedException();
     }
 
     bool IsDisposed;

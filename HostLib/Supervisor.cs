@@ -31,7 +31,7 @@ namespace HostLib
     {
       Func<Task> startNewSlaveTask = () => Task.Factory.StartNew(() => new Slave());
 
-      MasterTask = Task.Factory.StartNew(() => new Master(() => Cancellation.Token.ThrowIfCancellationRequested()));
+      MasterTask = Task.Factory.StartNew(() => Master.Run(() => Cancellation.Token.ThrowIfCancellationRequested()));
       for (int i = 0; i < SlaveCount; i++)
         SlaveTasks.Add(startNewSlaveTask());
 

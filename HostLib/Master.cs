@@ -11,9 +11,9 @@ using Quqe.NewVersace;
 
 namespace HostLib
 {
-  class Master
+  static class Master
   {
-    public Master(Action onGenerationComplete)
+    public static void Run(Action onGenerationComplete)
     {
       using (var rabbit = new Rabbit(ConfigurationManager.AppSettings["RabbitHost"]))
       {
@@ -28,7 +28,7 @@ namespace HostLib
 
         var dataSets = DataPreprocessing.MakeTrainingAndValidationSets(req.Symbol, req.StartDate, req.EndDate, req.ValidationPct, GetSignalFunc(req.SignalType));
 
-        var run = Functions.Evolve(protoRun, new DistrubutedTrainer(), dataSets.Item1, dataSets.Item2, gen => {
+        var run = Functions.Evolve(protoRun, new DistributedTrainer(), dataSets.Item1, dataSets.Item2, gen => {
           rabbit.SendMasterUpdate(new MasterUpdate(gen.Id, gen.Order, gen.Evaluated.Fitness));
           onGenerationComplete();
         });

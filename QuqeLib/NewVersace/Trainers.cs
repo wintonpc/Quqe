@@ -80,7 +80,7 @@ namespace Quqe
     }
   }
 
-  public class DistrubutedTrainer : IGenTrainer
+  public class DistributedTrainer : IGenTrainer
   {
     public void Train(DataSet data, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
     {
