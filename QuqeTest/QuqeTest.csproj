@@ -96,6 +96,7 @@
     <Compile Include="Pair.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QuqeMathLeaks.cs" />
+    <Compile Include="RabbitTests.cs" />
     <Compile Include="RBFTests.cs" />
     <Compile Include="RNNTests.cs" />
     <Compile Include="ShouldLookLike.cs" />

@@ -29,7 +29,7 @@ namespace HostLib
 
     void Supervise()
     {
-      Func<Task> startNewSlaveTask = () => Task.Factory.StartNew(() => new Slave());
+      Func<Task> startNewSlaveTask = () => Task.Factory.StartNew(() => Slave.Run(() => Cancellation.Token.ThrowIfCancellationRequested()));
 
       MasterTask = Task.Factory.StartNew(() => Master.Run(() => Cancellation.Token.ThrowIfCancellationRequested()));
       for (int i = 0; i < SlaveCount; i++)

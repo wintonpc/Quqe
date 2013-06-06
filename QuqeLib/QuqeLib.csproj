@@ -61,6 +61,10 @@
     <Reference Include="MongoDB.Driver">
       <HintPath>..\packages\mongocsharpdriver.1.8.1\lib\net35\MongoDB.Driver.dll</HintPath>
     </Reference>
+    <Reference Include="RabbitMQ.Client, Version=3.1.1.0, Culture=neutral, PublicKeyToken=89e7d7c5feba84ce, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\RabbitMQ.Client.3.1.1\lib\net30\RabbitMQ.Client.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
@@ -103,6 +107,7 @@
     <Compile Include="NewVersace\MongoTopLevelObject.cs" />
     <Compile Include="NewVersace\DataPreprocessing.cs" />
     <Compile Include="NewVersace\Predictors.cs" />
+    <Compile Include="NewVersace\RabbitMessages.cs" />
     <Compile Include="NewVersace\RbfTrainRec.cs" />
     <Compile Include="NewVersace\RnnTrainRec.cs" />
     <Compile Include="NewVersace\Run.cs" />
@@ -119,6 +124,9 @@
     <Compile Include="Misc\Strategy.cs" />
     <Compile Include="Data\Transforms.cs" />
     <Compile Include="Data\VersaceDataFetching.cs" />
+    <Compile Include="Rabbit\RabbitWorkQueue.cs" />
+    <Compile Include="Rabbit\RabbitMessage.cs" />
+    <Compile Include="Rabbit\RabbitMessageReader.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">

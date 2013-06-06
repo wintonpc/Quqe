@@ -70,7 +70,7 @@ namespace HostLib
         _DeliveryTag = value;
       }
     }
-
+    
     public string ToJson()
     {
       var bsonDoc = this.ToBsonDocument<object>();
