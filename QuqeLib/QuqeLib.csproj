@@ -134,6 +134,7 @@
     <Compile Include="Rabbit\RabbitMessageReader.cs" />
     <Compile Include="Rabbit\WorkQueue\WorkQueueInfo.cs" />
     <Compile Include="Rabbit\WorkQueue\WorkQueueHelpers.cs" />
+    <Compile Include="Util\Disposal.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">

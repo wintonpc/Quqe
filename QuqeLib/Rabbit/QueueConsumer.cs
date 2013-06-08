@@ -7,61 +7,153 @@ using MongoDB.Bson;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Threading;
+using PCW;
 
 namespace Quqe.Rabbit
 {
-  public class QueueConsumer : RabbitConnector
+  public class QueueConsumer : IDisposable
   {
-    readonly QueueingBasicConsumer Consumer;
-    readonly CancellationTokenSource Canceller;
+    readonly string Host;
+    readonly string QueueName;
+    readonly bool RequireAck;
+    readonly ushort PrefetchCount;
+
+    IConnection Connection;
+    IModel Model;
+    QueueingBasicConsumer Consumer;
+    CancellationTokenSource Canceller;
+
+    State MyState = State.Connecting;
+
+    public enum State
+    {
+      Connecting,
+      Connected,
+      Disposed
+    }
 
     public QueueConsumer(string host, string queueName, bool requireAck, ushort prefetchCount)
-      :base(host)
     {
-      Canceller = new CancellationTokenSource();
-      Consumer = new QueueingBasicConsumer(Model);
-      Model.BasicConsume(queueName, !requireAck, Consumer);
-      Model.BasicQos(0, prefetchCount, false);
+      Host = host;
+      QueueName = queueName;
+      RequireAck = requireAck;
+      PrefetchCount = prefetchCount;
+
+      TryToConnect();
+    }
+
+    void TryToConnect()
+    {
+      if (MyState != State.Connecting)
+        return;
+
+      CleanupRabbit();
+
+      try
+      {
+        Connection = new ConnectionFactory { HostName = Host }.CreateConnection();
+        Model = Connection.CreateModel();
+
+        Consumer = new QueueingBasicConsumer(Model);
+        Model.BasicConsume(QueueName, !RequireAck, Consumer);
+        Model.BasicQos(0, PrefetchCount, false);
+
+        MyState = State.Connected;
+      }
+      catch (ArithmeticException)
+      {
+        MyState = State.Connecting;
+        PumpTimer.DoLater(1000, TryToConnect);
+      }
     }
 
     public RabbitMessage Receive()
     {
-      TryReceive:
+      try
+      {
+        Canceller = new CancellationTokenSource();
 
-      if (Canceller.Token.IsCancellationRequested)
+        TryReceive:
+
+        if (Canceller.Token.IsCancellationRequested)
           return new ReceiveWasCancelled();
 
-      object obj;
-      if (!Consumer.Queue.Dequeue(1000, out obj))
-        goto TryReceive;
+        object obj;
+        bool gotOne = false;
+        try
+        {
+          gotOne = Consumer.Queue.Dequeue(1000, out obj);
+        }
+        catch (ArithmeticException)
+        {
+          MyState = 
+          throw;
+        }
 
-      if (Canceller.Token.IsCancellationRequested)
-        return new ReceiveWasCancelled();
+        if (!gotOne)
+          goto TryReceive;
 
-      var delivered = (BasicDeliverEventArgs)obj;
-      return RabbitMessageReader.Read(delivered.DeliveryTag, delivered.Body);
+        if (Canceller.Token.IsCancellationRequested)
+          return new ReceiveWasCancelled();
+
+        var delivered = (BasicDeliverEventArgs)obj;
+        return RabbitMessageReader.Read(delivered.DeliveryTag, delivered.Body);
+      }
+      finally
+      {
+        Canceller = null;
+      }
     }
 
     public void Ack(RabbitMessage msg)
     {
-      Model.BasicAck(msg.DeliveryTag, false);
+      try
+      {
+        Model.BasicAck(msg.DeliveryTag, false);
+      }
+      catch (ArithmeticException)
+      {
+        MyState = State.Connecting;
+        TryToConnect();
+      }
     }
 
     public void Nack(RabbitMessage msg)
     {
-      Model.BasicNack(msg.DeliveryTag, false, true);
+      try
+      {
+        Model.BasicNack(msg.DeliveryTag, false, true);
+      }
+      catch (ArithmeticException)
+      {
+        MyState = State.Connecting;
+        TryToConnect();
+      }
     }
 
     /// <summary>Can be called by any thread</summary>
     public void Cancel()
     {
-      Canceller.Cancel();
+      if (Canceller != null)
+        Canceller.Cancel();
     }
 
-    protected override void BeforeDispose()
+    void CleanupRabbit()
     {
-      Model.BasicCancel(Consumer.ConsumerTag);
-      base.BeforeDispose();
+      Disposal.Dispose(ref Connection);
+      Disposal.Dispose(ref Model);
+    }
+
+    public void Dispose()
+    {
+      try
+      {
+        Model.BasicCancel(Consumer.ConsumerTag);
+      }
+      catch (Exception)
+      {
+      }
+      CleanupRabbit();
     }
   }
 }

@@ -9,45 +9,44 @@ using RabbitMQ.Client;
 
 namespace Quqe.Rabbit
 {
-  public class Broadcaster : RabbitConnector
+  /// <summary>
+  /// Sends and received messages broadcast on a channel.
+  /// Messages are not durable and do not need acknowledgement.
+  /// Messages are dropped when RabbitMQ goes down.
+  /// </summary>
+  public class Broadcaster : IDisposable
   {
-    BroadcastInfo BroadcastInfo;
-    readonly IBasicProperties PublishProps;
+    readonly SyncContext Sync;
+    readonly BroadcastInfo BroadcastInfo;
+    readonly List<Hook> Hooks = new List<Hook>();
+
+    State MyState = State.Connecting;
+
+    IConnection Connection;
+    IModel Model;
+    IBasicProperties PublishProps;
     QueueConsumer Consumer;
     string MyQueueName;
-    readonly Task ConsumeTask;
-    readonly SyncContext Sync;
+    Task ConsumeTask;
 
     delegate bool Hook(RabbitMessage msg);
 
-    List<Hook> Hooks = new List<Hook>();
+    public enum State
+    {
+      Connecting,
+      Connected,
+      Disposed
+    }
 
     public Broadcaster(BroadcastInfo broadcast)
-      : base(broadcast.Host)
     {
       Sync = SyncContext.Current;
       BroadcastInfo = broadcast;
 
-      DeclareExchangeAndQueue(broadcast.Channel);
+      TryToConnect();
 
-      PublishProps = Model.CreateBasicProperties();
-      PublishProps.DeliveryMode = 1;
-
-      ConsumeTask = StartConsuming();
-    }
-
-    void DeclareExchangeAndQueue(string exchangeName)
-    {
-      Model.ExchangeDeclare(exchangeName, ExchangeType.Fanout, false, false, null);
-      var q = Model.QueueDeclare("", false, false, true, null);
-      Model.QueueBind(q.QueueName, exchangeName, "");
-      MyQueueName = q.QueueName;
-    }
-
-    Task StartConsuming()
-    {
-      return Task.Factory.StartNew(() => {
-        using (Consumer = new QueueConsumer(Host, MyQueueName, false, 4))
+      ConsumeTask = Task.Factory.StartNew(() => {
+        using (Consumer = new QueueConsumer(BroadcastInfo.Host, MyQueueName, false, 4))
         {
           while (true)
           {
@@ -60,14 +59,54 @@ namespace Quqe.Rabbit
       });
     }
 
+    void TryToConnect()
+    {
+      if (MyState != State.Connecting)
+        return;
+
+      CleanupRabbit();
+
+      try
+      {
+        Connection = new ConnectionFactory { HostName = BroadcastInfo.Host }.CreateConnection();
+        Model = Connection.CreateModel();
+
+        Model.ExchangeDeclare(BroadcastInfo.Channel, ExchangeType.Fanout, false, false, null);
+        var q = Model.QueueDeclare("", false, false, true, null);
+        Model.QueueBind(q.QueueName, BroadcastInfo.Channel, "");
+        MyQueueName = q.QueueName;
+
+        PublishProps = Model.CreateBasicProperties();
+        PublishProps.DeliveryMode = 1;
+
+        MyState = State.Connected;
+      }
+      catch (ArithmeticException)
+      {
+        MyState = State.Connecting;
+        PumpTimer.DoLater(1000, TryToConnect);
+      }
+    }
+
     public void Send(RabbitMessage msg)
     {
-      Model.BasicPublish(BroadcastInfo.Channel, "", PublishProps, msg.ToUtf8());
+      if (MyState != State.Connected)
+        return;
+
+      try
+      {
+        Model.BasicPublish(BroadcastInfo.Channel, "", PublishProps, msg.ToUtf8());
+      }
+      catch (ArithmeticException)
+      {
+        MyState = State.Connecting;
+        TryToConnect();
+      }
     }
 
     void DispatchMessage(RabbitMessage msg)
     {
-      if (!IsDisposed)
+      if (MyState != State.Disposed)
         foreach (var h in Hooks)
           if (h(msg))
             return;
@@ -97,11 +136,23 @@ namespace Quqe.Rabbit
       };
     }
 
-    protected override void BeforeDispose()
+    void CleanupRabbit()
     {
+      Disposal.Dispose(ref Connection);
+      Disposal.Dispose(ref Model);
+      PublishProps = null;
+      MyQueueName = null;
+    }
+
+    public void Dispose()
+    {
+      if (MyState == State.Disposed) return;
+      MyState = State.Disposed;
       Consumer.Cancel();
+      Disposal.Dispose(ref Consumer);
       ConsumeTask.Wait();
-      base.BeforeDispose();
+      ConsumeTask = null;
+      CleanupRabbit();
     }
   }
 }
