@@ -34,7 +34,7 @@ namespace Quqe.Rabbit
       return bsonDoc.ToJson();
     }
 
-    public byte[] ToUTF8() { return Encoding.UTF8.GetBytes(ToJson()); }
+    public byte[] ToUtf8() { return Encoding.UTF8.GetBytes(ToJson()); }
   }
 
   public class ReceiveWasCancelled : RabbitMessage

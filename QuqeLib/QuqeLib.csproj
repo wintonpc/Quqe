@@ -124,12 +124,16 @@
     <Compile Include="Misc\Strategy.cs" />
     <Compile Include="Data\Transforms.cs" />
     <Compile Include="Data\VersaceDataFetching.cs" />
+    <Compile Include="Rabbit\Broadcaster\Broadcaster.cs" />
+    <Compile Include="Rabbit\Broadcaster\BroadcastInfo.cs" />
+    <Compile Include="Rabbit\RabbitConnector.cs" />
+    <Compile Include="Rabbit\QueueConsumer.cs" />
     <Compile Include="Rabbit\WorkQueue\WorkQueueProducer.cs" />
     <Compile Include="Rabbit\WorkQueue\WorkQueueConsumer.cs" />
     <Compile Include="Rabbit\RabbitMessage.cs" />
     <Compile Include="Rabbit\RabbitMessageReader.cs" />
     <Compile Include="Rabbit\WorkQueue\WorkQueueInfo.cs" />
-    <Compile Include="Rabbit\WorkQueue\WorkQueueActor.cs" />
+    <Compile Include="Rabbit\WorkQueue\WorkQueueHelpers.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">

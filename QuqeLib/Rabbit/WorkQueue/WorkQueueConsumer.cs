@@ -10,54 +10,42 @@ using System.Threading;
 
 namespace Quqe.Rabbit
 {
-  public class WorkQueueConsumer : WorkQueueActor
+  public class WorkQueueConsumer : RabbitConnector
   {
-    readonly QueueingBasicConsumer Consumer;
-    readonly CancellationTokenSource Canceller;
+    readonly QueueConsumer Consumer;
 
     public WorkQueueConsumer(WorkQueueInfo wq)
-      : base(wq)
+      : base(wq.Host)
     {
-      Canceller = new CancellationTokenSource();
-      Consumer = new QueueingBasicConsumer(Model);
-      Model.BasicConsume(wq.Name, false, Consumer);
-      Model.BasicQos(0, 2, false);
+      WorkQueueHelpers.DeclareQueue(wq, Model);
+      Consumer = new QueueConsumer(wq.Host, wq.Name, true, 2);
     }
 
     public RabbitMessage Receive()
     {
-      TryReceive:
-
-      if (Canceller.Token.IsCancellationRequested)
-          return new ReceiveWasCancelled();
-
-      object obj;
-      if (!Consumer.Queue.Dequeue(1000, out obj))
-        goto TryReceive;
-
-      var delivered = (BasicDeliverEventArgs)obj;
-      return RabbitMessageReader.Read(delivered.DeliveryTag, delivered.Body);
+      return Consumer.Receive();
     }
 
     public void Ack(RabbitMessage msg)
     {
-      Model.BasicAck(msg.DeliveryTag, false);
+      Consumer.Ack(msg);
     }
 
     public void Nack(RabbitMessage msg)
     {
-      Model.BasicNack(msg.DeliveryTag, false, true);
+      Consumer.Ack(msg);
     }
 
     /// <summary>Can be called by any thread</summary>
     public void Cancel()
     {
-      Canceller.Cancel();
+      Consumer.Cancel();
     }
 
     protected override void BeforeDispose()
     {
-      Model.BasicCancel(Consumer.ConsumerTag);
+      Consumer.Dispose();
+      base.BeforeDispose();
     }
   }
 }

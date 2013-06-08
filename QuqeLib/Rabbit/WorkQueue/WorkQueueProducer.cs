@@ -10,20 +10,23 @@ using System.Threading;
 
 namespace Quqe.Rabbit
 {
-  public class WorkQueueProducer : WorkQueueActor, IDisposable
+  public class WorkQueueProducer : RabbitConnector, IDisposable
   {
+    readonly string QueueName;
     readonly IBasicProperties PublishProps;
 
     public WorkQueueProducer(WorkQueueInfo wq)
-      : base(wq)
+      : base(wq.Host)
     {
+      QueueName = wq.Name;
+      WorkQueueHelpers.DeclareQueue(wq, Model);
       PublishProps = Model.CreateBasicProperties();
       PublishProps.DeliveryMode = (byte)(wq.IsPersistent? 2 : 1);
     }
 
     public void Enqueue(RabbitMessage msg)
     {
-      Model.BasicPublish("", WorkQueueInfo.Name, false, PublishProps, msg.ToUTF8());
+      Model.BasicPublish("", QueueName, false, PublishProps, msg.ToUtf8());
     }
   }
 }
