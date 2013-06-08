@@ -124,9 +124,12 @@
     <Compile Include="Misc\Strategy.cs" />
     <Compile Include="Data\Transforms.cs" />
     <Compile Include="Data\VersaceDataFetching.cs" />
-    <Compile Include="Rabbit\RabbitWorkQueue.cs" />
+    <Compile Include="Rabbit\WorkQueue\WorkQueueProducer.cs" />
+    <Compile Include="Rabbit\WorkQueue\WorkQueueConsumer.cs" />
     <Compile Include="Rabbit\RabbitMessage.cs" />
     <Compile Include="Rabbit\RabbitMessageReader.cs" />
+    <Compile Include="Rabbit\WorkQueue\WorkQueueInfo.cs" />
+    <Compile Include="Rabbit\WorkQueue\WorkQueueActor.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">

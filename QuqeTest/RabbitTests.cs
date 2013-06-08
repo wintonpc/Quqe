@@ -8,6 +8,7 @@ using NUnit.Framework;
 using Quqe.Rabbit;
 using System.Threading;
 using Machine.Specifications;
+using List = PCW.List;
 
 namespace QuqeTest
 {
@@ -17,32 +18,48 @@ namespace QuqeTest
     [Test]
     public void RabbitWorkQueue()
     {
-      var q1 = new RabbitWorkQueue("localhost", "testq", false);
-      var q2 = new RabbitWorkQueue("localhost", "testq", false);
+      var wq = new WorkQueueInfo("localhost", "testq", false);
+      var p = new WorkQueueProducer(wq);
+      var q1 = new WorkQueueConsumer(wq);
+      var q2 = new WorkQueueConsumer(wq);
 
-      List<RabbitMessage> received = new List<RabbitMessage>();
+      var q1Count = 0;
+      var q2Count = 0;
 
-      var task = Task.Factory.StartNew(() => {
+      var task1 = Task.Factory.StartNew(() => {
         while (true)
         {
-          var msg = q2.Receive();
-          received.Add(msg);
-          Trace.WriteLine("Got " + msg.ToJson());
+          var msg = q1.Receive();
           if (msg is ReceiveWasCancelled)
             return;
-          q2.Ack(msg);
+          q1.Ack(msg);
+          q1Count++;
         }
       });
 
-      q1.Send(new TestMessage(1, "foo"));
-      q1.Send(new TestMessage(2, "bar"));
-      Thread.Sleep(15000);
+      var task2 = Task.Factory.StartNew(() => {
+        while (true)
+        {
+          var msg = q2.Receive();
+          if (msg is ReceiveWasCancelled)
+            return;
+          q2.Ack(msg);
+          q2Count++;
+        }
+      });
+
+      List.Repeat(1000, _ => p.Enqueue(new TestMessage((int)DateTime.Now.Ticks, "asdf")));
+
+      Thread.Sleep(1000);
+      q1.Cancel();
       q2.Cancel();
-      task.Wait();
-      Trace.WriteLine("Task completed");
-      ((TestMessage)received[0]).A.ShouldEqual(1);
-      ((TestMessage)received[1]).A.ShouldEqual(2);
-      received[2].ShouldBeOfType<ReceiveWasCancelled>();
+      Task.WaitAll(new[] { task1, task2 });
+
+      (q1Count + q2Count).ShouldEqual(1000);
+      ((double)q1Count / q2Count).ShouldBeCloseTo(1, 0.05);
+
+      Trace.WriteLine("q1 got " + q1Count);
+      Trace.WriteLine("q2 got " + q2Count);
     }
   }
 
