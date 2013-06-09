@@ -16,13 +16,13 @@ namespace Quqe.Rabbit
 
     public AsyncWorkQueueConsumer(WorkQueueInfo wq)
     {
-      Consumer = new AsyncConsumer(new ConsumerInfo(wq.Host, wq.Name, true, wq.IsPersistent, 2), msg => {
-        if (Received != null)
-          Received(msg);
-      });
+      Consumer = new AsyncConsumer(new ConsumerInfo(wq.Host, wq.Name, true, wq.IsPersistent, 2), msg => Received.Fire(msg));
+      Consumer.IsConnectedChanged += x => IsConnectedChanged.Fire(x);
     }
 
     public event Action<RabbitMessage> Received;
+
+    public event Action<bool> IsConnectedChanged; 
 
     public void Ack(RabbitMessage msg)
     {

@@ -51,7 +51,7 @@ namespace Quqe.Rabbit
       CleanupRabbit();
 
       Safely(() => {
-        Connection = new ConnectionFactory { HostName = BroadcastInfo.Host }.CreateConnection();
+        Connection = Helpers.MakeConnection(BroadcastInfo.Host);
         Model = Connection.CreateModel();
 
         Model.ExchangeDeclare(BroadcastInfo.Channel, ExchangeType.Fanout, false, false, null);
@@ -65,6 +65,7 @@ namespace Quqe.Rabbit
         Consumer = new AsyncConsumer(new ConsumerInfo(BroadcastInfo.Host, MyQueueName, false, false, 4), DispatchMessage);
 
         MyState = State.Connected;
+        SyncContext.Current.Post(() => IsConnectedChanged.Fire(true));
       });
     }
 
@@ -117,6 +118,8 @@ namespace Quqe.Rabbit
       MyQueueName = null;
     }
 
+    public event Action<bool> IsConnectedChanged;
+
     void Safely(Action f)
     {
       try
@@ -127,6 +130,7 @@ namespace Quqe.Rabbit
       {
         CleanupRabbit();
         MyState = State.Connecting;
+        SyncContext.Current.Post(() => IsConnectedChanged.Fire(true));
         PumpTimer.DoLater(1000, TryToConnect);
       }
     }

@@ -50,49 +50,53 @@ namespace QuqeTest
     [Test]
     public void SyncWorkQueue()
     {
-      var wq = new WorkQueueInfo("localhost", "fooQueue", false);
-      using (var p = new WorkQueueProducer(wq))
-      {
-        var task = Task.Factory.StartNew(() => {
-          WithSync(() => {
-            using (var c = new SyncWorkQueueConsumer(wq))
-            {
-              List.Repeat(1000, _ => {
-                var msg = c.Receive();
-                c.Ack(msg);
-              });
-            }
+      WithSync(() => {
+        var wq = new WorkQueueInfo("localhost", "fooQueue", false);
+        using (var p = new WorkQueueProducer(wq))
+        {
+          var task = Task.Factory.StartNew(() => {
+            WithSync(() => {
+              using (var c = new SyncWorkQueueConsumer(wq))
+              {
+                List.Repeat(1000, _ => {
+                  var msg = c.Receive();
+                  c.Ack(msg);
+                });
+              }
+            });
           });
-        });
 
-        List.Repeat(1000, _ => p.Send(new TestMessage()));
+          List.Repeat(1000, _ => p.Send(new TestMessage()));
 
-        task.Wait(1000);
-      }
+          task.Wait(1000);
+        }
+      });
     }
 
     [Test]
     public void SyncWorkQueueCancelling()
     {
-      var wq = new WorkQueueInfo("localhost", "fooQueue", false);
-      using (var p = new WorkQueueProducer(wq))
-      {
-        SyncWorkQueueConsumer c = null;
-        var task = Task.Factory.StartNew(() => {
-          WithSync(() => {
-            using (c = new SyncWorkQueueConsumer(wq))
-            {
-              var msg = c.Receive();
-              msg.ShouldBeOfType<ReceiveWasCancelled>();
-              throw new Exception("cancelled");
-            }
+      WithSync(() => {
+        var wq = new WorkQueueInfo("localhost", "fooQueue", false);
+        using (var p = new WorkQueueProducer(wq))
+        {
+          SyncWorkQueueConsumer c = null;
+          var task = Task.Factory.StartNew(() => {
+            WithSync(() => {
+              using (c = new SyncWorkQueueConsumer(wq))
+              {
+                var msg = c.Receive();
+                msg.ShouldBeOfType<ReceiveWasCancelled>();
+                throw new Exception("cancelled");
+              }
+            });
           });
-        });
 
-        Thread.Sleep(500);
-        c.Cancel();
-        new Action(() => task.Wait()).ShouldThrow<Exception>(x => x.InnerException.Message.ShouldEqual("cancelled"));
-      }
+          Thread.Sleep(500);
+          c.Cancel();
+          new Action(() => task.Wait()).ShouldThrow<Exception>(x => x.InnerException.Message.ShouldEqual("cancelled"));
+        }
+      });
     }
 
     [Test]

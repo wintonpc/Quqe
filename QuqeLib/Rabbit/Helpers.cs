@@ -49,5 +49,10 @@ namespace Quqe.Rabbit
         onFail();
       }
     }
+
+    public static IConnection MakeConnection(string host)
+    {
+      return new ConnectionFactory { HostName = host, RequestedHeartbeat = 5 }.CreateConnection();
+    }
   }
 }

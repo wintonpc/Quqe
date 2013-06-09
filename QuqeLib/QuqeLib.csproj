@@ -126,17 +126,18 @@
     <Compile Include="Data\VersaceDataFetching.cs" />
     <Compile Include="Rabbit\Broadcaster\Broadcaster.cs" />
     <Compile Include="Rabbit\Broadcaster\BroadcastInfo.cs" />
-    <Compile Include="Rabbit\AsyncConsumer.cs" />
-    <Compile Include="Rabbit\ConsumerInfo.cs" />
+    <Compile Include="Rabbit\GenericConsumers\AsyncConsumer.cs" />
+    <Compile Include="Rabbit\GenericConsumers\ConsumerInfo.cs" />
     <Compile Include="Rabbit\Helpers.cs" />
-    <Compile Include="Rabbit\SyncConsumer.cs" />
+    <Compile Include="Rabbit\GenericConsumers\SyncConsumer.cs" />
     <Compile Include="Rabbit\WorkQueue\AsyncWorkQueueConsumer.cs" />
     <Compile Include="Rabbit\WorkQueue\WorkQueueProducer.cs" />
     <Compile Include="Rabbit\WorkQueue\SyncWorkQueueConsumer.cs" />
-    <Compile Include="Rabbit\RabbitMessage.cs" />
-    <Compile Include="Rabbit\RabbitMessageReader.cs" />
+    <Compile Include="Rabbit\Messages\RabbitMessage.cs" />
+    <Compile Include="Rabbit\Messages\RabbitMessageReader.cs" />
     <Compile Include="Rabbit\WorkQueue\WorkQueueInfo.cs" />
     <Compile Include="Util\Disposal.cs" />
+    <Compile Include="Util\EventHelpers.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">

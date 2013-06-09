@@ -44,16 +44,14 @@ namespace Quqe.Rabbit
         return;
 
       Safely(() => {
-        Connection = new ConnectionFactory {
-          HostName = WorkQueueInfo.Host,
-          RequestedHeartbeat = 1
-        }.CreateConnection();
+        Connection = Helpers.MakeConnection(WorkQueueInfo.Host);
         Model = Connection.CreateModel();
         Helpers.DeclareQueue(Model, WorkQueueInfo.Name, WorkQueueInfo.IsPersistent);
         PublishProps = Model.CreateBasicProperties();
         PublishProps.DeliveryMode = (byte)(WorkQueueInfo.IsPersistent ? 2 : 1);
 
         MyState = State.Connected;
+        SyncContext.Current.Post(() => IsConnectedChanged.Fire(true));
 
         // first, try to send messages that previously failed
         var oldMsgs = new Queue<RabbitMessage>(Outgoing);
@@ -73,13 +71,18 @@ namespace Quqe.Rabbit
       if (Connection == null || !Connection.IsOpen)
       {
         MyState = State.Connecting;
+        SyncContext.Current.Post(() => IsConnectedChanged.Fire(false));
         TryToConnect();
       }
     }
 
     void Safely(Action f)
     {
-      Helpers.Safely(f, CleanupRabbit);
+      Helpers.Safely(f, () => {
+        CleanupRabbit();
+        MyState = State.Connecting;
+        SyncContext.Current.Post(() => IsConnectedChanged.Fire(false));
+      });
     }
 
     void CleanupRabbit()
@@ -87,6 +90,8 @@ namespace Quqe.Rabbit
       Disposal.DisposeSafely(ref Connection);
       Disposal.DisposeSafely(ref Model);
     }
+
+    public event Action<bool> IsConnectedChanged;
 
     public void Send(RabbitMessage msg)
     {

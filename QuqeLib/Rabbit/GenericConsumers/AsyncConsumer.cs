@@ -11,6 +11,7 @@ using PCW;
 using RabbitMQ.Util;
 using RabbitMQ.Client.Exceptions;
 using System.IO;
+using Quqe;
 
 namespace Quqe.Rabbit
 {
@@ -48,10 +49,7 @@ namespace Quqe.Rabbit
         return;
 
       Safely(() => {
-        Connection = new ConnectionFactory {
-          HostName = ConsumerInfo.Host,
-          RequestedHeartbeat = 1
-        }.CreateConnection();
+        Connection = Helpers.MakeConnection(ConsumerInfo.Host);
         Model = Connection.CreateModel();
         Helpers.DeclareQueue(Model, ConsumerInfo.QueueName, ConsumerInfo.IsPersistent);
         Model.BasicQos(0, ConsumerInfo.PrefetchCount, false);
@@ -59,6 +57,7 @@ namespace Quqe.Rabbit
         Model.BasicConsume(ConsumerInfo.QueueName, !ConsumerInfo.RequireAck, Consumer);
 
         MyState = State.Connected;
+        SyncContext.Current.Post(() => IsConnectedChanged.Fire(true));
       });
     }
 
@@ -70,16 +69,17 @@ namespace Quqe.Rabbit
       if (Connection == null || !Connection.IsOpen)
       {
         MyState = State.Connecting;
+        SyncContext.Current.Post(() => IsConnectedChanged.Fire(false));
         TryToConnect();
       }
     }
 
     void Safely(Action f)
     {
-      Helpers.Safely(f, () =>
-      {
+      Helpers.Safely(f, () => {
         CleanupRabbit();
         MyState = State.Connecting;
+        SyncContext.Current.Post(() => IsConnectedChanged.Fire(false));
       });
     }
 
@@ -89,6 +89,8 @@ namespace Quqe.Rabbit
       Disposal.DisposeSafely(ref Model);
       Consumer = null;
     }
+
+    public event Action<bool> IsConnectedChanged;
 
     public void Ack(RabbitMessage msg)
     {
