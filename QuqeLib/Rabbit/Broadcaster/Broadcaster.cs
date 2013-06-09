@@ -62,7 +62,7 @@ namespace Quqe.Rabbit
         PublishProps = Model.CreateBasicProperties();
         PublishProps.DeliveryMode = 1;
 
-        Consumer = new AsyncConsumer(new ConsumerInfo(BroadcastInfo.Host, MyQueueName, false, 4), DispatchMessage);
+        Consumer = new AsyncConsumer(new ConsumerInfo(BroadcastInfo.Host, MyQueueName, false, false, 4), DispatchMessage);
 
         MyState = State.Connected;
       });

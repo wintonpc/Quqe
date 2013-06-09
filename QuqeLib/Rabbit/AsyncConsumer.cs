@@ -38,6 +38,7 @@ namespace Quqe.Rabbit
       ConsumerInfo = consumerInfo;
       Consume = consume;
 
+      Heartbeat();
       TryToConnect();
     }
 
@@ -52,12 +53,12 @@ namespace Quqe.Rabbit
           RequestedHeartbeat = 1
         }.CreateConnection();
         Model = Connection.CreateModel();
+        Helpers.DeclareQueue(Model, ConsumerInfo.QueueName, ConsumerInfo.IsPersistent);
         Model.BasicQos(0, ConsumerInfo.PrefetchCount, false);
         Consumer = new PostingConsumer(Model, Consume);
         Model.BasicConsume(ConsumerInfo.QueueName, !ConsumerInfo.RequireAck, Consumer);
 
         MyState = State.Connected;
-        Heartbeat();
       });
     }
 
@@ -73,6 +74,22 @@ namespace Quqe.Rabbit
       }
     }
 
+    void Safely(Action f)
+    {
+      Helpers.Safely(f, () =>
+      {
+        CleanupRabbit();
+        MyState = State.Connecting;
+      });
+    }
+
+    void CleanupRabbit()
+    {
+      Disposal.DisposeSafely(ref Connection);
+      Disposal.DisposeSafely(ref Model);
+      Consumer = null;
+    }
+
     public void Ack(RabbitMessage msg)
     {
       if (MyState != State.Connected) return;
@@ -85,46 +102,6 @@ namespace Quqe.Rabbit
       if (MyState != State.Connected) return;
 
       Safely(() => Model.BasicNack(msg.DeliveryTag, false, true));
-    }
-
-    void Safely(Action f)
-    {
-      Action fail = () => {
-        CleanupRabbit();
-        MyState = State.Connecting;
-      };
-
-      try
-      {
-        f();
-      }
-      catch (BrokerUnreachableException)
-      {
-        fail();
-      }
-      catch (AlreadyClosedException)
-      {
-        fail();
-      }
-      catch (ConnectFailureException)
-      {
-        fail();
-      }
-      catch (OperationInterruptedException)
-      {
-        fail();
-      }
-      catch (IOException)
-      {
-        fail();
-      }
-    }
-
-    void CleanupRabbit()
-    {
-      Disposal.DisposeSafely(ref Connection);
-      Disposal.DisposeSafely(ref Model);
-      Consumer = null;
     }
 
     public void Dispose()

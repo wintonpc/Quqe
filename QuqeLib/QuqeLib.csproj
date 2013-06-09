@@ -128,7 +128,7 @@
     <Compile Include="Rabbit\Broadcaster\BroadcastInfo.cs" />
     <Compile Include="Rabbit\AsyncConsumer.cs" />
     <Compile Include="Rabbit\ConsumerInfo.cs" />
-    <Compile Include="Rabbit\RabbitConnector.cs" />
+    <Compile Include="Rabbit\Helpers.cs" />
     <Compile Include="Rabbit\SyncConsumer.cs" />
     <Compile Include="Rabbit\WorkQueue\AsyncWorkQueueConsumer.cs" />
     <Compile Include="Rabbit\WorkQueue\WorkQueueProducer.cs" />
@@ -136,7 +136,6 @@
     <Compile Include="Rabbit\RabbitMessage.cs" />
     <Compile Include="Rabbit\RabbitMessageReader.cs" />
     <Compile Include="Rabbit\WorkQueue\WorkQueueInfo.cs" />
-    <Compile Include="Rabbit\WorkQueue\WorkQueueHelpers.cs" />
     <Compile Include="Util\Disposal.cs" />
   </ItemGroup>
   <ItemGroup>

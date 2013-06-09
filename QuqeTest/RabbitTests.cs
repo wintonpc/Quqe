@@ -26,7 +26,7 @@ namespace QuqeTest
         using (var c2 = new AsyncWorkQueueConsumer(wq))
         using (var p = new WorkQueueProducer(wq))
         {
-          List.Repeat(1000, _ => p.Enqueue(new TestMessage()));
+          List.Repeat(1000, _ => p.Send(new TestMessage()));
 
           var c1Count = 0;
           var c2Count = 0;
@@ -65,7 +65,7 @@ namespace QuqeTest
           });
         });
 
-        List.Repeat(1000, _ => p.Enqueue(new TestMessage()));
+        List.Repeat(1000, _ => p.Send(new TestMessage()));
 
         task.Wait(1000);
       }

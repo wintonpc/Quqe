@@ -10,15 +10,13 @@ using System.Threading;
 
 namespace Quqe.Rabbit
 {
-  public class SyncWorkQueueConsumer : RabbitConnector
+  public class SyncWorkQueueConsumer : IDisposable
   {
     readonly SyncConsumer Consumer;
 
     public SyncWorkQueueConsumer(WorkQueueInfo wq)
-      : base(wq.Host)
     {
-      WorkQueueHelpers.DeclareQueue(wq, Model);
-      Consumer = new SyncConsumer(new ConsumerInfo(wq.Host, wq.Name, true, 2));
+      Consumer = new SyncConsumer(new ConsumerInfo(wq.Host, wq.Name, true, wq.IsPersistent, 2));
     }
 
     public RabbitMessage Receive()
@@ -41,10 +39,9 @@ namespace Quqe.Rabbit
       Consumer.Cancel();
     }
 
-    protected override void BeforeDispose()
+    public void Dispose()
     {
       Consumer.Dispose();
-      base.BeforeDispose();
     }
   }
 }
