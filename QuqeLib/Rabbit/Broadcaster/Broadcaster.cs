@@ -16,7 +16,6 @@ namespace Quqe.Rabbit
   /// </summary>
   public class Broadcaster : IDisposable
   {
-    readonly SyncContext Sync;
     readonly BroadcastInfo BroadcastInfo;
     readonly List<Hook> Hooks = new List<Hook>();
 
@@ -25,9 +24,8 @@ namespace Quqe.Rabbit
     IConnection Connection;
     IModel Model;
     IBasicProperties PublishProps;
-    QueueConsumer Consumer;
+    AsyncConsumer Consumer;
     string MyQueueName;
-    Task ConsumeTask;
 
     delegate bool Hook(RabbitMessage msg);
 
@@ -40,23 +38,9 @@ namespace Quqe.Rabbit
 
     public Broadcaster(BroadcastInfo broadcast)
     {
-      Sync = SyncContext.Current;
       BroadcastInfo = broadcast;
 
       TryToConnect();
-
-      ConsumeTask = Task.Factory.StartNew(() => {
-        using (Consumer = new QueueConsumer(BroadcastInfo.Host, MyQueueName, false, 4))
-        {
-          while (true)
-          {
-            var msg = Consumer.Receive();
-            if (msg is ReceiveWasCancelled)
-              return;
-            Sync.Post(() => DispatchMessage(msg));
-          }
-        }
-      });
     }
 
     void TryToConnect()
@@ -66,8 +50,7 @@ namespace Quqe.Rabbit
 
       CleanupRabbit();
 
-      try
-      {
+      Safely(() => {
         Connection = new ConnectionFactory { HostName = BroadcastInfo.Host }.CreateConnection();
         Model = Connection.CreateModel();
 
@@ -79,37 +62,26 @@ namespace Quqe.Rabbit
         PublishProps = Model.CreateBasicProperties();
         PublishProps.DeliveryMode = 1;
 
+        Consumer = new AsyncConsumer(new ConsumerInfo(BroadcastInfo.Host, MyQueueName, false, 4), DispatchMessage);
+
         MyState = State.Connected;
-      }
-      catch (ArithmeticException)
-      {
-        MyState = State.Connecting;
-        PumpTimer.DoLater(1000, TryToConnect);
-      }
+      });
     }
 
     public void Send(RabbitMessage msg)
     {
-      if (MyState != State.Connected)
-        return;
+      if (MyState != State.Connected) return;
 
-      try
-      {
-        Model.BasicPublish(BroadcastInfo.Channel, "", PublishProps, msg.ToUtf8());
-      }
-      catch (ArithmeticException)
-      {
-        MyState = State.Connecting;
-        TryToConnect();
-      }
+      Safely(() => Model.BasicPublish(BroadcastInfo.Channel, "", PublishProps, msg.ToUtf8()));
     }
 
     void DispatchMessage(RabbitMessage msg)
     {
-      if (MyState != State.Disposed)
-        foreach (var h in Hooks)
-          if (h(msg))
-            return;
+      if (MyState == State.Disposed) return;
+
+      foreach (var h in Hooks)
+        if (h(msg))
+          return;
     }
 
     public object On<T>(Action<T> handler)
@@ -140,18 +112,29 @@ namespace Quqe.Rabbit
     {
       Disposal.Dispose(ref Connection);
       Disposal.Dispose(ref Model);
+      Disposal.Dispose(ref Consumer);
       PublishProps = null;
       MyQueueName = null;
+    }
+
+    void Safely(Action f)
+    {
+      try
+      {
+        f();
+      }
+      catch (ArithmeticException)
+      {
+        CleanupRabbit();
+        MyState = State.Connecting;
+        PumpTimer.DoLater(1000, TryToConnect);
+      }
     }
 
     public void Dispose()
     {
       if (MyState == State.Disposed) return;
       MyState = State.Disposed;
-      Consumer.Cancel();
-      Disposal.Dispose(ref Consumer);
-      ConsumeTask.Wait();
-      ConsumeTask = null;
       CleanupRabbit();
     }
   }

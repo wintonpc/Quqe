@@ -10,15 +10,15 @@ using System.Threading;
 
 namespace Quqe.Rabbit
 {
-  public class WorkQueueConsumer : RabbitConnector
+  public class SyncWorkQueueConsumer : RabbitConnector
   {
-    readonly QueueConsumer Consumer;
+    readonly SyncConsumer Consumer;
 
-    public WorkQueueConsumer(WorkQueueInfo wq)
+    public SyncWorkQueueConsumer(WorkQueueInfo wq)
       : base(wq.Host)
     {
       WorkQueueHelpers.DeclareQueue(wq, Model);
-      Consumer = new QueueConsumer(wq.Host, wq.Name, true, 2);
+      Consumer = new SyncConsumer(new ConsumerInfo(wq.Host, wq.Name, true, 2));
     }
 
     public RabbitMessage Receive()
@@ -36,7 +36,6 @@ namespace Quqe.Rabbit
       Consumer.Ack(msg);
     }
 
-    /// <summary>Can be called by any thread</summary>
     public void Cancel()
     {
       Consumer.Cancel();

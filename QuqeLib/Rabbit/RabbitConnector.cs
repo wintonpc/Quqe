@@ -10,8 +10,8 @@ namespace Quqe.Rabbit
   public abstract class RabbitConnector : IDisposable
   {
     protected readonly string Host;
-    protected readonly IConnection Connection;
-    protected readonly IModel Model;
+    protected IConnection Connection;
+    protected IModel Model;
 
     protected RabbitConnector(string host)
     {
@@ -27,8 +27,8 @@ namespace Quqe.Rabbit
       if (IsDisposed) return;
       IsDisposed = true;
       BeforeDispose();
-      Model.Dispose();
-      Connection.Dispose();
+      Disposal.DisposeSafely(ref Model);
+      Disposal.DisposeSafely(ref Connection);
     }
 
     protected virtual void BeforeDispose()

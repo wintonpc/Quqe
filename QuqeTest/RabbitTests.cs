@@ -10,6 +10,7 @@ using System.Threading;
 using Machine.Specifications;
 using List = PCW.List;
 using PCW;
+using Quqe;
 
 namespace QuqeTest
 {
@@ -17,50 +18,80 @@ namespace QuqeTest
   class RabbitTests
   {
     [Test]
-    public void RabbitWorkQueue()
+    public void AsyncWorkQueue()
     {
-      var wq = new WorkQueueInfo("localhost", "testq", false);
+      WithSync(() => {
+        var wq = new WorkQueueInfo("localhost", "fooQueue", false);
+        using (var c1 = new AsyncWorkQueueConsumer(wq))
+        using (var c2 = new AsyncWorkQueueConsumer(wq))
+        using (var p = new WorkQueueProducer(wq))
+        {
+          List.Repeat(1000, _ => p.Enqueue(new TestMessage()));
+
+          var c1Count = 0;
+          var c2Count = 0;
+
+          c1.Received += msg => {
+            c1Count++;
+            c1.Ack(msg);
+          };
+
+          c2.Received += msg => {
+            c2Count++;
+            c2.Ack(msg);
+          };
+
+          Waiter.WaitOrDie(1000, () => c1Count + c2Count == 1000);
+          ((double)c1Count / c2Count).ShouldBeCloseTo(1.0, 0.05);
+        }
+      });
+    }
+
+    [Test]
+    public void SyncWorkQueue()
+    {
+      var wq = new WorkQueueInfo("localhost", "fooQueue", false);
       using (var p = new WorkQueueProducer(wq))
-      using (var q1 = new WorkQueueConsumer(wq))
-      using (var q2 = new WorkQueueConsumer(wq))
       {
-        var q1Count = 0;
-        var q2Count = 0;
-
-        var task1 = Task.Factory.StartNew(() => {
-          while (true)
-          {
-            var msg = q1.Receive();
-            if (msg is ReceiveWasCancelled)
-              return;
-            q1.Ack(msg);
-            q1Count++;
-          }
+        var task = Task.Factory.StartNew(() => {
+          WithSync(() => {
+            using (var c = new SyncWorkQueueConsumer(wq))
+            {
+              List.Repeat(1000, _ => {
+                var msg = c.Receive();
+                c.Ack(msg);
+              });
+            }
+          });
         });
 
-        var task2 = Task.Factory.StartNew(() => {
-          while (true)
-          {
-            var msg = q2.Receive();
-            if (msg is ReceiveWasCancelled)
-              return;
-            q2.Ack(msg);
-            q2Count++;
-          }
+        List.Repeat(1000, _ => p.Enqueue(new TestMessage()));
+
+        task.Wait(1000);
+      }
+    }
+
+    [Test]
+    public void SyncWorkQueueCancelling()
+    {
+      var wq = new WorkQueueInfo("localhost", "fooQueue", false);
+      using (var p = new WorkQueueProducer(wq))
+      {
+        SyncWorkQueueConsumer c = null;
+        var task = Task.Factory.StartNew(() => {
+          WithSync(() => {
+            using (c = new SyncWorkQueueConsumer(wq))
+            {
+              var msg = c.Receive();
+              msg.ShouldBeOfType<ReceiveWasCancelled>();
+              throw new Exception("cancelled");
+            }
+          });
         });
 
-        List.Repeat(1000, _ => p.Enqueue(new TestMessage((int)DateTime.Now.Ticks, "asdf")));
-
-        Thread.Sleep(1000);
-        q1.Cancel();
-        q2.Cancel();
-        Task.WaitAll(new[] { task1, task2 });
-
-        (q1Count + q2Count).ShouldEqual(1000);
-        ((double)q1Count / q2Count).ShouldBeCloseTo(1, 0.05);
-
-        Trace.WriteLine("q1 got " + q1Count);
-        Trace.WriteLine("q2 got " + q2Count);
+        Thread.Sleep(500);
+        c.Cancel();
+        new Action(() => task.Wait()).ShouldThrow<Exception>(x => x.InnerException.Message.ShouldEqual("cancelled"));
       }
     }
 
@@ -91,8 +122,7 @@ namespace QuqeTest
     [Test]
     public void BroadcastObeysOrder1()
     {
-      WithBroadcaster(b =>
-      {
+      WithBroadcaster(b => {
         bool gotTest = false;
         bool gotSubtest = false;
         b.On<TestMessage>(x => gotTest = true);
@@ -107,8 +137,7 @@ namespace QuqeTest
     [Test]
     public void BroadcastObeysOrder2()
     {
-      WithBroadcaster(b =>
-      {
+      WithBroadcaster(b => {
         bool gotTest = false;
         bool gotSubtest = false;
         bool gotOther = false;
@@ -179,7 +208,8 @@ namespace QuqeTest
     public int A { get; private set; }
     public string B { get; private set; }
 
-    public TestMessage() : this(5, Guid.NewGuid().ToString("N"))
+    public TestMessage()
+      : this((int)DateTime.Now.Ticks, Guid.NewGuid().ToString("N"))
     {
     }
 
