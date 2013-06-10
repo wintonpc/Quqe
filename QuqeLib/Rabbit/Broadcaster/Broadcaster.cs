@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using PCW;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 
 namespace Quqe.Rabbit
 {
@@ -45,12 +47,14 @@ namespace Quqe.Rabbit
       PublishProps.DeliveryMode = 1;
 
       Consumer = new AsyncConsumer(new ConsumerInfo(BroadcastInfo.Host, MyQueueName, false, false, 4), DispatchMessage);
+
+      if (!Waiter.Wait(3000, () => Consumer.IsConnected))
+        throw new IOException();
+
       Consumer.IsConnectedChanged += isConnected => {
         if (!isConnected)
           ConnectionBroke();
       };
-
-      Waiter.Wait(Consumer.is
     }
 
     protected override void AfterConnect()

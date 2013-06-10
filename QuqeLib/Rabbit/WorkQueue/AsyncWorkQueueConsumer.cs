@@ -22,7 +22,9 @@ namespace Quqe.Rabbit
 
     public event Action<RabbitMessage> Received;
 
-    public event Action<bool> IsConnectedChanged; 
+    public event Action<bool> IsConnectedChanged;
+
+    public bool IsConnected { get { return Consumer.IsConnected; } }
 
     public void Ack(RabbitMessage msg)
     {

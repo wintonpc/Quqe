@@ -84,6 +84,8 @@ namespace Quqe.Rabbit
 
     public event Action<bool> IsConnectedChanged;
 
+    public bool IsConnected { get { return MyState == State.Connected; } }
+
     public void Dispose()
     {
       if (MyState == State.Disposed) return;

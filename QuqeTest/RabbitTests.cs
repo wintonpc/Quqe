@@ -151,6 +151,7 @@ namespace QuqeTest
         msg.ShouldBeNull();
         b.Send(new TestMessage());
         Waiter.Wait(() => msg != null);
+        msg = null;
 
         RabbitTestHelper.StopRabbitService();
         Waiter.Wait(() => !bIsConnected);
@@ -170,9 +171,7 @@ namespace QuqeTest
       WithBroadcaster(b => {
         b.Send(new TestMessage());
         Waiter.Wait(200);
-      }
-        )
-        ;
+      });
     }
 
     [Test]
