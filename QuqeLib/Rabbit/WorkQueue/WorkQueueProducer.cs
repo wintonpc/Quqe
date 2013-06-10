@@ -11,104 +11,55 @@ using System.Threading;
 
 namespace Quqe.Rabbit
 {
-  public class WorkQueueProducer : IDisposable
+  public class WorkQueueProducer : RabbitRecoverer
   {
     readonly WorkQueueInfo WorkQueueInfo;
     readonly Queue<RabbitMessage> Outgoing = new Queue<RabbitMessage>();
 
-    IConnection Connection;
-    IModel Model;
     IBasicProperties PublishProps;
-    object HeartbeatCookie;
-
-    State MyState = State.Connecting;
-
-    public enum State
-    {
-      Connecting,
-      Connected,
-      Disposed
-    }
 
     public WorkQueueProducer(WorkQueueInfo wq)
     {
       WorkQueueInfo = wq;
-
-      Heartbeat();
-      TryToConnect();
+      Init();
     }
 
-    void TryToConnect()
+    protected override void Connect()
     {
-      if (MyState != State.Connecting)
-        return;
-
-      Safely(() => {
-        Connection = Helpers.MakeConnection(WorkQueueInfo.Host);
-        Model = Connection.CreateModel();
-        Helpers.DeclareQueue(Model, WorkQueueInfo.Name, WorkQueueInfo.IsPersistent);
-        PublishProps = Model.CreateBasicProperties();
-        PublishProps.DeliveryMode = (byte)(WorkQueueInfo.IsPersistent ? 2 : 1);
-
-        MyState = State.Connected;
-        SyncContext.Current.Post(() => IsConnectedChanged.Fire(true));
-
-        // first, try to send messages that previously failed
-        var oldMsgs = new Queue<RabbitMessage>(Outgoing);
-        Outgoing.Clear();
-        while (oldMsgs.Any() && MyState == State.Connected)
-          Send(oldMsgs.Dequeue());
-        while (oldMsgs.Any())
-          Outgoing.Enqueue(oldMsgs.Dequeue());
-      });
+      Connection = Helpers.MakeConnection(WorkQueueInfo.Host);
+      Model = Connection.CreateModel();
+      Helpers.DeclareQueue(Model, WorkQueueInfo.Name, WorkQueueInfo.IsPersistent);
+      PublishProps = Model.CreateBasicProperties();
+      PublishProps.DeliveryMode = (byte)(WorkQueueInfo.IsPersistent ? 2 : 1);
     }
 
-    void Heartbeat()
+    protected override void AfterConnect()
     {
-      if (MyState == State.Disposed) return;
-
-      HeartbeatCookie = PumpTimer.DoLater(1000, Heartbeat);
-      if (Connection == null || !Connection.IsOpen)
-      {
-        MyState = State.Connecting;
-        SyncContext.Current.Post(() => IsConnectedChanged.Fire(false));
-        TryToConnect();
-      }
+      // try to send messages that previously failed
+      var oldMsgs = new Queue<RabbitMessage>(Outgoing);
+      Outgoing.Clear();
+      while (oldMsgs.Any() && MyState == State.Connected)
+        Send(oldMsgs.Dequeue());
+      while (oldMsgs.Any())
+        Outgoing.Enqueue(oldMsgs.Dequeue());
     }
-
-    void Safely(Action f)
-    {
-      Helpers.Safely(f, () => {
-        CleanupRabbit();
-        MyState = State.Connecting;
-        SyncContext.Current.Post(() => IsConnectedChanged.Fire(false));
-      });
-    }
-
-    void CleanupRabbit()
-    {
-      Disposal.DisposeSafely(ref Connection);
-      Disposal.DisposeSafely(ref Model);
-    }
-
-    public event Action<bool> IsConnectedChanged;
 
     public void Send(RabbitMessage msg)
     {
       Safely(() => {
         Outgoing.Enqueue(msg);
+        if (MyState != State.Connected) return;
         Model.BasicPublish("", WorkQueueInfo.Name, false, PublishProps, Outgoing.Peek().ToUtf8());
         Outgoing.Dequeue();
       });
     }
 
-    public void Dispose()
+    protected override void Cleanup()
     {
-      if (MyState == State.Disposed) return;
-      MyState = State.Disposed;
+    }
 
-      PumpTimer.CancelDoLater(HeartbeatCookie);
-      CleanupRabbit();
+    protected override void OnDispose()
+    {
     }
   }
 }

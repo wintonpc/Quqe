@@ -14,59 +14,47 @@ namespace Quqe.Rabbit
   /// Messages are not durable and do not need acknowledgement.
   /// Messages are dropped when RabbitMQ goes down.
   /// </summary>
-  public class Broadcaster : IDisposable
+  public class Broadcaster : RabbitRecoverer
   {
     readonly BroadcastInfo BroadcastInfo;
     readonly List<Hook> Hooks = new List<Hook>();
 
-    State MyState = State.Connecting;
-
-    IConnection Connection;
-    IModel Model;
     IBasicProperties PublishProps;
     AsyncConsumer Consumer;
     string MyQueueName;
 
     delegate bool Hook(RabbitMessage msg);
 
-    public enum State
-    {
-      Connecting,
-      Connected,
-      Disposed
-    }
-
     public Broadcaster(BroadcastInfo broadcast)
     {
       BroadcastInfo = broadcast;
-
-      TryToConnect();
+      Init();
     }
 
-    void TryToConnect()
+    protected override void Connect()
     {
-      if (MyState != State.Connecting)
-        return;
+      Connection = Helpers.MakeConnection(BroadcastInfo.Host);
+      Model = Connection.CreateModel();
 
-      CleanupRabbit();
+      Model.ExchangeDeclare(BroadcastInfo.Channel, ExchangeType.Fanout, false, false, null);
+      var q = Model.QueueDeclare("", false, false, true, null);
+      Model.QueueBind(q.QueueName, BroadcastInfo.Channel, "");
+      MyQueueName = q.QueueName;
 
-      Safely(() => {
-        Connection = Helpers.MakeConnection(BroadcastInfo.Host);
-        Model = Connection.CreateModel();
+      PublishProps = Model.CreateBasicProperties();
+      PublishProps.DeliveryMode = 1;
 
-        Model.ExchangeDeclare(BroadcastInfo.Channel, ExchangeType.Fanout, false, false, null);
-        var q = Model.QueueDeclare("", false, false, true, null);
-        Model.QueueBind(q.QueueName, BroadcastInfo.Channel, "");
-        MyQueueName = q.QueueName;
+      Consumer = new AsyncConsumer(new ConsumerInfo(BroadcastInfo.Host, MyQueueName, false, false, 4), DispatchMessage);
+      Consumer.IsConnectedChanged += isConnected => {
+        if (!isConnected)
+          ConnectionBroke();
+      };
 
-        PublishProps = Model.CreateBasicProperties();
-        PublishProps.DeliveryMode = 1;
+      Waiter.Wait(Consumer.is
+    }
 
-        Consumer = new AsyncConsumer(new ConsumerInfo(BroadcastInfo.Host, MyQueueName, false, false, 4), DispatchMessage);
-
-        MyState = State.Connected;
-        SyncContext.Current.Post(() => IsConnectedChanged.Fire(true));
-      });
+    protected override void AfterConnect()
+    {
     }
 
     public void Send(RabbitMessage msg)
@@ -109,37 +97,15 @@ namespace Quqe.Rabbit
       };
     }
 
-    void CleanupRabbit()
+    protected override void Cleanup()
     {
-      Disposal.Dispose(ref Connection);
-      Disposal.Dispose(ref Model);
       Disposal.Dispose(ref Consumer);
       PublishProps = null;
       MyQueueName = null;
     }
 
-    public event Action<bool> IsConnectedChanged;
-
-    void Safely(Action f)
+    protected override void OnDispose()
     {
-      try
-      {
-        f();
-      }
-      catch (ArithmeticException)
-      {
-        CleanupRabbit();
-        MyState = State.Connecting;
-        SyncContext.Current.Post(() => IsConnectedChanged.Fire(true));
-        PumpTimer.DoLater(1000, TryToConnect);
-      }
-    }
-
-    public void Dispose()
-    {
-      if (MyState == State.Disposed) return;
-      MyState = State.Disposed;
-      CleanupRabbit();
     }
   }
 }

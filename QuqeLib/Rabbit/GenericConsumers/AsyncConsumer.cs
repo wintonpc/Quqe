@@ -15,82 +15,38 @@ using Quqe;
 
 namespace Quqe.Rabbit
 {
-  public class AsyncConsumer : IDisposable
+  public class AsyncConsumer : RabbitRecoverer
   {
     readonly ConsumerInfo ConsumerInfo;
     readonly Action<RabbitMessage> Consume;
 
-    IConnection Connection;
-    IModel Model;
     PostingConsumer Consumer;
-    object HeartbeatCookie;
-
-    State MyState = State.Connecting;
-
-    public enum State
-    {
-      Connecting,
-      Connected,
-      Disposed
-    }
 
     public AsyncConsumer(ConsumerInfo consumerInfo, Action<RabbitMessage> consume)
     {
       ConsumerInfo = consumerInfo;
       Consume = consume;
-
-      Heartbeat();
-      TryToConnect();
+      Init();
     }
 
-    void TryToConnect()
+    protected override void Connect()
     {
-      if (MyState != State.Connecting)
-        return;
-
-      Safely(() => {
-        Connection = Helpers.MakeConnection(ConsumerInfo.Host);
-        Model = Connection.CreateModel();
-        Helpers.DeclareQueue(Model, ConsumerInfo.QueueName, ConsumerInfo.IsPersistent);
-        Model.BasicQos(0, ConsumerInfo.PrefetchCount, false);
-        Consumer = new PostingConsumer(Model, Consume);
-        Model.BasicConsume(ConsumerInfo.QueueName, !ConsumerInfo.RequireAck, Consumer);
-
-        MyState = State.Connected;
-        SyncContext.Current.Post(() => IsConnectedChanged.Fire(true));
-      });
+      Connection = Helpers.MakeConnection(ConsumerInfo.Host);
+      Model = Connection.CreateModel();
+      Helpers.DeclareQueue(Model, ConsumerInfo.QueueName, ConsumerInfo.IsPersistent);
+      Model.BasicQos(0, ConsumerInfo.PrefetchCount, false);
+      Consumer = new PostingConsumer(Model, Consume);
+      Model.BasicConsume(ConsumerInfo.QueueName, !ConsumerInfo.RequireAck, Consumer);
     }
 
-    void Heartbeat()
+    protected override void AfterConnect()
     {
-      if (MyState == State.Disposed) return;
-
-      HeartbeatCookie = PumpTimer.DoLater(1000, Heartbeat);
-      if (Connection == null || !Connection.IsOpen)
-      {
-        MyState = State.Connecting;
-        SyncContext.Current.Post(() => IsConnectedChanged.Fire(false));
-        TryToConnect();
-      }
     }
 
-    void Safely(Action f)
+    protected override void Cleanup()
     {
-      Helpers.Safely(f, () => {
-        CleanupRabbit();
-        MyState = State.Connecting;
-        SyncContext.Current.Post(() => IsConnectedChanged.Fire(false));
-      });
-    }
-
-    void CleanupRabbit()
-    {
-      Disposal.DisposeSafely(ref Connection);
-      Disposal.DisposeSafely(ref Model);
       Consumer = null;
     }
-
-    public event Action<bool> IsConnectedChanged;
 
     public void Ack(RabbitMessage msg)
     {
@@ -106,21 +62,9 @@ namespace Quqe.Rabbit
       Safely(() => Model.BasicNack(msg.DeliveryTag, false, true));
     }
 
-    public void Dispose()
+    protected override void OnDispose()
     {
-      if (MyState == State.Disposed) return;
-      MyState = State.Disposed;
-
-      PumpTimer.CancelDoLater(HeartbeatCookie);
-
-      try
-      {
-        Model.BasicCancel(Consumer.ConsumerTag);
-      }
-      catch (Exception)
-      {
-      }
-      CleanupRabbit();
+      Model.BasicCancel(Consumer.ConsumerTag);
     }
 
     class PostingConsumer : IBasicConsumer

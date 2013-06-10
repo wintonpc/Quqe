@@ -130,6 +130,7 @@
     <Compile Include="Rabbit\GenericConsumers\ConsumerInfo.cs" />
     <Compile Include="Rabbit\Helpers.cs" />
     <Compile Include="Rabbit\GenericConsumers\SyncConsumer.cs" />
+    <Compile Include="Rabbit\RabbitRecoverer.cs" />
     <Compile Include="Rabbit\WorkQueue\AsyncWorkQueueConsumer.cs" />
     <Compile Include="Rabbit\WorkQueue\WorkQueueProducer.cs" />
     <Compile Include="Rabbit\WorkQueue\SyncWorkQueueConsumer.cs" />

@@ -68,7 +68,7 @@ namespace QuqeTest
 
           List.Repeat(1000, _ => p.Send(new TestMessage()));
 
-          task.Wait(1000);
+          task.Wait(2000).ShouldBeTrue();
         }
       });
     }
@@ -80,6 +80,11 @@ namespace QuqeTest
         var wq = new WorkQueueInfo("localhost", "fooQueue", false);
         using (var p = new WorkQueueProducer(wq))
         {
+          var isConnected = false;
+          p.IsConnectedChanged += x => isConnected = x;
+          Waiter.Wait(() => isConnected);
+          RabbitTestHelper.PurgeQueue("fooQueue");
+
           SyncWorkQueueConsumer c = null;
           var task = Task.Factory.StartNew(() => {
             WithSync(() => {
@@ -100,16 +105,79 @@ namespace QuqeTest
     }
 
     [Test]
-    public void IgnoredIfNoHooks()
+    [Category("requiresAdmin")]
+    public void WorkerQueueIsConnectedEvent()
     {
-      WithBroadcaster(b => {
-        b.Send(new TestMessage());
-        Waiter.Wait(200);
+      WithSync(() => {
+        var wq = new WorkQueueInfo("localhost", "fooQueue", false);
+        using (var c = new AsyncWorkQueueConsumer(wq))
+        using (var p = new WorkQueueProducer(wq))
+        {
+          bool cIsConnected = false;
+          bool pIsConnected = false;
+          RabbitMessage msg = null;
+          c.Received += x => msg = x;
+          c.IsConnectedChanged += x => cIsConnected = x;
+          p.IsConnectedChanged += x => pIsConnected = x;
+
+          Waiter.Wait(() => cIsConnected && pIsConnected);
+          RabbitTestHelper.StopRabbitService();
+          Waiter.Wait(() => !cIsConnected && !pIsConnected);
+
+          msg.ShouldBeNull();
+          p.Send(new TestMessage());
+
+          RabbitTestHelper.StartRabbitService();
+          Waiter.Wait(() => cIsConnected && pIsConnected);
+
+          Waiter.Wait(() => msg != null);
+          msg.ShouldBeOfType<TestMessage>();
+        }
       });
     }
 
     [Test]
-    public void ReceivesBroadcast()
+    [Category("requiresAdmin")]
+    public void BroadcasterIsConnectedEvent()
+    {
+      WithBroadcaster(b => {
+        bool bIsConnected = false;
+        TestMessage msg = null;
+        b.On<TestMessage>(x => msg = x);
+        b.IsConnectedChanged += x => bIsConnected = x;
+
+        Waiter.Wait(() => bIsConnected);
+
+        msg.ShouldBeNull();
+        b.Send(new TestMessage());
+        Waiter.Wait(() => msg != null);
+
+        RabbitTestHelper.StopRabbitService();
+        Waiter.Wait(() => !bIsConnected);
+        RabbitTestHelper.StartRabbitService();
+        Waiter.Wait(() => bIsConnected);
+
+        msg.ShouldBeNull();
+        b.Send(new TestMessage());
+        Waiter.Wait(() => msg != null);
+      });
+    }
+
+    [Test]
+    public
+    void IgnoredIfNoHooks()
+    {
+      WithBroadcaster(b => {
+        b.Send(new TestMessage());
+        Waiter.Wait(200);
+      }
+        )
+        ;
+    }
+
+    [Test]
+    public
+    void ReceivesBroadcast()
     {
       WithBroadcaster(b => {
         bool gotTest = false;
