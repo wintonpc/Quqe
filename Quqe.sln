@@ -35,6 +35,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HostLib", "HostLib\HostLib.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "versace", "versace\versace.csproj", "{B21ED7A0-0FF0-42FB-9ECB-3C1FAFA1E3D5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuqeRabbit", "QuqeRabbit\QuqeRabbit.csproj", "{B0FABC22-4984-47CF-93FF-8E35F25BEA70}"
+EndProject
 Global
 	GlobalSection(TestCaseManagementSettings) = postSolution
 		CategoryFile = Quqe.vsmdi
@@ -235,6 +237,24 @@ Global
 		{B21ED7A0-0FF0-42FB-9ECB-3C1FAFA1E3D5}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{B21ED7A0-0FF0-42FB-9ECB-3C1FAFA1E3D5}.Release|Win32.ActiveCfg = Release|Any CPU
 		{B21ED7A0-0FF0-42FB-9ECB-3C1FAFA1E3D5}.Release|x86.ActiveCfg = Release|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.DebugNoHost|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.DebugNoHost|Any CPU.Build.0 = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.DebugNoHost|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.DebugNoHost|Mixed Platforms.Build.0 = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.DebugNoHost|Win32.ActiveCfg = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.DebugNoHost|x86.ActiveCfg = Debug|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Release|Win32.ActiveCfg = Release|Any CPU
+		{B0FABC22-4984-47CF-93FF-8E35F25BEA70}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

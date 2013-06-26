@@ -124,19 +124,6 @@
     <Compile Include="Misc\Strategy.cs" />
     <Compile Include="Data\Transforms.cs" />
     <Compile Include="Data\VersaceDataFetching.cs" />
-    <Compile Include="Rabbit\Broadcaster\Broadcaster.cs" />
-    <Compile Include="Rabbit\Broadcaster\BroadcastInfo.cs" />
-    <Compile Include="Rabbit\GenericConsumers\AsyncConsumer.cs" />
-    <Compile Include="Rabbit\GenericConsumers\ConsumerInfo.cs" />
-    <Compile Include="Rabbit\Helpers.cs" />
-    <Compile Include="Rabbit\GenericConsumers\SyncConsumer.cs" />
-    <Compile Include="Rabbit\RabbitRecoverer.cs" />
-    <Compile Include="Rabbit\WorkQueue\AsyncWorkQueueConsumer.cs" />
-    <Compile Include="Rabbit\WorkQueue\WorkQueueProducer.cs" />
-    <Compile Include="Rabbit\WorkQueue\SyncWorkQueueConsumer.cs" />
-    <Compile Include="Rabbit\Messages\RabbitMessage.cs" />
-    <Compile Include="Rabbit\Messages\RabbitMessageReader.cs" />
-    <Compile Include="Rabbit\WorkQueue\WorkQueueInfo.cs" />
     <Compile Include="Util\Disposal.cs" />
     <Compile Include="Util\EventHelpers.cs" />
   </ItemGroup>
@@ -144,6 +131,10 @@
     <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">
       <Project>{2BFAD437-7AF7-4F7B-B0FD-8305F6CF3392}</Project>
       <Name>PCW</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\QuqeRabbit\QuqeRabbit.csproj">
+      <Project>{b0fabc22-4984-47cf-93ff-8e35f25bea70}</Project>
+      <Name>QuqeRabbit</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

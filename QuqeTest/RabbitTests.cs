@@ -8,7 +8,9 @@ using NUnit.Framework;
 using Quqe.Rabbit;
 using System.Threading;
 using Machine.Specifications;
-using List = PCW.List;
+using List = Quqe.Rabbit.List;
+using SyncContext = Quqe.Rabbit.SyncContext;
+using Waiter = Quqe.Rabbit.Waiter;
 using PCW;
 using Quqe;
 

@@ -7,7 +7,6 @@ using MongoDB.Bson;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Threading;
-using PCW;
 using RabbitMQ.Util;
 using RabbitMQ.Client.Exceptions;
 using System.IO;

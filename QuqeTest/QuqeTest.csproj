@@ -120,6 +120,10 @@
       <Project>{1B373E93-67B2-4045-8F5A-94C1C738EA2C}</Project>
       <Name>QuqeLib</Name>
     </ProjectReference>
+    <ProjectReference Include="..\QuqeRabbit\QuqeRabbit.csproj">
+      <Project>{b0fabc22-4984-47cf-93ff-8e35f25bea70}</Project>
+      <Name>QuqeRabbit</Name>
+    </ProjectReference>
     <ProjectReference Include="..\QuqeViz\QuqeViz.csproj">
       <Project>{70183d8d-bcc0-4438-a7df-69d2ccb7b06a}</Project>
       <Name>QuqeViz</Name>
