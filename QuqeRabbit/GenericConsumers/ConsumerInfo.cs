@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Quqe.Rabbit
 {
-  public class ConsumerInfo
+  class ConsumerInfo
   {
     public readonly string Host;
     public readonly string QueueName;

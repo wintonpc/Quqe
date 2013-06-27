@@ -19,9 +19,9 @@ namespace Quqe.Rabbit
       Consumer = new SyncConsumer(new ConsumerInfo(wq.Host, wq.Name, true, wq.IsPersistent, 2));
     }
 
-    public RabbitMessage Receive()
+    public RabbitMessage Receive(int? msTimeout = null)
     {
-      return Consumer.Receive();
+      return Consumer.Receive(msTimeout);
     }
 
     public void Ack(RabbitMessage msg)

@@ -255,6 +255,18 @@ namespace QuqeTest
       });
     }
 
+    [Test]
+    public void BroadcastWait()
+    {
+      WithBroadcaster(b => {
+        b.Send(new TestMessage());
+        b.WaitFor<SubTestMessage>(1000).ShouldBeNull();
+        string s = Guid.NewGuid().ToString();
+        b.Send(new TestMessage(5, s));
+        b.WaitFor<TestMessage>().B.ShouldEqual(s);
+      });
+    }
+
     static void WithBroadcaster(Action<Broadcaster> f)
     {
       WithSync(() => {

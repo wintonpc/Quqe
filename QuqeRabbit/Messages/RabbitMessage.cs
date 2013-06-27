@@ -41,6 +41,10 @@ namespace Quqe.Rabbit
   {
   }
 
+  public class ReceiveTimedOut : RabbitMessage
+  {
+  }
+
   public class UnknownRequest : RabbitMessage
   {
     public string Error { get; private set; }

@@ -58,8 +58,7 @@ namespace Quqe.Rabbit
 
     static IEnumerable<Type> GetMessageTypes()
     {
-      var asm = typeof(RabbitMessage).Assembly;
-      return asm.GetTypes().Where(t => !t.IsAbstract && typeof(RabbitMessage).IsAssignableFrom(t));
+      return AppDomain.CurrentDomain.GetAssemblies().SelectMany(asm => asm.GetTypes().Where(t => !t.IsAbstract && typeof (RabbitMessage).IsAssignableFrom(t)));
     }
   }
 }

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Quqe.Rabbit
 {
-  public class SyncConsumer : IDisposable
+  class SyncConsumer : IDisposable
   {
     readonly AsyncConsumer Consumer;
     Queue<RabbitMessage> Messages = new Queue<RabbitMessage>();
@@ -17,13 +17,14 @@ namespace Quqe.Rabbit
       Consumer = new AsyncConsumer(ci, msg => Messages.Enqueue(msg));
     }
 
-    public RabbitMessage Receive()
+    public RabbitMessage Receive(int? msTimeout = null)
     {
-      Waiter.Wait(() => Messages.Any() || IsCancelled);
+      bool timedOut = !Waiter.Wait(msTimeout, () => Messages.Any() || IsCancelled);
+      if (timedOut)
+        return new ReceiveTimedOut();
       if (IsCancelled)
         return new ReceiveWasCancelled();
-      else
-        return Messages.Dequeue();
+      return Messages.Dequeue();
     }
 
     public void Ack(RabbitMessage msg)

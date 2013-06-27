@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Host
+namespace VersaceExe
 {
   static class AppDomainIsolator
   {
@@ -13,9 +13,9 @@ namespace Host
       Run(f, a => a());
     }
 
-    public static void Run<T>(T arg1, Action<T> f)
+    public static void Run<T>(T arg1, Action<T> func)
     {
-      Run(arg1, a1 => { f(a1); return true; });
+      Run(new Tuple<T, Action<T>>(arg1, func), t => { t.Item2(t.Item1); return true; });
     }
 
     public static R Run<T, R>(T arg1, Func<T, R> f)

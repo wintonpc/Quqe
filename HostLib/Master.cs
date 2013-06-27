@@ -4,10 +4,12 @@ using System.Configuration;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Text;
+using System.Threading.Tasks;
 using MongoDB.Driver;
 using MongoDB.Driver.Internal;
 using Quqe;
 using Quqe.NewVersace;
+using Quqe.Rabbit;
 
 namespace HostLib
 {
@@ -15,11 +17,16 @@ namespace HostLib
   {
     public static void Run(Action onGenerationComplete)
     {
-      using (var rabbit = new Rabbit(ConfigurationManager.AppSettings["RabbitHost"]))
+      using (var masterRequests = new SyncWorkQueueConsumer(new WorkQueueInfo(ConfigurationManager.AppSettings["RabbitHost"], "MasterRequests", false)))
+      using (var versaceBroadcast = new Broadcaster(new BroadcastInfo(ConfigurationManager.AppSettings["RabbitHost"], "VersaceMsgs")))
       {
-        var req = rabbit.TryGetMasterRequest();
-        if (req == null)
+        var msg = masterRequests.Receive(3000);
+        if (msg is ReceiveTimedOut)
+        {
+          Console.WriteLine("Not the master :( exiting");
           return;
+        }
+        var req = (MasterRequest)msg;
 
         Console.WriteLine("I AM THE MASTER!");
 
@@ -29,11 +36,11 @@ namespace HostLib
         var dataSets = DataPreprocessing.MakeTrainingAndValidationSets(req.Symbol, req.StartDate, req.EndDate, req.ValidationPct, GetSignalFunc(req.SignalType));
 
         var run = Functions.Evolve(protoRun, new DistributedTrainer(), dataSets.Item1, dataSets.Item2, gen => {
-          rabbit.SendMasterUpdate(new MasterUpdate(gen.Id, gen.Order, gen.Evaluated.Fitness));
+          versaceBroadcast.Send(new MasterUpdate(gen.Id, gen.Order, gen.Evaluated.Fitness));
           onGenerationComplete();
         });
 
-        rabbit.SendMasterResult(new MasterResult(run.Id));
+        versaceBroadcast.Send(new MasterResult(run.Id));
       }
     }
 

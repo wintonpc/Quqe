@@ -100,6 +100,19 @@ namespace Quqe.Rabbit
       };
     }
 
+    public T WaitFor<T>(int? msTimeout = null)
+      where T : RabbitMessage
+    {
+      T msg = null;
+      object hook = null;
+      hook = On<T>(m => {
+        msg = m;
+        Unhook(hook);
+      });
+      Waiter.Wait(msTimeout, () => msg != null);
+      return msg;
+    }
+
     protected override void Cleanup()
     {
       Disposal.Dispose(ref Consumer);

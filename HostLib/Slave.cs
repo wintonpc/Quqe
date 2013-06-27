@@ -3,20 +3,42 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Quqe.NewVersace;
+using Quqe.Rabbit;
+using PCW;
 
 namespace HostLib
 {
-  public static class Slave
+  public class Slave : IDisposable
   {
-    public static void Run(Action onIdle)
+    public Task Task { get; set; }
+    AsyncWorkQueueConsumer Requests;
+
+    public void Run()
     {
-      using (var rabbit = new Rabbit(ConfigurationManager.AppSettings["RabbitHost"]))
+      Requests = new AsyncWorkQueueConsumer(new WorkQueueInfo(ConfigurationManager.AppSettings["RabbitHost"], "TrainRequests", false));
+
+      Requests.Received += msg =>
       {
-        TrainRequest req;
-        while ((req = rabbit.GetTrainRequest()) == null)
-          onIdle();
-      }
+        Handle((TrainRequest)msg);
+        Requests.Ack(msg);
+      };
+
+      Waiter.Wait(() => IsDisposed);
+    }
+
+    void Handle(TrainRequest req)
+    {
+      throw new NotImplementedException();
+    }
+
+    bool IsDisposed;
+    public void Dispose()
+    {
+      if (IsDisposed) return;
+      IsDisposed = true;
+      Requests.Dispose();
     }
   }
 }

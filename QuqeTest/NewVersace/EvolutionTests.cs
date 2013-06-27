@@ -150,7 +150,7 @@ namespace QuqeTest
       return DataPreprocessing.MakeTrainingAndValidationSets("DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), 0.20, Signals.NextClose);
     }
 
-    [Test]
+    //[Test]
     public void AddProtoRun()
     {
       var db = Database.GetProductionDatabase("mongodb://localhost/?safe=true");

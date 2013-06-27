@@ -69,15 +69,21 @@
     <Compile Include="Messages.cs" />
     <Compile Include="Mongo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Rabbit.cs" />
-    <Compile Include="RabbitMessageReader.cs" />
     <Compile Include="Slave.cs" />
     <Compile Include="Supervisor.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">
+      <Project>{2bfad437-7af7-4f7b-b0fd-8305f6cf3392}</Project>
+      <Name>PCW</Name>
+    </ProjectReference>
     <ProjectReference Include="..\QuqeLib\QuqeLib.csproj">
       <Project>{1b373e93-67b2-4045-8f5a-94c1c738ea2c}</Project>
       <Name>QuqeLib</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\QuqeRabbit\QuqeRabbit.csproj">
+      <Project>{B0FABC22-4984-47CF-93FF-8E35F25BEA70}</Project>
+      <Name>QuqeRabbit</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

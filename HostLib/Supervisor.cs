@@ -12,7 +12,7 @@ namespace HostLib
   {
     readonly int SlaveCount;
     Task MasterTask;
-    readonly List<Task> SlaveTasks = new List<Task>();
+    readonly List<Slave> Slaves = new List<Slave>();
     readonly Thread MyThread;
     readonly CancellationTokenSource Cancellation = new CancellationTokenSource();
 
@@ -29,17 +29,22 @@ namespace HostLib
 
     void Supervise()
     {
-      Func<Task> startNewSlaveTask = () => Task.Factory.StartNew(() => Slave.Run(() => Cancellation.Token.ThrowIfCancellationRequested()));
+      Func<Slave> startNewSlave = () => {
+        Slave slave = new Slave();
+        slave.Task = Task.Factory.StartNew(slave.Run);
+        return slave;
+      };
 
       MasterTask = Task.Factory.StartNew(() => Master.Run(() => Cancellation.Token.ThrowIfCancellationRequested()));
       for (int i = 0; i < SlaveCount; i++)
-        SlaveTasks.Add(startNewSlaveTask());
+        Slaves.Add(startNewSlave());
 
       Console.WriteLine("Supervisor started a master and {0} slaves", SlaveCount);
 
       while (true)
       {
-        var allTasks = (MasterTask == null ? SlaveTasks : new[] { MasterTask }.Concat(SlaveTasks)).ToArray();
+        var slaveTasks = Slaves.Select(x => x.Task);
+        var allTasks = (MasterTask == null ? slaveTasks : new[] { MasterTask }.Concat(slaveTasks)).ToArray();
         var taskIdx = Task.WaitAny(allTasks);
         if (_isDisposed)
           break;
@@ -55,18 +60,18 @@ namespace HostLib
         }
         else
         {
-          SlaveTasks.Remove(task);
-          SlaveTasks.Add(startNewSlaveTask());
+          Slaves.RemoveAll(x => x.Task == task);
+          Slaves.Add(startNewSlave());
         }
       }
 
       Console.Write("Waiting for slaves to stop");
-      while (SlaveTasks.Any())
+      while (Slaves.Any())
       {
-        Console.Write("..." + SlaveTasks.Count);
+        Console.Write("..." + Slaves.Count);
         Console.Out.Flush();
-        var idx = Task.WaitAny(SlaveTasks.ToArray());
-        SlaveTasks.RemoveAt(idx);
+        var idx = Task.WaitAny(Slaves.Select(x => x.Task).ToArray());
+        Slaves.RemoveAt(idx);
       }
       Console.WriteLine();
 

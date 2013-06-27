@@ -14,7 +14,7 @@ using Quqe;
 
 namespace Quqe.Rabbit
 {
-  public class AsyncConsumer : RabbitRecoverer
+  class AsyncConsumer : RabbitRecoverer
   {
     readonly ConsumerInfo ConsumerInfo;
     readonly Action<RabbitMessage> Consume;

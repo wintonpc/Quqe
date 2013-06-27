@@ -79,7 +79,7 @@ namespace Quqe.Rabbit
 
   static class Waiter
   {
-    public static bool Wait(int msTimeout, Func<bool> condition)
+    public static bool Wait(int? msTimeout, Func<bool> condition)
     {
       return WaitInternal(msTimeout, condition);
     }
