@@ -8,6 +8,18 @@ namespace VersaceExe
 {
   static class AppDomainIsolator
   {
+    static object Lock = new object();
+
+    static int Count = 0;
+    static string GetNextName()
+    {
+      lock (Lock)
+      {
+        Count++;
+        return "AppDomainIsolator_" + Count;
+      }
+    }
+
     public static void Run(Action f)
     {
       Run(f, a => a());
@@ -21,7 +33,7 @@ namespace VersaceExe
     public static R Run<T, R>(T arg1, Func<T, R> f)
     {
       var appDomainSetup = new AppDomainSetup { ApplicationBase = AppDomain.CurrentDomain.SetupInformation.ApplicationBase };
-      var domain = AppDomain.CreateDomain("AppDomainIsolator" + Guid.NewGuid().ToString("N"), null, appDomainSetup);
+      var domain = AppDomain.CreateDomain(GetNextName(), null, appDomainSetup);
       Console.WriteLine("Created  " + domain.FriendlyName);
       try
       {

@@ -5,16 +5,16 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using PCW;
 
 namespace Workers
 {
   public class Supervisor : IDisposable
   {
     readonly int SlaveCount;
-    Task MasterTask;
-    readonly List<Slave> Slaves = new List<Slave>();
+    List<Slave> Slaves;
     readonly Thread MyThread;
-    readonly CancellationTokenSource Cancellation = new CancellationTokenSource();
+    SyncContext ThreadSync;
 
     public Supervisor(int slaveCount)
     {
@@ -29,70 +29,44 @@ namespace Workers
 
     void Supervise()
     {
-      Func<Slave> startNewSlave = () => {
+      ThreadSync = SyncContext.Current;
+
+      Slaves = List.Repeat(SlaveCount, _ => {
         Slave slave = new Slave();
-        slave.Task = Task.Factory.StartNew(slave.Run);
+        slave.Task = Task.Factory.StartNew(slave.Run).ContinueWith(t => {
+          Slaves.RemoveAll(x => x.Task == t);
+          if (t.IsFaulted)
+            Console.WriteLine("slave faulted: " + t.Exception);
+        });
         return slave;
-      };
+      });
 
-      MasterTask = Task.Factory.StartNew(() => Master.Run(() => Cancellation.Token.ThrowIfCancellationRequested()));
-      for (int i = 0; i < SlaveCount; i++)
-        Slaves.Add(startNewSlave());
+      Console.WriteLine("Supervisor started {0} slaves", SlaveCount);
 
-      Console.WriteLine("Supervisor started a master and {0} slaves", SlaveCount);
-
-      while (true)
-      {
-        var slaveTasks = Slaves.Select(x => x.Task);
-        var allTasks = (MasterTask == null ? slaveTasks : new[] { MasterTask }.Concat(slaveTasks)).ToArray();
-        var taskIdx = Task.WaitAny(allTasks);
-        if (_isDisposed)
-          break;
-
-        var task = allTasks[taskIdx];
-        if (task.IsFaulted)
-          Console.WriteLine("Task faulted: " + task.Exception);
-
-        if (task == MasterTask)
-        {
-          MasterTask = null;
-          Console.WriteLine("Master quit.");
-        }
-        else
-        {
-          Slaves.RemoveAll(x => x.Task == task);
-          Slaves.Add(startNewSlave());
-        }
-      }
-
-      Console.Write("Waiting for slaves to stop");
-      while (Slaves.Any())
-      {
-        Console.Write("..." + Slaves.Count);
-        Console.Out.Flush();
-        var idx = Task.WaitAny(Slaves.Select(x => x.Task).ToArray());
-        Slaves.RemoveAt(idx);
-      }
-      Console.WriteLine();
-
-      Console.WriteLine("Waiting for master to stop...");
-      if (MasterTask != null)
-        Task.WaitAny(new[] { MasterTask });
+      Waiter.Wait(() => !Slaves.Any());
     }
 
     void StopWorkers()
     {
-      //Console.WriteLine("Supervisor shutting down... ");
-      Cancellation.Cancel();
+      ThreadSync.Post(() => {
+        foreach (var s in Slaves.ToList())
+        {
+          s.Dispose();
+          Slaves.Remove(s);
+        }
+        Task.WaitAll(Slaves.Select(x => x.Task).ToArray());
+        Console.WriteLine("done");
+      });
       MyThread.Join();
     }
 
-    bool _isDisposed;
+    bool IsDisposed;
 
     public void Dispose()
     {
-      if (_isDisposed) return;
-      _isDisposed = true;
+      if (IsDisposed) return;
+      IsDisposed = true;
+      Console.Write("Stopping slaves...");
       StopWorkers();
     }
   }

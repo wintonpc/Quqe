@@ -14,9 +14,12 @@ namespace Workers
   {
     public Task Task { get; set; }
     AsyncWorkQueueConsumer Requests;
+    SyncContext TaskSync;
 
     public void Run()
     {
+      TaskSync = SyncContext.Current;
+
       Requests = new AsyncWorkQueueConsumer(new WorkQueueInfo(ConfigurationManager.AppSettings["RabbitHost"], "TrainRequests", false));
 
       Requests.Received += msg =>
@@ -25,7 +28,7 @@ namespace Workers
         Requests.Ack(msg);
       };
 
-      Waiter.Wait(() => IsDisposed);
+      Waiter.Wait(() => Requests == null);
     }
 
     void Handle(TrainRequest req)
@@ -38,7 +41,8 @@ namespace Workers
     {
       if (IsDisposed) return;
       IsDisposed = true;
-      Requests.Dispose();
+      TaskSync.Post(() => Disposal.Dispose(ref Requests));
+      Task.Wait();
     }
   }
 }
