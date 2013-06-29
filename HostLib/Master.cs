@@ -11,7 +11,7 @@ using Quqe;
 using Quqe.NewVersace;
 using Quqe.Rabbit;
 
-namespace HostLib
+namespace Workers
 {
   static class Master
   {

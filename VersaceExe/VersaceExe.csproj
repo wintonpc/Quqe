@@ -74,9 +74,9 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\HostLib\HostLib.csproj">
+    <ProjectReference Include="..\HostLib\Workers.csproj">
       <Project>{85e99d38-8223-4795-87d2-be2139993218}</Project>
-      <Name>HostLib</Name>
+      <Name>Workers</Name>
     </ProjectReference>
     <ProjectReference Include="..\QuqeLib\QuqeLib.csproj">
       <Project>{1b373e93-67b2-4045-8f5a-94c1c738ea2c}</Project>

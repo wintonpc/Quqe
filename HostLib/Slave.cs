@@ -8,7 +8,7 @@ using Quqe.NewVersace;
 using Quqe.Rabbit;
 using PCW;
 
-namespace HostLib
+namespace Workers
 {
   public class Slave : IDisposable
   {

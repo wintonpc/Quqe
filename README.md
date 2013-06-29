@@ -26,6 +26,7 @@
   
 - TODO
   - distributed training
+    - no need for master; just Evolve() with distributed trainer directly from versace.exe; move distributed trainer to Workers
   - distributed/parallel evaluation?
   - historical data in mongo
   - why is the GA overfitting the blind set? something about the mixtures must be degenerate

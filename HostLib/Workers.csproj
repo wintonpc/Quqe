@@ -7,8 +7,8 @@
     <ProjectGuid>{85E99D38-8223-4795-87D2-BE2139993218}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>HostLib</RootNamespace>
-    <AssemblyName>HostLib</AssemblyName>
+    <RootNamespace>Workers</RootNamespace>
+    <AssemblyName>Workers</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>

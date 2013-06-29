@@ -7,7 +7,7 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using Quqe.Rabbit;
 
-namespace HostLib
+namespace Workers
 {
   public enum SignalType
   {

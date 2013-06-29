@@ -29,7 +29,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{CAE11B
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestExe", "TestExe\TestExe.csproj", "{DD7E4ADC-DE54-40FE-A1D6-0815CDA962F2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HostLib", "HostLib\HostLib.csproj", "{85E99D38-8223-4795-87D2-BE2139993218}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Workers", "HostLib\Workers.csproj", "{85E99D38-8223-4795-87D2-BE2139993218}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuqeRabbit", "QuqeRabbit\QuqeRabbit.csproj", "{B0FABC22-4984-47CF-93FF-8E35F25BEA70}"
 EndProject
