@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra.Double;
-using PCW;
+using Quqe.NewVersace;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
@@ -79,7 +77,7 @@ namespace Quqe
 
     public static List<string> GetTickers(string predictedSymbol)
     {
-      return List.Create(predictedSymbol, "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP",
+      return Lists.Create(predictedSymbol, "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP",
         "^GDAXI", "^FTSE", /*"^CJJ", "USDCHF"*/ "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU");
     }
 
@@ -189,7 +187,7 @@ namespace Quqe
 
     static DataSeries<Bar> CleanWithRespectTo(DataSeries<Bar> wrt, DataSeries<Bar> s)
     {
-      // fill in missing data in supplemental instruments
+      // fill in missing trainingSet in supplemental instruments
       var q = (from w in wrt
                join x in s on w.Timestamp equals x.Timestamp into joined
                from j in joined.DefaultIfEmpty()

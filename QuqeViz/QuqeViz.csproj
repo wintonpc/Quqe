@@ -156,13 +156,13 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">
-      <Project>{2BFAD437-7AF7-4F7B-B0FD-8305F6CF3392}</Project>
-      <Name>PCW</Name>
-    </ProjectReference>
     <ProjectReference Include="..\QuqeLib\QuqeLib.csproj">
       <Project>{1B373E93-67B2-4045-8F5A-94C1C738EA2C}</Project>
       <Name>QuqeLib</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\QuqeRabbit\QuqeRabbit.csproj">
+      <Project>{b0fabc22-4984-47cf-93ff-8e35f25bea70}</Project>
+      <Name>QuqeRabbit</Name>
     </ProjectReference>
     <ProjectReference Include="..\StockCharts\StockCharts.csproj">
       <Project>{3EDD9282-6CEC-404B-B64C-CF24E2D0BD80}</Project>

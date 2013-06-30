@@ -1,27 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using PCW;
 using Quqe;
+using Quqe.Rabbit;
+using VersaceExe;
 
-namespace Workers
+namespace Quqe
 {
   public class Supervisor : IDisposable
   {
-    readonly int SlaveCount;
-    List<Slave> Slaves;
+    readonly int WorkerCount;
+    List<Worker> Workers;
     readonly Thread MyThread;
     SyncContext ThreadSync;
     readonly MasterRequest MasterRequest;
 
-    public Supervisor(int slaveCount, MasterRequest masterRequest)
+    public Supervisor(int workerCount, MasterRequest masterRequest)
     {
       Console.WriteLine("Supervisor created");
-      SlaveCount = slaveCount;
+      WorkerCount = workerCount;
       MasterRequest = masterRequest;
 
       MyThread = new Thread(Supervise) {
@@ -34,30 +33,30 @@ namespace Workers
     {
       ThreadSync = SyncContext.Current;
 
-      Slaves = List.Repeat(SlaveCount, _ => {
-        Slave slave = new Slave(MasterRequest);
-        slave.Task = Task.Factory.StartNew(slave.Run).ContinueWith(t => {
-          Slaves.RemoveAll(x => x.Task == t);
+      Workers = Lists.Repeat(WorkerCount, _ => {
+        Worker worker = new Worker(MasterRequest);
+        worker.Task = Task.Factory.StartNew(worker.Run).ContinueWith(t => {
+          Workers.RemoveAll(x => x.Task == t);
           if (t.IsFaulted)
-            Console.WriteLine("slave faulted: " + t.Exception);
+            Console.WriteLine("Worker faulted: " + t.Exception);
         });
-        return slave;
+        return worker;
       });
 
-      Console.WriteLine("Supervisor started {0} slaves", SlaveCount);
+      Console.WriteLine("Supervisor started {0} workers", WorkerCount);
 
-      Waiter.Wait(() => !Slaves.Any());
+      Waiter.Wait(() => !Workers.Any());
     }
 
     void StopWorkers()
     {
       ThreadSync.Post(() => {
-        foreach (var s in Slaves.ToList())
+        foreach (var s in Workers.ToList())
         {
           s.Dispose();
-          Slaves.Remove(s);
+          Workers.Remove(s);
         }
-        Task.WaitAll(Slaves.Select(x => x.Task).ToArray());
+        Task.WaitAll(Workers.Select(x => x.Task).ToArray());
         Console.WriteLine("done");
       });
       MyThread.Join();
@@ -69,7 +68,7 @@ namespace Workers
     {
       if (IsDisposed) return;
       IsDisposed = true;
-      Console.Write("Stopping slaves...");
+      Console.Write("Stopping workers...");
       StopWorkers();
     }
   }

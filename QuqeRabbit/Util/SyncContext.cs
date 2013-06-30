@@ -1,14 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Diagnostics;
 using System.Threading;
 using System.Windows.Threading;
-using System.Diagnostics;
 
 namespace Quqe.Rabbit
 {
-  class SyncContext
+  public class SyncContext
   {
     [ThreadStatic]
     static SyncContext _SyncContext;
@@ -77,7 +74,7 @@ namespace Quqe.Rabbit
     }
   }
 
-  static class Waiter
+  public static class Waiter
   {
     public static bool Wait(int? msTimeout, Func<bool> condition)
     {

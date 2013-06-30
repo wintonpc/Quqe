@@ -2,11 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Indigo.Util.Lisp;
 using Machine.Specifications;
-using List = PCW.List;
-using PCW;
-using System.Diagnostics;
 
 namespace Quqe
 {
@@ -51,7 +47,7 @@ namespace Quqe
     public static void ShouldLookLike(this object actual, object expected, ShouldLookLikeOptions options = null)
     {
       options = options ?? new ShouldLookLikeOptions();
-      Check(expected, actual, options, List.Create(".").ToPairs(), new HashSet<object>());
+      Check(expected, actual, options, Lists.Create(".").ToPairs(), new HashSet<object>());
     }
 
     public static void ShouldNotLookLike(this object actual, object expected, ShouldLookLikeOptions options = null)
@@ -64,7 +60,7 @@ namespace Quqe
       return Catch.Exception(() => actual.ShouldLookLike(expected, options)) == null;
     }
 
-    static void Check(object expected, object actual, ShouldLookLikeOptions options, Indigo.Util.Lisp.Pair<string> path, HashSet<object> visitedExpecteds)
+    static void Check(object expected, object actual, ShouldLookLikeOptions options, Pair<string> path, HashSet<object> visitedExpecteds)
     {
       if (actual == null && expected == null)
         return;
@@ -126,7 +122,7 @@ namespace Quqe
       }
     }
 
-    static void CheckEnumerableStrict(object expected, object actual, ShouldLookLikeOptions options, Indigo.Util.Lisp.Pair<string> path, HashSet<object> visitedExpecteds)
+    static void CheckEnumerableStrict(object expected, object actual, ShouldLookLikeOptions options, Pair<string> path, HashSet<object> visitedExpecteds)
     {
       var expectedObjects = ToObjectList(expected);
       var actualObjects = ToObjectList(actual);
@@ -149,7 +145,7 @@ namespace Quqe
     }
 
     static void CheckEnumerableUnordered(object expectedEnumerable, object actualEnumerable, ShouldLookLikeOptions options,
-      EnumerableOption enumOption, Indigo.Util.Lisp.Pair<string> path, HashSet<object> visitedExpecteds)
+      EnumerableOption enumOption, Pair<string> path, HashSet<object> visitedExpecteds)
     {
       var expectedObjects = ToObjectList(expectedEnumerable);
       var actualObjects = ToObjectList(actualEnumerable);
@@ -203,7 +199,7 @@ namespace Quqe
       return ((System.Collections.IEnumerable)iEnumerable).Cast<object>().ToList();
     }
 
-    static void Reject(object expected, object actual, Indigo.Util.Lisp.Pair<string> path, ShouldLookLikeOptions options)
+    static void Reject(object expected, object actual, Pair<string> path, ShouldLookLikeOptions options)
     {
       var pathString = path.Reverse().Join("/");
 

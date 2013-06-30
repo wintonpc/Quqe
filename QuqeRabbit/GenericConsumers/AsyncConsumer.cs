@@ -1,16 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using MongoDB.Bson;
 using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
-using System.Threading;
-using RabbitMQ.Util;
-using RabbitMQ.Client.Exceptions;
-using System.IO;
-using Quqe;
 
 namespace Quqe.Rabbit
 {

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using PCW;
 
 namespace Quqe
 {
@@ -166,11 +165,11 @@ namespace Quqe
 
     public abstract DataSeries FromDate(DateTime timestamp);
 
-    public static void Walk(DataSeries s1, Action<int> onBar) { Walk(List.Create(s1), onBar); }
-    public static void Walk(DataSeries s1, DataSeries s2, Action<int> onBar) { Walk(List.Create(s1, s2), onBar); }
-    public static void Walk(DataSeries s1, DataSeries s2, DataSeries s3, Action<int> onBar) { Walk(List.Create(s1, s2, s3), onBar); }
-    public static void Walk(DataSeries s1, DataSeries s2, DataSeries s3, DataSeries s4, Action<int> onBar) { Walk(List.Create(s1, s2, s3, s4), onBar); }
-    public static void Walk(DataSeries s1, DataSeries s2, DataSeries s3, DataSeries s4, DataSeries s5, Action<int> onBar) { Walk(List.Create(s1, s2, s3, s4, s5), onBar); }
+    public static void Walk(DataSeries s1, Action<int> onBar) { Walk(Lists.Create(s1), onBar); }
+    public static void Walk(DataSeries s1, DataSeries s2, Action<int> onBar) { Walk(Lists.Create(s1, s2), onBar); }
+    public static void Walk(DataSeries s1, DataSeries s2, DataSeries s3, Action<int> onBar) { Walk(Lists.Create(s1, s2, s3), onBar); }
+    public static void Walk(DataSeries s1, DataSeries s2, DataSeries s3, DataSeries s4, Action<int> onBar) { Walk(Lists.Create(s1, s2, s3, s4), onBar); }
+    public static void Walk(DataSeries s1, DataSeries s2, DataSeries s3, DataSeries s4, DataSeries s5, Action<int> onBar) { Walk(Lists.Create(s1, s2, s3, s4, s5), onBar); }
 
     public static void Walk(IEnumerable<DataSeries> series, Action<int> onBar)
     {

@@ -1,14 +1,10 @@
-﻿using NUnit.Framework;
-using System;
-using System.Collections.Generic;
+﻿using System;
+using System.Diagnostics;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Machine.Specifications;
+using NUnit.Framework;
 using Quqe;
 using Quqe.NewVersace;
-using List = PCW.List;
-using System.Diagnostics;
 
 namespace QuqeTest
 {
@@ -19,7 +15,7 @@ namespace QuqeTest
     public void RBFTrainingIsReproducible()
     {
       var data = NNTestUtils.GetData("2004-01-01", "2004-05-01");
-      var fitnesses = List.Repeat(5, i => {
+      var fitnesses = Lists.Repeat(5, i => {
         var rbfNet = RBFNet.Train(data.Input, data.Output, 0.1, 1);
         rbfNet.IsDegenerate.ShouldBeFalse();
         return Functions.ComputeFitness(new PredictorWithInputs(rbfNet, data.Input), data);

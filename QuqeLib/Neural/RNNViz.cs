@@ -30,7 +30,7 @@
 
 //        op.WriteLine("rootnode [ style=invis ];");
 
-//        var inputs = new List<string>();
+//        var inputs = new Lists<string>();
 //        op.WriteLine(@"
 //subgraph {
 //rank=same;");
@@ -46,7 +46,7 @@
 
 //        for (int l = 0; l < Layers.Count; l++)
 //        {
-//          var newInputs = new List<string>();
+//          var newInputs = new Lists<string>();
 //          op.WriteLine("subgraph {\r\nrank=same;\r\n");
 //          for (int i = 0; i < Layers[l].NodeCount; i++)
 //          {

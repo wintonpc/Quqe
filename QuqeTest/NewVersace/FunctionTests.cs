@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Machine.Specifications;
 using NUnit.Framework;
 using Quqe;
-using List = PCW.List;
 
 namespace QuqeTest
 {
@@ -26,8 +23,8 @@ namespace QuqeTest
       z.Item2.ShouldEnumerateLike(a);
 
       var q = Functions.CrossOver(a, b, (x, y) => x % 2 == 1 ? Tuple2.Create(x, y) : Tuple2.Create(y, x), x => x.ToList());
-      q.Item1.ShouldEnumerateLike(PCW.List.Create(1, 20, 3, 40, 5));
-      q.Item2.ShouldEnumerateLike(PCW.List.Create(10, 2, 30, 4, 50));
+      q.Item1.ShouldEnumerateLike(Lists.Create(1, 20, 3, 40, 5));
+      q.Item2.ShouldEnumerateLike(Lists.Create(10, 2, 30, 4, 50));
     }
 
     [Test]
@@ -45,7 +42,7 @@ namespace QuqeTest
       picks["q"] = 0;
       picks["r"] = 0;
 
-      PCW.List.Repeat(10000, _ => picks[Functions.SelectOneAccordingToQuality(stuff, x => x.B).A]++);
+      Lists.Repeat(10000, _ => picks[Functions.SelectOneAccordingToQuality(stuff, x => x.B).A]++);
 
       picks["p"].ShouldBeGreaterThan(1400).ShouldBeLessThan(1600);
       picks["q"].ShouldBeGreaterThan(7900).ShouldBeLessThan(8100);
@@ -61,7 +58,7 @@ namespace QuqeTest
         new { A = "r", B = 0.5 }
       };
 
-      List.Repeat(10000, _ => {
+      Lists.Repeat(10000, _ => {
         var z = Functions.SelectTwoAccordingToQuality(stuff, x => x.B);
         z.Item1.ShouldNotEqual(z.Item2);
       });

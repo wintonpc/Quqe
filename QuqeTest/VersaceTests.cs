@@ -1,12 +1,8 @@
-﻿using NUnit.Framework;
+﻿using System.Linq;
+using NUnit.Framework;
 using Quqe;
 using Quqe.NewVersace;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using List = PCW.List;
+using Quqe.Rabbit;
 
 namespace QuqeTest
 {
@@ -27,7 +23,7 @@ namespace QuqeTest
       });
 
       var signal = bars.MapElements<Value>((s, _) => Signals.NextClose(s)).Select(x => x.Val).ToList();
-      signal.ShouldEnumerateLike(List.Create<double>(0, 1, 1, -1, -1, 1, 1)); 
+      signal.ShouldEnumerateLike(Lists.Create<double>(0, 1, 1, -1, -1, 1, 1)); 
     }
 
     [Test]

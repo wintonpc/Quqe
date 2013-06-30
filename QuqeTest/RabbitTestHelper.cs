@@ -1,13 +1,10 @@
-﻿using System.Security.Permissions;
+﻿using System;
+using System.Linq;
+using System.Security.Permissions;
 using System.Security.Principal;
 using System.ServiceProcess;
 using System.Threading;
 using Quqe.Rabbit;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace QuqeTest
 {

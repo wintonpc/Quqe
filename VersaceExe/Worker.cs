@@ -1,20 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Configuration;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using MongoDB.Bson;
-using Quqe;
 using Quqe.NewVersace;
 using Quqe.Rabbit;
-using PCW;
-using Disposal = PCW.Disposal;
-using Workers;
+using VersaceExe;
 
 namespace Quqe
 {
-  public class Slave : IDisposable
+  public class Worker : IDisposable
   {
     public Task Task { get; set; }
     AsyncWorkQueueConsumer Requests;
@@ -22,11 +16,11 @@ namespace Quqe
     Database Database;
     DataSet TrainingSet;
 
-    public Slave(MasterRequest masterReq)
+    public Worker(MasterRequest masterReq)
     {
       Database = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
       var dataSets = DataPreprocessing.MakeTrainingAndValidationSets(masterReq.Symbol, masterReq.StartDate,
-        masterReq.EndDate, masterReq.ValidationPct, DataPreprocessing.GetSignalFunc(masterReq.SignalType));
+        masterReq.EndDate, masterReq.ValidationPct, VersaceMain.GetSignalFunc(masterReq.SignalType));
       TrainingSet = dataSets.Item1;
     }
 

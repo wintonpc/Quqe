@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using PCW;
 
 namespace Quqe
 {
@@ -86,7 +82,7 @@ namespace Quqe
       var gen = new Generation(run, 0);
 
       Func<int, NetworkType, int, Chromosome[]> makeChromosomes = (n, type, orderOffset) =>
-        List.Repeat(n, i => MakeRandomChromosome(type, run.ProtoRun.ProtoChromosome, orderOffset + i)).ToArray();
+        Lists.Repeat(n, i => MakeRandomChromosome(type, run.ProtoRun.ProtoChromosome, orderOffset + i)).ToArray();
 
       Func<Chromosome[]> makeMixtureChromosomes = () =>
         makeChromosomes(run.ProtoRun.RnnPerMixture, NetworkType.Rnn, 0).Concat(
@@ -96,7 +92,7 @@ namespace Quqe
 
       Func<Mixture, MixtureInfo> makeMixtureInfo = m => new MixtureInfo(m.Id, makeMixtureChromosomes());
 
-      var pop = List.Repeat(run.ProtoRun.MixturesPerGeneration, _ => makeMixture()).Select(makeMixtureInfo);
+      var pop = Lists.Repeat(run.ProtoRun.MixturesPerGeneration, _ => makeMixture()).Select(makeMixtureInfo);
 
       trainer.Train(seed, gen, pop, _ => { });
 

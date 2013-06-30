@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using PCW;
-using Quqe;
 
 namespace Quqe
 {
@@ -22,7 +18,7 @@ namespace Quqe
     {
       var possibleFirsts = items;
       var first = SelectOneAccordingToQuality(possibleFirsts, quality);
-      var possibleSeconds = items.Except(List.Create(first)).ToList();
+      var possibleSeconds = items.Except(Lists.Create(first)).ToList();
       var second = SelectOneAccordingToQuality(possibleSeconds, quality);
       return Tuple2.Create(first, second);
     }
@@ -67,7 +63,7 @@ namespace Quqe
 
     public IEnumerator<T> GetEnumerator()
     {
-      return List.Create(Item1, Item2).GetEnumerator();
+      return Lists.Create(Item1, Item2).GetEnumerator();
     }
 
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()

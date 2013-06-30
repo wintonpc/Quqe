@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
+﻿using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe
@@ -17,16 +14,16 @@ namespace Quqe
   //    foreach (var input in preInputs.Columns())
   //      predictor.Predict(input);
 
-  //    List<SignalValue> signal = null;
+  //    Lists<SignalValue> signal = null;
   //    if (predictionType == PredictionType.NextClose)
   //      signal = MakeSignalNextClose(predictor, inputs.Columns(), bars, maxAccountLossPct);
   //    BacktestReport report = PlaybackSignal(signal, bars, account);
   //    return report;
   //  }
 
-  //  static List<SignalValue> MakeSignalNextClose(IPredictor predictor, List<Vec> inputs, DataSeries<Bar> bars, double maxAccountLossPct)
+  //  static Lists<SignalValue> MakeSignalNextClose(IPredictor predictor, Lists<Vec> inputs, DataSeries<Bar> bars, double maxAccountLossPct)
   //  {
-  //    var signal = new List<SignalValue>();
+  //    var signal = new Lists<SignalValue>();
   //    DataSeries<Value> buySell = inputs.Select(x => (double)Math.Sign(predictor.Predict(x))).ToDataSeries(bars);
   //    int riskATRPeriod = 7;
   //    double riskScale = 1.2;
@@ -50,7 +47,7 @@ namespace Quqe
   //    return signal;
   //  }
 
-  //  private static BacktestReport PlaybackSignal(List<SignalValue> signal, DataSeries<Bar> bars, Account account)
+  //  private static BacktestReport PlaybackSignal(Lists<SignalValue> signal, DataSeries<Bar> bars, Account account)
   //  {
   //    throw new NotImplementedException();
   //  }

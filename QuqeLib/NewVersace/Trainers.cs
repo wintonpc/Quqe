@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using MongoDB.Bson;
-using MongoDB.Driver;
-using PCW;
 using Quqe.NewVersace;
+using Quqe.Rabbit;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
@@ -84,7 +83,27 @@ namespace Quqe
   {
     public void Train(DataSet data, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
     {
-      throw new NotImplementedException();
+      var rabbitHost = ConfigurationManager.AppSettings["RabbitHost"];
+      using (var trainRequests = new WorkQueueProducer(new WorkQueueInfo(rabbitHost, "TrainRequests", false)))
+      using (var trainNotifications = new Broadcaster(new BroadcastInfo(rabbitHost, "TrainNotifications")))
+      {
+        List<TrainRequest> outstanding = (from mixture in population
+                                          from chrom in mixture.Chromosomes
+                                          select new TrainRequest(mixture.MixtureId.ToString(), chrom)).ToList();
+
+        int total = outstanding.Count;
+
+        foreach (var msg in outstanding)
+          trainRequests.Send(msg);
+
+        trainNotifications.On<TrainNotification>(notification => {
+          outstanding.RemoveAll(x => x.MixtureId == notification.OriginalRequest.MixtureId &&
+                                     x.Chromosome.OrderInMixture == notification.OriginalRequest.Chromosome.OrderInMixture);
+          progress(new TrainProgress(total - outstanding.Count, total));
+        });
+
+        Waiter.Wait(() => !outstanding.Any());
+      }
     }
   }
 
@@ -92,11 +111,11 @@ namespace Quqe
 
   public delegate RbfTrainRec MakeRbfTrainRecFunc(IEnumerable<MRadialBasis> bases, double outputBias, double spread, bool isDegenerate);
 
-  static class TrainerCommon
+  public static class TrainerCommon
   {
-    public static void Train(Database db, ObjectId mixtureId, DataSet data, Chromosome chrom)
+    public static void Train(Database db, ObjectId mixtureId, DataSet trainingSet, Chromosome chrom)
     {
-      var trimmed = TrimToWindow(data, chrom);
+      var trimmed = TrimToWindow(trainingSet, chrom);
       var tailoredData = DataTailoring.TailorInputs(trimmed.Input, trimmed.DatabaseAInputLength, chrom);
 
       switch (chrom.NetworkType)

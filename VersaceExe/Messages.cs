@@ -3,12 +3,28 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
 using Quqe.Rabbit;
 
-namespace Workers
+namespace VersaceExe
 {
+  class HostStartEvolution : RabbitMessage
+  {
+    public MasterRequest MasterRequest { get; private set; }
+
+    public HostStartEvolution(MasterRequest masterRequest)
+    {
+      MasterRequest = masterRequest;
+    }
+  }
+
+  class HostStopEvolution : RabbitMessage
+  {
+  }
+
+  class HostShutdown : RabbitMessage
+  {
+  }
+
   public enum SignalType
   {
     NextClose
@@ -32,26 +48,5 @@ namespace Workers
       ValidationPct = validationPct;
       SignalType = signalType;
     }
-  }
-
-  public class MasterUpdate : RabbitMessage
-  {
-    public ObjectId GenerationId { get; private set; }
-    public int GenerationNumber { get; private set; }
-    public double Fitness { get; private set; }
-
-    public MasterUpdate(ObjectId generationId, int genNumber, double fitness)
-    {
-      GenerationId = generationId;
-      GenerationNumber = genNumber;
-      Fitness = fitness;
-    }
-  }
-
-  public class MasterResult : RabbitMessage
-  {
-    public ObjectId RunId { get; private set; }
-
-    public MasterResult(ObjectId runId) { RunId = runId; }
   }
 }

@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using PCW;
 
-namespace Indigo.Util.Lisp
+namespace Quqe
 {
   public static class Pair
   {

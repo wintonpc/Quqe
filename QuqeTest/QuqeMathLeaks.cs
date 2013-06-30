@@ -1,16 +1,12 @@
-﻿using System.Threading;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
+using MathNet.Numerics.Distributions;
+using MathNet.Numerics.LinearAlgebra.Double;
 using MathNet.Numerics.LinearAlgebra.Generic;
 using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Quqe;
-using System.Diagnostics;
-using List = PCW.List;
-using MathNet.Numerics.LinearAlgebra.Double;
-using MathNet.Numerics.Distributions;
 
 namespace QuqeTest
 {
@@ -27,7 +23,7 @@ namespace QuqeTest
       var mem = new MemoryAnalyzer();
       using (mem)
       {
-        List.Repeat(10000, _ => {
+        Lists.Repeat(10000, _ => {
           var rnnSpec = new RNNSpec(numInputs, layerSpecs, new DenseVector(weightCount));
           var context = RNNInterop.CreatePropagationContext(rnnSpec);
           var input = MakeVector(numInputs);
@@ -48,14 +44,14 @@ namespace QuqeTest
       var layerSpecs = MakeLayers();
       var weightCount = RNNInterop.GetWeightCount(layerSpecs, numInputs);
       const int numSamples = 10;
-      var trainingData = List.Repeat(numSamples, _ => MakeVector(numInputs)).ColumnsToMatrix();
+      var trainingData = Lists.Repeat(numSamples, _ => MakeVector(numInputs)).ColumnsToMatrix();
       var outputData = MakeVector(numSamples);
       var weights = MakeVector(weightCount);
 
       var mem = new MemoryAnalyzer();
       using (mem)
       {
-        List.Repeat(2500, i => {
+        Lists.Repeat(2500, i => {
           var context = RNNInterop.CreateTrainingContext(layerSpecs, trainingData, outputData);
           RNNInterop.EvaluateWeights(context, weights);
           context.Dispose();
@@ -75,7 +71,7 @@ namespace QuqeTest
       var mem = new MemoryAnalyzer();
       using (mem)
       {
-        List.Repeat(30000, i => {
+        Lists.Repeat(30000, i => {
           RNNInterop.GetWeightCount(layerSpecs, 200);
         });
       }

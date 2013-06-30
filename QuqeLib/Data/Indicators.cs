@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using PCW;
 
 namespace Quqe
 {
@@ -300,7 +299,7 @@ namespace Quqe
       DataSeries<Value> swingHighPlot = bars.MapElements<Value>((s, v) => 0);
       DataSeries<Value> swingLowPlot = bars.MapElements<Value>((s, v) => 0);
 
-      DataSeries.Walk(List.Create<DataSeries>(bars, swingHighSwings, swingLowSwings, swingHighSeries, swingLowSeries, swingHighPlot, swingLowPlot), pos => {
+      DataSeries.Walk(Lists.Create<DataSeries>(bars, swingHighSwings, swingLowSwings, swingHighSeries, swingLowSeries, swingHighPlot, swingLowPlot), pos => {
         if (saveCurrentBar != pos)
         {
           swingHighSwings[0] = new Value(bars[0].Timestamp, 0);
@@ -450,7 +449,7 @@ namespace Quqe
     {
       var dMin = bars.DonchianMin(period);
       var dMax = bars.DonchianMax(period);
-      var newElements = List.Create<Value>();
+      var newElements = Lists.Create<Value>();
       DataSeries.Walk(bars, dMin, dMax, pos => {
         newElements.Add(new Value(bars[0].Timestamp, (getValue(bars[0]) - dMin[0]) / (dMax[0] - dMin[0])));
       });

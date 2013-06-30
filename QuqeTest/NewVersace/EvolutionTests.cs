@@ -1,17 +1,11 @@
-﻿using MongoDB.Driver;
+﻿using System;
+using System.Diagnostics;
+using System.Linq;
+using Machine.Specifications;
+using MongoDB.Bson;
 using NUnit.Framework;
 using Quqe;
 using Quqe.NewVersace;
-using List = PCW.List;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Machine.Specifications;
-using MongoDB.Bson;
-using System.Diagnostics;
-using PCW;
 
 namespace QuqeTest
 {
@@ -65,7 +59,7 @@ namespace QuqeTest
       var bestMixtures = run.Generations.SelectMany(g => g.Mixtures).OrderByDescending(m => m.Evaluated.Fitness).Take(10).ToList();
 
       var testingSet = MakeTrainingSet(validationEnd, "12/12/2003");
-      List.Repeat(bestMixtures.Count, i => {
+      Lists.Repeat(bestMixtures.Count, i => {
         var predictor = new MixturePredictor(bestMixtures[i], testingSet);
         var testedFitness = Functions.ComputeFitness(predictor, testingSet, 20);
         Trace.WriteLine(string.Format("Tested fitness for best mixture #{0}: {1}", i, testedFitness));
@@ -127,7 +121,7 @@ namespace QuqeTest
       int falses = 0;
 
       var chrom = Initialization.MakeRandomChromosome(NetworkType.Rnn, protoChrom, 0);
-      List.Repeat(10000, _ => {
+      Lists.Repeat(10000, _ => {
         chrom = Functions.MutateChromosome(chrom, run);
         if (chrom.UsePCA)
           trues++;
@@ -185,7 +179,7 @@ namespace QuqeTest
       a1.ShouldNotLookLike(a0);
       b1.ShouldNotLookLike(b0);
 
-      List.Repeat(a1.Genes.Length, i => {
+      Lists.Repeat(a1.Genes.Length, i => {
         var a1g = a1.Genes[i];
         var b1g = b1.Genes[i];
         var a0g = a0.Genes[i];

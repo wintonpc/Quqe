@@ -1,49 +1,46 @@
 ﻿using System;
-using System.Text;
 using System.Collections.Generic;
-using System.Linq;
-using Quqe;
-using PCW;
 using System.Diagnostics;
+using System.Linq;
 using MathNet.Numerics.LinearAlgebra.Double;
-using System.Threading.Tasks;
+using NUnit.Framework;
+using Quqe;
+using Quqe.Rabbit;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
-using NUnit.Framework;
-using List = PCW.List;
 
 namespace QuqeTest
 {
   [TestFixture]
   public class Tests1
   {
-    [Test]
-    public void SMA1()
-    {
-      var ls = List.Create(1, 4, 6, 2, 4, 7, 2, 4);
-      //var sma = new DataSeries<Value>("", ls.Select(x => new Value(DateTime.MinValue, x))).SMA(3);
-      //Assert.IsTrue(List.Equal(sma.Select(x => x.Val), new double[] { 1, 5.0 / 2.0, 11.0 / 3.0, 4, 4, 13.0 / 3.0, 13.0 / 3.0, 13.0 / 3.0 }));
-      //Trace.WriteLine("in: " + ls.ToLisp());
-      //Trace.WriteLine("out: " + sma.Select(x => x.Val).ToLisp());
+    //[Test]
+    //public void SMA1()
+    //{
+    //  var ls = Lists.Create(1, 4, 6, 2, 4, 7, 2, 4);
+    //  //var sma = new DataSeries<Value>("", ls.Select(x => new Value(DateTime.MinValue, x))).SMA(3);
+    //  //Assert.IsTrue(Lists.Equal(sma.Select(x => x.Val), new double[] { 1, 5.0 / 2.0, 11.0 / 3.0, 4, 4, 13.0 / 3.0, 13.0 / 3.0, 13.0 / 3.0 }));
+    //  //Trace.WriteLine("in: " + ls.ToLisp());
+    //  //Trace.WriteLine("out: " + sma.Select(x => x.Val).ToLisp());
 
 
-      var zlema = new DataSeries<Value>("", ls.Select(x => new Value(DateTime.MinValue, x))).ZLEMA(3);
-      Trace.WriteLine("in: " + ls.ToLisp());
-      Trace.WriteLine("out: " + zlema.Select(x => x.Val).ToLisp());
-    }
+    //  var zlema = new DataSeries<Value>("", ls.Select(x => new Value(DateTime.MinValue, x))).ZLEMA(3);
+    //  Trace.WriteLine("in: " + ls.ToLisp());
+    //  Trace.WriteLine("out: " + zlema.Select(x => x.Val).ToLisp());
+    //}
 
-    [Test]
-    public void Extrapolate1()
-    {
-      var ls = List.Create<double>(1, 2, 4, 9, 16);
-      var ds = new DataSeries<Value>("", ls.Select(x => new Value(DateTime.MinValue, x)));
-      var ex = ds.Extrapolate().Select(x => x.Val).ToLisp();
-    }
+    //[Test]
+    //public void Extrapolate1()
+    //{
+    //  var ls = Lists.Create<double>(1, 2, 4, 9, 16);
+    //  var ds = new DataSeries<Value>("", ls.Select(x => new Value(DateTime.MinValue, x)));
+    //  var ex = ds.Extrapolate().Select(x => x.Val).ToLisp();
+    //}
 
     [Test]
     public void Drawdown()
     {
-      var dd = BacktestHelper.CalcMaxDrawdownPercent(new DataSeries<Value>("Foo", List.Create(1.0, 2, 3, 4, 7, 5, 4, 5, 2, 10, 12, 11, 15).Select(x => new Value(DateTime.MinValue, x))));
+      var dd = BacktestHelper.CalcMaxDrawdownPercent(new DataSeries<Value>("Foo", Lists.Create(1.0, 2, 3, 4, 7, 5, 4, 5, 2, 10, 12, 11, 15).Select(x => new Value(DateTime.MinValue, x))));
       Assert.IsTrue(dd == (7 - 2) / 7.0);
     }
 
@@ -53,14 +50,14 @@ namespace QuqeTest
       var a = new Account { Equity = 10000, MarginFactor = 1 };
       var com = 5;
       a.Commission = size => com;
-      var bars = new DataSeries<Bar>("ABCD", List.Create(
+      var bars = new DataSeries<Bar>("ABCD", Lists.Create(
         new Bar(DateTime.Parse("12/10/2010"), 21.63, 21.50, 23.01, 22.90, 10000), // long profit
         new Bar(DateTime.Parse("12/11/2010"), 23.50, 22.00, 24.01, 24.00, 10000), // long stop loss, green bar
         new Bar(DateTime.Parse("12/12/2010"), 25.00, 24.00, 25.01, 24.01, 10000), // long loss, red bar
         new Bar(DateTime.Parse("12/13/2010"), 23.90, 23.10, 23.95, 23.15, 10000), // short profit
         new Bar(DateTime.Parse("12/14/2010"), 23.10, 22.50, 23.50, 22.60, 10000), // short stop loss, red bar
         new Bar(DateTime.Parse("12/15/2010"), 22.39, 22.20, 24.00, 23.50, 10000))); // short loss, green bar
-      var actions = new Queue<Action<DataSeries<Bar>>>(List.Create<Action<DataSeries<Bar>>>(
+      var actions = new Queue<Action<DataSeries<Bar>>>(Lists.Create<Action<DataSeries<Bar>>>(
         s => a.EnterLong("ABCD", (int)Math.Floor((a.BuyingPower - com) / s[0].Open), new ExitOnSessionClose(21.40), s.FromHere()),  // new Equity: 10576.74
         s => a.EnterLong("ABCD", (int)Math.Floor((a.BuyingPower - com) / s[0].Open), new ExitOnSessionClose(23.00), s.FromHere()),  // new Equity: 10342.24
         s => a.EnterLong("ABCD", (int)Math.Floor((a.BuyingPower - com) / s[0].Open), new ExitOnSessionClose(23.90), s.FromHere()),  // new Equity: 9923.37
@@ -69,14 +66,14 @@ namespace QuqeTest
         s => a.EnterShort("ABCD", (int)Math.Floor((a.BuyingPower - com) / s[0].Open), new ExitOnSessionClose(24.10), s.FromHere())  // new Equity: 9635.85
         ));
 
-      var expectedEquity = List.Create<double>(10576.74, 10342.24, 9923.37, 10223.87, 10147.57, 9635.85);
+      var expectedEquity = Lists.Create<double>(10576.74, 10342.24, 9923.37, 10223.87, 10147.57, 9635.85);
       var actualEquity = new List<double>();
       DataSeries.Walk(bars, pos => {
         actions.Dequeue()(bars);
         actualEquity.Add(a.Equity);
       });
 
-      Assert.IsTrue(List.Equal(expectedEquity, actualEquity.Select(x => Math.Round(x, 2))));
+      Assert.IsTrue(Lists.Equal(expectedEquity, actualEquity.Select(x => Math.Round(x, 2))));
     }
 
     [Test]
@@ -86,22 +83,22 @@ namespace QuqeTest
       Assert.IsTrue(a.BuyingPower == 40000);
       var com = 5;
       a.Commission = size => com;
-      var bars = new DataSeries<Bar>("ABCD", List.Create(
+      var bars = new DataSeries<Bar>("ABCD", Lists.Create(
         new Bar(DateTime.Parse("12/10/2010"), 21.63, 21.50, 23.01, 22.90, 10000), // long profit
         new Bar(DateTime.Parse("12/13/2010"), 23.90, 23.10, 23.95, 23.15, 10000))); // short profit
-      var actions = new Queue<Action<DataSeries<Bar>>>(List.Create<Action<DataSeries<Bar>>>(
+      var actions = new Queue<Action<DataSeries<Bar>>>(Lists.Create<Action<DataSeries<Bar>>>(
         s => a.EnterLong("ABCD", (int)Math.Floor((a.BuyingPower - com * 4) / s[0].Open), new ExitOnSessionClose(21.00), s.FromHere()),  // new Equity: 12336.96
         s => a.EnterShort("ABCD", (int)Math.Floor((a.BuyingPower - com * 4) / s[0].Open), new ExitOnSessionClose(24.00), s.FromHere())  // new Equity: 13874.21
         ));
 
-      var expectedEquity = List.Create<double>(12336.96, 13874.21);
+      var expectedEquity = Lists.Create<double>(12336.96, 13874.21);
       var actualEquity = new List<double>();
       DataSeries.Walk(bars, pos => {
         actions.Dequeue()(bars);
         actualEquity.Add(a.Equity);
       });
 
-      Assert.IsTrue(List.Equal(expectedEquity, actualEquity.Select(x => Math.Round(x, 2))));
+      Assert.IsTrue(Lists.Equal(expectedEquity, actualEquity.Select(x => Math.Round(x, 2))));
     }
 
     //[Test]
@@ -110,7 +107,7 @@ namespace QuqeTest
     //  var a = new Account { Equity = 10000, MarginFactor = 4 };
     //  var com = 5;
     //  a.Commission = size => com;
-    //  var bars = new DataSeries<Bar>("ABCD", List.Create(
+    //  var bars = new DataSeries<Bar>("ABCD", Lists.Create(
     //    new Bar(DateTime.Parse("12/10/2010"), 21.63, 21.50, 23.01, 22.90, 10000), // long profit
     //    new Bar(DateTime.Parse("12/13/2010"), 23.90, 23.10, 23.95, 23.15, 10000))); // short profit
 
@@ -130,19 +127,19 @@ namespace QuqeTest
     [Test]
     public void Mesh1()
     {
-      var a = new ListHolder<double> { List = List.Create(1.0, 2, 4, 5, 6, 7, 8, 9) };
-      var b = new ListHolder<double> { List = List.Create(1.1, 2.1, 3.1) };
-      var c = new ListHolder<double> { List = List.Create(3.2, 4.2, 5.2, 6.2) };
-      var d = new ListHolder<double> { List = List.Create(4.3, 5.3) };
-      var e = new ListHolder<double> { List = List.Create(8.4, 9.4) };
-      //var a = List.Create(1.0, 2, 3, 4, 5, 6, 7, 8, 9);
-      //var b = List.Create(1.1, 2.1, 3.1);
-      //var c = List.Create(3.2, 4.2, 5.2, 6.2);
-      //var d = List.Create(4.3, 5.3);
-      //var e = List.Create(8.4, 9.4);
+      var a = new ListHolder<double> { List = Lists.Create(1.0, 2, 4, 5, 6, 7, 8, 9) };
+      var b = new ListHolder<double> { List = Lists.Create(1.1, 2.1, 3.1) };
+      var c = new ListHolder<double> { List = Lists.Create(3.2, 4.2, 5.2, 6.2) };
+      var d = new ListHolder<double> { List = Lists.Create(4.3, 5.3) };
+      var e = new ListHolder<double> { List = Lists.Create(8.4, 9.4) };
+      //var a = Lists.Create(1.0, 2, 3, 4, 5, 6, 7, 8, 9);
+      //var b = Lists.Create(1.1, 2.1, 3.1);
+      //var c = Lists.Create(3.2, 4.2, 5.2, 6.2);
+      //var d = Lists.Create(4.3, 5.3);
+      //var e = Lists.Create(8.4, 9.4);
 
-      var m = List.Mesh(List.Create(a, b, c, d, e), x => x.List, n => (int)n, i => i + 1, (dummy, xs) => new List<double>(xs)).ToList();
-      var m2 = List.Mesh(List.Create(b, e), x => x.List, n => (int)n, i => i + 1, (dummy, xs) => new List<double>(xs)).ToList();
+      var m = Lists.Mesh(Lists.Create(a, b, c, d, e), x => x.List, n => (int)n, i => i + 1, (dummy, xs) => new List<double>(xs)).ToList();
+      var m2 = Lists.Mesh(Lists.Create(b, e), x => x.List, n => (int)n, i => i + 1, (dummy, xs) => new List<double>(xs)).ToList();
     }
 
     class ListHolder<T> : IEquatable<ListHolder<T>>
@@ -178,30 +175,30 @@ namespace QuqeTest
       Assert.IsTrue(Optimizer.Quantize(1.5, 1.3, 0.3) == 1.6);
     }
 
-    [Test]
-    public void CookieBagTest()
-    {
-      var cb = new CookieBag<string>();
-      var a = cb.Add("A");
-      var b = cb.Add("B");
-      var c = cb.Add("C");
-      Assert.IsTrue(a == 0);
-      Assert.IsTrue(b == 1);
-      Assert.IsTrue(c == 2);
-      Assert.IsTrue(cb.Get(a) == "A");
-      Assert.IsTrue(cb.Get(b) == "B");
-      Assert.IsTrue(cb.Get(c) == "C");
-      cb.Remove(b);
-      var d = cb.Add("D");
-      Assert.IsTrue(d == 1);
-      var e = cb.Add("E");
-      Assert.IsTrue(e == 3);
-    }
+    //[Test]
+    //public void CookieBagTest()
+    //{
+    //  var cb = new CookieBag<string>();
+    //  var a = cb.Add("A");
+    //  var b = cb.Add("B");
+    //  var c = cb.Add("C");
+    //  Assert.IsTrue(a == 0);
+    //  Assert.IsTrue(b == 1);
+    //  Assert.IsTrue(c == 2);
+    //  Assert.IsTrue(cb.Get(a) == "A");
+    //  Assert.IsTrue(cb.Get(b) == "B");
+    //  Assert.IsTrue(cb.Get(c) == "C");
+    //  cb.Remove(b);
+    //  var d = cb.Add("D");
+    //  Assert.IsTrue(d == 1);
+    //  var e = cb.Add("E");
+    //  Assert.IsTrue(e == 3);
+    //}
 
     [Test]
     public void SvdTest()
     {
-      var points = List.Create<Vector>(
+      var points = Lists.Create<Vector>(
         new DenseVector(new double[] { 3.1, 2.9 }),
         new DenseVector(new double[] { 1.0, 0.99 }),
         new DenseVector(new double[] { 2.2, 2.1 }),

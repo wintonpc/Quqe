@@ -1,19 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Windows;
-using Quqe;
-using PCW;
-using System;
-using StockCharts;
-using System.Windows.Media;
-using System.IO;
-using System.Diagnostics;
 using System.Windows.Controls;
+using System.Windows.Media;
+using Quqe;
 using QuqeViz.Properties;
-using DotNumerics.ODE;
-using System.Threading.Tasks;
-using System.Threading;
-using System.Runtime;
+using StockCharts;
 
 namespace QuqeViz
 {
@@ -150,7 +144,7 @@ namespace QuqeViz
       Action<string, ComboBox> serialize = (n, cb) => {
         if (cb.Text == "")
           return;
-        Settings.Default[n] = List.Create(cb.Text).Concat(cb.Items.Cast<string>().Except(List.Create("", cb.Text))).Distinct().Join(",");
+        Settings.Default[n] = Lists.Create(cb.Text).Concat(cb.Items.Cast<string>().Except(Lists.Create("", cb.Text))).Distinct().Join(",");
       };
 
       serialize("RecentTrainingStartDates", TrainingStartBox);
@@ -197,7 +191,7 @@ namespace QuqeViz
       //  mainSync.Post(() => {
       //    ch.EqPlot.Clear(Colors.White);
       //    ch.EqPlot.Bounds = new Rect(0, history.Min(), history.Count, history.Max() - history.Min());
-      //    ch.EqPlot.DrawLine(List.Repeat(history.Count, i => new Point(i, history[i])), Colors.Blue);
+      //    ch.EqPlot.DrawLine(Lists.Repeat(history.Count, i => new Point(i, history[i])), Colors.Blue);
       //  });
       //};
       //Thread t = new Thread(() => Versace.Evolve(updateHistoryWindow));
@@ -216,7 +210,7 @@ namespace QuqeViz
 
       //var ch = new EqPlotWindow();
       //ch.EqPlot.Bounds = new Rect(0, vr.FitnessHistory.Min(), vr.FitnessHistory.Count, vr.FitnessHistory.Max() - vr.FitnessHistory.Min());
-      //ch.EqPlot.DrawLine(List.Repeat(vr.FitnessHistory.Count, i => new Point(i, vr.FitnessHistory[i])), Colors.Blue);
+      //ch.EqPlot.DrawLine(Lists.Repeat(vr.FitnessHistory.Count, i => new Point(i, vr.FitnessHistory[i])), Colors.Blue);
       //ch.Show();
 
       //m.Reset();

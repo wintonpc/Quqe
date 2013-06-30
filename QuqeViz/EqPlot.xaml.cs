@@ -1,17 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Diagnostics;
-using PCW;
 using Quqe;
 
 namespace QuqeViz
@@ -64,7 +57,7 @@ namespace QuqeViz
     public void DrawLineGraph(List<double> ys, Color color)
     {
       Bounds = new Rect(0, ys.Min(), ys.Count, ys.Max() - ys.Min());
-      DrawLine(List.Repeat(ys.Count, x => new Point(x, ys[x])), color);
+      DrawLine(Lists.Repeat(ys.Count, x => new Point(x, ys[x])), color);
     }
 
     public void DrawLineGraph(List<PlotDesc> pds)
@@ -77,7 +70,7 @@ namespace QuqeViz
         var min = p.ys.Min();
         var max = p.ys.Max();
         var scaled = p.ys.Select(y => ((y - min) / (max - min) * (maxAll - minAll)) + minAll).ToList();
-        DrawLine(List.Repeat(scaled.Count, x => new Point(x, scaled[x])), p.Color);
+        DrawLine(Lists.Repeat(scaled.Count, x => new Point(x, scaled[x])), p.Color);
       }
     }
 

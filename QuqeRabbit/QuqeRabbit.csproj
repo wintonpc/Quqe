@@ -57,18 +57,18 @@
   <ItemGroup>
     <Compile Include="Broadcaster\Broadcaster.cs" />
     <Compile Include="Broadcaster\BroadcastInfo.cs" />
-    <Compile Include="Disposal.cs" />
-    <Compile Include="EventHelpers.cs" />
+    <Compile Include="Util\Disposal.cs" />
+    <Compile Include="Util\EventHelpers.cs" />
     <Compile Include="GenericConsumers\AsyncConsumer.cs" />
     <Compile Include="GenericConsumers\ConsumerInfo.cs" />
     <Compile Include="GenericConsumers\SyncConsumer.cs" />
     <Compile Include="Helpers.cs" />
-    <Compile Include="List.cs" />
+    <Compile Include="Util\Lists.cs" />
     <Compile Include="Messages\RabbitMessage.cs" />
     <Compile Include="Messages\RabbitMessageReader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RabbitRecoverer.cs" />
-    <Compile Include="SyncContext.cs" />
+    <Compile Include="Util\SyncContext.cs" />
     <Compile Include="WorkQueue\AsyncWorkQueueConsumer.cs" />
     <Compile Include="WorkQueue\SyncWorkQueueConsumer.cs" />
     <Compile Include="WorkQueue\WorkQueueInfo.cs" />

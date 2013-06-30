@@ -1,21 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Windows.Controls.Primitives;
-using System.Diagnostics;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using Quqe;
-using PCW;
 
 namespace StockCharts
 {
@@ -200,7 +191,7 @@ namespace StockCharts
     {
       var plots = Graphs.SelectMany(g => g.Plots).OrderBy(p => p.DataSeries.Elements.ToArray().First().Timestamp).ToArray();
 
-      var z = List.Mesh(plots, p => p.DataSeries.Elements, dse => dse.Timestamp, dt => dt.AddDays(1), (ps, dses) => new { Plots = ps, Elements = dses.ToList() })
+      var z = Lists.Mesh(plots, p => p.DataSeries.Elements, dse => dse.Timestamp, dt => dt.AddDays(1), (ps, dses) => new { Plots = ps, Elements = dses.ToList() })
         .Where(x => x.Plots.Any()).Select(x => new { Plots = x.Plots, Elements = x.Elements, Timestamp = x.Elements.First().Timestamp }).ToList();
 
       timestamps = z.Select(x => x.Timestamp).ToList();

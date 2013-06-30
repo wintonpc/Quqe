@@ -112,10 +112,6 @@
     <Compile Include="VersaceTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">
-      <Project>{2BFAD437-7AF7-4F7B-B0FD-8305F6CF3392}</Project>
-      <Name>PCW</Name>
-    </ProjectReference>
     <ProjectReference Include="..\QuqeLib\QuqeLib.csproj">
       <Project>{1B373E93-67B2-4045-8F5A-94C1C738EA2C}</Project>
       <Name>QuqeLib</Name>

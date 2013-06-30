@@ -1,16 +1,9 @@
-﻿using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
 using MongoDB.Bson;
-using Quqe;
-using MongoDB.Bson.Serialization;
-using MongoDB.Driver;
-using Machine.Specifications;
-using List = PCW.List;
 using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Driver;
+using NUnit.Framework;
+using Quqe;
 
 namespace QuqeTest
 {
@@ -26,7 +19,7 @@ namespace QuqeTest
       var mongoDb = server.GetDatabase("sandbox");
 
       var coll = mongoDb.GetCollection("widgets");
-      coll.Insert(new Widget(new int[] { 1, 2, 3, 4, 5 }, List.Repeat(3, _ => new Sprocket()).ToArray()));
+      coll.Insert(new Widget(new int[] { 1, 2, 3, 4, 5 }, Lists.Repeat(3, _ => new Sprocket()).ToArray()));
 
       var results = coll.FindAllAs<Widget>().ToList();
     }

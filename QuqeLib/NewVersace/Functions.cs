@@ -1,5 +1,4 @@
-﻿using PCW;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -55,7 +54,7 @@ namespace Quqe
 
     public static double ComputeFitness(IPredictorWithInputs predictor, DataSet data, int preloadCount = 0)
     {
-      var predictions = List.Repeat(data.Input.ColumnCount, t => predictor.Predict(t));
+      var predictions = Lists.Repeat(data.Input.ColumnCount, t => predictor.Predict(t));
       var accuracy = predictions.Zip(data.Output, (predicted, actual) => Math.Sign(predicted) == Math.Sign(actual) ? 1 : 0).Skip(preloadCount).Average();
       return accuracy;
     }
@@ -67,7 +66,7 @@ namespace Quqe
 
     internal static MixtureInfo[] Combine(int outputSize, IList<MixtureEval> ms)
     {
-      return List.Repeat((int)Math.Ceiling(outputSize / 2.0), _ => CombineTwoMixtures(ms)).SelectMany(x => x).Take(outputSize).ToArray();
+      return Lists.Repeat((int)Math.Ceiling(outputSize / 2.0), _ => CombineTwoMixtures(ms)).SelectMany(x => x).Take(outputSize).ToArray();
     }
 
     internal static Tuple2<MixtureInfo> CombineTwoMixtures(IList<MixtureEval> ms)

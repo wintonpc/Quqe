@@ -1,14 +1,11 @@
-﻿using Machine.Specifications;
-using NUnit.Framework;
-using Quqe;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
+using Machine.Specifications;
+using NUnit.Framework;
+using Quqe;
 using Quqe.NewVersace;
-using List = PCW.List;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 
 namespace QuqeTest
@@ -21,7 +18,7 @@ namespace QuqeTest
     {
       var data = NNTestUtils.GetData("2004-01-01", "2004-05-01");
 
-      var checksums = List.Repeat(5, i => {
+      var checksums = Lists.Repeat(5, i => {
         QuqeUtil.Random = new Random(42);
         var trainResult = Train(data, 8, 4, 1000);
         return NNTestUtils.Checksum(trainResult.RNNSpec.Weights);

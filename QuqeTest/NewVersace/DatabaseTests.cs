@@ -1,12 +1,8 @@
-﻿using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
 using Machine.Specifications;
-using Quqe;
 using MongoDB.Bson;
+using NUnit.Framework;
+using Quqe;
 
 namespace QuqeTest
 {

@@ -66,6 +66,7 @@
       <HintPath>..\packages\RabbitMQ.Client.3.1.1\lib\net30\RabbitMQ.Client.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Web" />
@@ -126,12 +127,9 @@
     <Compile Include="Data\VersaceDataFetching.cs" />
     <Compile Include="Util\Disposal.cs" />
     <Compile Include="Util\EventHelpers.cs" />
+    <Compile Include="Util\Util.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\PCW\PCW\PCW.csproj">
-      <Project>{2BFAD437-7AF7-4F7B-B0FD-8305F6CF3392}</Project>
-      <Name>PCW</Name>
-    </ProjectReference>
     <ProjectReference Include="..\QuqeRabbit\QuqeRabbit.csproj">
       <Project>{b0fabc22-4984-47cf-93ff-8e35f25bea70}</Project>
       <Name>QuqeRabbit</Name>

@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VersaceExe
 {
@@ -10,7 +6,7 @@ namespace VersaceExe
   {
     static object Lock = new object();
 
-    static int Count = 0;
+    static int Count;
     static string GetNextName()
     {
       lock (Lock)

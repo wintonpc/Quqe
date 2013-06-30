@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
-namespace Quqe.Rabbit
+namespace Quqe
 {
-  static class List
+  public static class Lists
   {
     public static void Repeat(int n, Action<int> f)
     {
