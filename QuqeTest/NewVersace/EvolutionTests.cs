@@ -19,7 +19,7 @@ namespace QuqeTest
       var db = new Database(mongoDb);
 
       var protoRun = new ProtoRun(db, "EvolveTest", 3, Initialization.MakeFastestProtoChromosome(), 10, 6, 4, 5, 0.05);
-      var dataSets = MakeTrainingAndValidationSets("11/11/2001", "02/12/2002");
+      var dataSets = MakeTrainingAndValidationSets(db, "11/11/2001", "02/12/2002");
       var run = Functions.Evolve(protoRun, new LocalParallelTrainer(), dataSets.Item1, dataSets.Item2);
       run.Id.ShouldBeOfType<ObjectId>();
       run.ProtoChromosome.Genes.Length.ShouldEqual(11);
@@ -53,12 +53,12 @@ namespace QuqeTest
       var protoRun = new ProtoRun(db, "LocalEvolveTest", 4, Initialization.MakeProtoChromosome(), 10, 6, 4, 4, 0.05);
       var trainingStart = "11/11/2001";
       var validationEnd = "05/12/2003";
-      var dataSets = MakeTrainingAndValidationSets(trainingStart, validationEnd);
+      var dataSets = MakeTrainingAndValidationSets(db, trainingStart, validationEnd);
       var run = Functions.Evolve(protoRun, new LocalParallelTrainer(), dataSets.Item1, dataSets.Item2);
       Trace.WriteLine("Generation fitnesses: " + run.Generations.Select(x => x.Evaluated.Fitness).Join(", "));
       var bestMixtures = run.Generations.SelectMany(g => g.Mixtures).OrderByDescending(m => m.Evaluated.Fitness).Take(10).ToList();
 
-      var testingSet = MakeTrainingSet(validationEnd, "12/12/2003");
+      var testingSet = MakeTrainingSet(db, validationEnd, "12/12/2003");
       Lists.Repeat(bestMixtures.Count, i => {
         var predictor = new MixturePredictor(bestMixtures[i], testingSet);
         var testedFitness = Functions.ComputeFitness(predictor, testingSet, 20);
@@ -72,7 +72,7 @@ namespace QuqeTest
       var mongoDb = TestHelpers.GetCleanDatabase();
       var db = new Database(mongoDb);
       var protoRun = new ProtoRun(db, "InitialPopulationTest", 3, Initialization.MakeFastestProtoChromosome(), 10, 6, 4, 5, 0.05);
-      var gen = Initialization.MakeInitialGeneration(MakeTrainingSet("11/11/2001", "12/11/2001"),
+      var gen = Initialization.MakeInitialGeneration(MakeTrainingSet(db, "11/11/2001", "12/11/2001"),
                                                      new Run(protoRun, Initialization.MakeFastestProtoChromosome()),
                                                      new LocalParallelTrainer());
       foreach (var mixture in gen.Mixtures)
@@ -94,7 +94,7 @@ namespace QuqeTest
       var protoChrom = Initialization.MakeProtoChromosome();
       var protoRun = new ProtoRun(db, "MixtureCrossoverTest", -1, protoChrom, 2, 6, 4, 10, 0.05);
       var run = new Run(protoRun, protoChrom);
-      var seed = MakeTrainingSet("11/11/2001", "12/11/2001");
+      var seed = MakeTrainingSet(db, "11/11/2001", "12/11/2001");
       var gen = Initialization.MakeInitialGeneration(seed, run, new LocalParallelTrainer());
       gen.Mixtures.Length.ShouldEqual(2);
       var m1 = gen.Mixtures[0];
@@ -134,14 +134,14 @@ namespace QuqeTest
       ((double)trues / falses).ShouldBeGreaterThan(0.9).ShouldBeLessThan(1.1);
     }
 
-    static DataSet MakeTrainingSet(string startDate, string endDate)
+    static DataSet MakeTrainingSet(Database db, string startDate, string endDate)
     {
-      return DataPreprocessing.MakeTrainingSet("DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), Signals.NextClose);
+      return DataPreprocessing.LoadTrainingSet(db, "DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), Signals.NextClose);
     }
 
-    static Tuple2<DataSet> MakeTrainingAndValidationSets(string startDate, string endDate)
+    static Tuple2<DataSet> MakeTrainingAndValidationSets(Database db, string startDate, string endDate)
     {
-      return DataPreprocessing.MakeTrainingAndValidationSets("DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), 0.20, Signals.NextClose);
+      return DataPreprocessing.LoadTrainingAndValidationSets(db, "DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), 0.20, Signals.NextClose);
     }
 
     //[Test]

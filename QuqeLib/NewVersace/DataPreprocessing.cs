@@ -32,9 +32,18 @@ namespace Quqe
       return x.DotProduct(pc) * pc;
     }
 
-    public static DataSet MakeTrainingSet(string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignalFunc)
+    public static DataSet LoadTrainingSet(Database db, string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignalFunc)
     {
-      var cleanSeries = GetCleanSeries(predictedSymbol, GetTickers(predictedSymbol));
+      return LoadTrainingSet(GetCleanSeries(db, predictedSymbol, GetTickers(predictedSymbol)), predictedSymbol, startDate, endDate, idealSignalFunc);
+    }
+
+    public static DataSet LoadTrainingSetFromDisk(string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignalFunc)
+    {
+      return LoadTrainingSet(GetCleanSeriesFromDisk(predictedSymbol, GetTickers(predictedSymbol)), predictedSymbol, startDate, endDate, idealSignalFunc);
+    }
+
+    static DataSet LoadTrainingSet(List<DataSeries<Bar>> cleanSeries, string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignalFunc)
+    {
       var preprocessedInput = GetPreprocessedInput(predictedSymbol, cleanSeries);
       var predictedSeries = cleanSeries.First(x => x.Symbol == predictedSymbol);
       var output = GetIdealOutput(idealSignalFunc, predictedSeries);
@@ -46,13 +55,13 @@ namespace Quqe
         preprocessedInput.DatabaseAInputLength);
     }
 
-    public static Tuple2<DataSet> MakeTrainingAndValidationSets(string predictedSymbol, DateTime startDate, DateTime endDate,
-      double validationPct, Func<DataSeries<Bar>, double> idealSignalFunc)
+    public static Tuple2<DataSet> LoadTrainingAndValidationSets(Database db, string predictedSymbol, DateTime startDate, DateTime endDate,
+                                                                double validationPct, Func<DataSeries<Bar>, double> idealSignalFunc)
     {
       DateTime splitDate = startDate.AddDays((endDate - startDate).TotalDays * (1.0 - validationPct)).Date;
       return new Tuple2<DataSet>(
-        MakeTrainingSet(predictedSymbol, startDate, splitDate, idealSignalFunc),
-        MakeTrainingSet(predictedSymbol, splitDate.AddDays(1), endDate, idealSignalFunc));
+        LoadTrainingSet(db, predictedSymbol, startDate, splitDate, idealSignalFunc),
+        LoadTrainingSet(db, predictedSymbol, splitDate.AddDays(1), endDate, idealSignalFunc));
     }
 
     static Mat TrimToWindow(Mat inputs, DateTime startDate, DateTime endDate, DataSeries<Bar> s)
@@ -78,7 +87,7 @@ namespace Quqe
     public static List<string> GetTickers(string predictedSymbol)
     {
       return Lists.Create(predictedSymbol, "^IXIC", "^GSPC", "^DJI", "^DJT", "^DJU", "^DJA", "^N225", "^BVSP",
-        "^GDAXI", "^FTSE", /*"^CJJ", "USDCHF"*/ "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU");
+                          "^GDAXI", "^FTSE", /*"^CJJ", "USDCHF"*/ "^TYX", "^TNX", "^FVX", "^IRX", /*"EUROD"*/ "^XAU");
     }
 
     static PreprocessedData GetPreprocessedInput(string predictedSymbol, List<DataSeries<Bar>> clean)
@@ -91,10 +100,9 @@ namespace Quqe
       Func<string, DataSeries<Bar>> get = ticker => clean.First(x => x.Symbol == ticker);
 
       Action<string, string, Func<Bar, Value>> addSmaNorm = (ticker, tag, getValue) =>
-        aOnly.Add(get(ticker).NormalizeSma10(getValue).SetTag(tag));
+                                                            aOnly.Add(get(ticker).NormalizeSma10(getValue).SetTag(tag));
 
-      Action<string> addSmaNormOHLC = ticker =>
-      {
+      Action<string> addSmaNormOHLC = ticker => {
         addSmaNorm(ticker, "Open", x => x.Open);
         addSmaNorm(ticker, "High", x => x.High);
         addSmaNorm(ticker, "Low", x => x.Low);
@@ -103,12 +111,13 @@ namespace Quqe
 
       //////////////////////////////////////////
       // apply indicators and SMA normalizations
+
       #region
+
       var predicted = get(predictedSymbol);
 
       // % ROC Close
-      bOnly.Add(predicted.MapElements<Value>((s, v) =>
-      {
+      bOnly.Add(predicted.MapElements<Value>((s, v) => {
         if (s.Pos == 0)
           return 0;
         else
@@ -161,7 +170,8 @@ namespace Quqe
 
       // % Diff. between Normalized DJIA and Normalized T Bond
       bOnly.Add(get("^DJI").Closes().NormalizeUnit().ZipElements<Value, Value>(get("^TYX").Closes().NormalizeUnit(), (dj, tb, _) => dj[0] - tb[0])
-        .SetTag("% Diff. between Normalized DJIA and Normalized T Bond"));
+                           .SetTag("% Diff. between Normalized DJIA and Normalized T Bond"));
+
       #endregion
 
       var allInputSeries = aOnly.Concat(bOnly).Select(s => s.NormalizeUnit()).ToList();
@@ -178,11 +188,29 @@ namespace Quqe
       return new DenseVector(outputSignal.Skip(1).Select(x => x.Val).ToArray());
     }
 
-    static List<DataSeries<Bar>> GetCleanSeries(string predictedSymbol, List<string> tickers)
+    static List<DataSeries<Bar>> GetCleanSeries(Database db, string predictedSymbol, List<string> tickers)
+    {
+      var allBars = db.QueryAll<DbBar>(_ => true);
+      var allSeries = allBars.GroupBy(x => x.Symbol).Select(g => new DataSeries<Bar>(g.Key, g.OrderBy(x => x.Timestamp).Select(DbBarToBar).ToArray())).ToList();
+      return CleanSeries(predictedSymbol, allSeries);
+    }
+
+    static List<DataSeries<Bar>> GetCleanSeriesFromDisk(string predictedSymbol, List<string> tickers)
     {
       var allSeries = tickers.Select(t => DataImport.LoadVersace(t)).ToList();
+      return CleanSeries(predictedSymbol, allSeries);
+    }
+
+    static List<DataSeries<Bar>> CleanSeries(string predictedSymbol, List<DataSeries<Bar>> allSeries)
+    {
       var predictedSeries = allSeries.First(s => s.Symbol == predictedSymbol);
       return allSeries.Select(s => s == predictedSeries ? s : CleanWithRespectTo(predictedSeries, s)).ToList();
+    }
+
+
+    static Bar DbBarToBar(DbBar x)
+    {
+      return new Bar(x.Timestamp, x.Open, x.Low, x.High, x.Close, x.Volume);
     }
 
     static DataSeries<Bar> CleanWithRespectTo(DataSeries<Bar> wrt, DataSeries<Bar> s)

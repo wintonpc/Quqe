@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Quqe;
 using Quqe.Rabbit;
 using VersaceExe;
+using System.Configuration;
+using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace Quqe
 {
@@ -33,10 +35,17 @@ namespace Quqe
     {
       ThreadSync = SyncContext.Current;
 
+      Console.Write("Supervisor is loading dataset...");
+      var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
+      var trainingSet = DataPreprocessing.LoadTrainingAndValidationSets(db, MasterRequest.Symbol, MasterRequest.StartDate,
+                                                                        MasterRequest.EndDate, MasterRequest.ValidationPct,
+                                                                        VersaceMain.GetSignalFunc(MasterRequest.SignalType)).Item1;
+      Console.WriteLine("done");
+
       Console.WriteLine("Supervisor started {0} slaves", SlaveCount);
 
       Slaves = Lists.Repeat(SlaveCount, _ => {
-        Slave slave = new Slave(MasterRequest);
+        Slave slave = new Slave(CloneDataSet(trainingSet));
         slave.Task = Task.Factory.StartNew(slave.Run).ContinueWith(t => {
           Slaves.RemoveAll(x => x.Task == t);
           if (t.IsFaulted)
@@ -48,6 +57,11 @@ namespace Quqe
       Waiter.Wait(() => !Slaves.Any());
     }
 
+    DataSet CloneDataSet(DataSet data)
+    {
+      return new DataSet(DenseMatrix.OfMatrix(data.Input), DenseVector.OfVector(data.Output), data.DatabaseAInputLength);
+    }
+
     void StopSlaves()
     {
       ThreadSync.Post(() => {
@@ -57,7 +71,6 @@ namespace Quqe
           Slaves.Remove(s);
         }
         Task.WaitAll(Slaves.Select(x => x.Task).ToArray());
-        Console.WriteLine("done");
       });
       MyThread.Join();
     }

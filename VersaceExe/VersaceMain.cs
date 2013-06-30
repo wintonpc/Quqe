@@ -29,7 +29,9 @@ namespace VersaceExe
       using (Broadcaster = MakeBroadcaster())
       {
         var cmd = cmdLine[0];
-        if (cmd == "host")
+        if (cmd == "fetch")
+          FetchData();
+        else if (cmd == "host")
           RunSupervisor();
         else if (cmd == "run")
           DistributedEvolve(cmdLine[1]);
@@ -38,6 +40,26 @@ namespace VersaceExe
         else
           Console.WriteLine("Unknown command: " + cmd);
       }
+    }
+
+    static void FetchData()
+    {
+      var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
+      var allBars = db.QueryAll<DbBar>(_ => true);
+      DateTime firstDate = DateTime.Parse("11/10/2001");
+      DateTime lastDate = allBars.Any() ? allBars.OrderByDescending(x => x.Timestamp).First().Timestamp : firstDate;
+      var predicted = "DIA";
+
+      var firstFetchDate = lastDate.AddDays(1);
+      Console.WriteLine("Fetching from {0:MM/dd/yyyy} to today", firstFetchDate.Date);
+
+      VersaceDataFetching.DownloadData(predicted, firstFetchDate, DateTime.Now.Date);
+
+      Console.Write("Storing in mongo ...");
+      foreach (var symbol in DataPreprocessing.GetTickers(predicted))
+        foreach (var dbBar in DataImport.LoadVersace(symbol).Select(x => new DbBar(db, symbol, x.Timestamp, x.Open, x.Low, x.High, x.Close, x.Volume)))
+          db.Store(dbBar);
+      Console.WriteLine("done");
     }
 
     static Broadcaster MakeBroadcaster()
@@ -116,7 +138,7 @@ namespace VersaceExe
 
         var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
         var protoRun = db.QueryOne<ProtoRun>(x => x.Name == masterReq.ProtoRunName);
-        var dataSets = DataPreprocessing.MakeTrainingAndValidationSets(masterReq.Symbol, masterReq.StartDate, masterReq.EndDate,
+        var dataSets = DataPreprocessing.LoadTrainingAndValidationSets(db, masterReq.Symbol, masterReq.StartDate, masterReq.EndDate,
                                                                        masterReq.ValidationPct, GetSignalFunc(masterReq.SignalType));
 
         var run = Functions.Evolve(protoRun, new DistributedTrainer(), dataSets.Item1, dataSets.Item2,

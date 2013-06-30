@@ -18,6 +18,7 @@ namespace Quqe
 
       foreach (var ticker in DataPreprocessing.GetTickers(predictedSymbol))
       {
+        Console.Write("Fetching {0} ...", ticker);
         using (var c = new WebClient())
         {
           var fn = Path.Combine(dir, ticker + ".txt");
@@ -46,6 +47,7 @@ namespace Quqe
           });
           File.WriteAllLines(fn, fixedLines);
         }
+        Console.WriteLine("done");
       }
     }
 

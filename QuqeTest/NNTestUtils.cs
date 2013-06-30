@@ -11,7 +11,7 @@ namespace QuqeTest
   {
     public static DataSet GetData(string startDate, string endDate)
     {
-      return DataPreprocessing.MakeTrainingSet("DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), Signals.NextClose);
+      return DataPreprocessing.LoadTrainingSetFromDisk("DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), Signals.NextClose);
     }
 
     public static string Checksum(Vec v)

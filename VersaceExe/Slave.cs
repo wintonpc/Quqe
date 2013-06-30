@@ -13,16 +13,14 @@ namespace Quqe
   {
     public Task Task { get; set; }
     SyncContext TaskSync;
-    Database Database;
-    DataSet TrainingSet;
+    readonly Database Database;
+    readonly DataSet TrainingSet;
     bool IsStopped;
 
-    public Slave(MasterRequest masterReq)
+    public Slave(DataSet trainingSet)
     {
       Database = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
-      var dataSets = DataPreprocessing.MakeTrainingAndValidationSets(masterReq.Symbol, masterReq.StartDate,
-                                                                     masterReq.EndDate, masterReq.ValidationPct, VersaceMain.GetSignalFunc(masterReq.SignalType));
-      TrainingSet = dataSets.Item1;
+      TrainingSet = trainingSet;
     }
 
     public void Run()
@@ -57,7 +55,9 @@ namespace Quqe
     {
       if (IsDisposed) return;
       IsDisposed = true;
-      TaskSync.Post(() => IsStopped = true);
+      TaskSync.Post(() => {
+        IsStopped = true;
+      });
       Task.Wait();
     }
   }
