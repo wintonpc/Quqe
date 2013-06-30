@@ -92,10 +92,14 @@ namespace Quqe
                                           select new TrainRequest(mixture.MixtureId.ToString(), chrom)).ToList();
 
         int total = outstanding.Count;
+
+        var orderedRnnRequests = outstanding.Where(x => x.Chromosome.NetworkType == NetworkType.Rnn)
+                                            .OrderByDescending(x => x.Chromosome.TrainingSizePct * x.Chromosome.RnnLayer1NodeCount * x.Chromosome.RnnLayer2NodeCount * x.Chromosome.RnnTrainingEpochs);
+
+        var orderedRbfRequests = outstanding.Where(x => x.Chromosome.NetworkType == NetworkType.Rbf)
+                                            .OrderByDescending(x => x.Chromosome.TrainingSizePct * (1 - x.Chromosome.RbfNetTolerance));
         
-        foreach (var msg in outstanding.Where(x => x.Chromosome.NetworkType == NetworkType.Rnn))
-          trainRequests.Send(msg);
-        foreach (var msg in outstanding.Where(x => x.Chromosome.NetworkType == NetworkType.Rbf))
+        foreach (var msg in orderedRnnRequests.Interleave(orderedRbfRequests))
           trainRequests.Send(msg);
 
         trainNotifications.On<TrainNotification>(notification => {

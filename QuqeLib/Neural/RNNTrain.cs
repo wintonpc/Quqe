@@ -53,7 +53,7 @@ namespace Quqe
 
         var errAtW = wei.Error;
         List<double> errHistory = new List<double> { errAtW };
-        List<Vec> weightHistory = new List<Vec> { w };
+        //List<Vec> weightHistory = new List<Vec> { w };
         Vec g = wei.Gradient;
         Vec s = -g;
         bool success = true;
@@ -158,7 +158,7 @@ namespace Quqe
           lambda = lambda1;
           errAtW = errAtW1;
           errHistory.Add(errAtW);
-          weightHistory.Add(w);
+          //weightHistory.Add(w);
           g = g1;
           s = s1;
           w = w1;
@@ -175,7 +175,7 @@ namespace Quqe
           RNNSpec = new RNNSpec(trainingData.RowCount, layerSpecs, w),
           Cost = errAtW,
           CostHistory = errHistory,
-          WeightHistory = weightHistory
+          //WeightHistory = weightHistory
         };
       }
     }

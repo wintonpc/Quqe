@@ -6,6 +6,7 @@ using Quqe.NewVersace;
 using Quqe.Rabbit;
 using VersaceExe;
 using System.Threading;
+using System.Diagnostics;
 
 namespace Quqe
 {
