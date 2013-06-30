@@ -38,11 +38,11 @@ namespace Quqe
       Console.Write("Supervisor is loading dataset...");
       var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
       var trainingSet = DataPreprocessing.LoadTrainingAndValidationSets(db, MasterRequest.Symbol, MasterRequest.StartDate,
-                                                                        MasterRequest.EndDate, MasterRequest.ValidationPct,
-                                                                        VersaceMain.GetSignalFunc(MasterRequest.SignalType)).Item1;
+                                                                     MasterRequest.EndDate, MasterRequest.ValidationPct,
+                                                                     VersaceMain.GetSignalFunc(MasterRequest.SignalType)).Item1;
       Console.WriteLine("done");
 
-      Console.WriteLine("Supervisor started {0} slaves", SlaveCount);
+      Console.Write("Supervisor is starting {0} slaves..", SlaveCount);
 
       Slaves = Lists.Repeat(SlaveCount, _ => {
         Slave slave = new Slave(CloneDataSet(trainingSet));
@@ -53,6 +53,8 @@ namespace Quqe
         });
         return slave;
       });
+
+      Console.WriteLine("done");
 
       Waiter.Wait(() => !Slaves.Any());
     }

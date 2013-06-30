@@ -20,8 +20,8 @@ namespace Quqe
 
         // RNN params
         ProtoGene.Create("RnnTrainingEpochs", 20, 1000, GeneType.Discrete),
-        ProtoGene.Create("RnnLayer1NodeCount", 3, 40, GeneType.Discrete),
-        ProtoGene.Create("RnnLayer2NodeCount", 3, 20, GeneType.Discrete),
+        ProtoGene.Create("RnnLayer1NodeCount", 3, 120, GeneType.Discrete),
+        ProtoGene.Create("RnnLayer2NodeCount", 3, 120, GeneType.Discrete),
 
         // RBF params
         ProtoGene.Create("RbfNetTolerance", 0, 1, GeneType.Continuous),

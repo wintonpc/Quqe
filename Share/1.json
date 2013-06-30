@@ -2,8 +2,8 @@
   "Type" : "MasterRequest",
   "ProtoRunName" : "Dist1",
   "Symbol" : "DIA",
-  "StartDate" : ISODate("2005-06-02T21:52:18.207Z"),
-  "EndDate" : ISODate("2005-09-03T21:52:18.207Z"),
-  "ValidationPct" : 0.7,
+  "StartDate" : ISODate("2001-11-11T21:52:18.207Z"),
+  "EndDate" : ISODate("2003-02-12T21:52:18.207Z"),
+  "ValidationPct" : 0.2,
   "SignalType" : 0
 }

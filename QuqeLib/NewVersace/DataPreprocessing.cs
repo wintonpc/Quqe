@@ -42,7 +42,8 @@ namespace Quqe
       return LoadTrainingSet(GetCleanSeriesFromDisk(predictedSymbol, GetTickers(predictedSymbol)), predictedSymbol, startDate, endDate, idealSignalFunc);
     }
 
-    static DataSet LoadTrainingSet(List<DataSeries<Bar>> cleanSeries, string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignalFunc)
+    static DataSet LoadTrainingSet(List<DataSeries<Bar>> cleanSeries, string predictedSymbol, DateTime startDate, DateTime endDate,
+      Func<DataSeries<Bar>, double> idealSignalFunc)
     {
       var preprocessedInput = GetPreprocessedInput(predictedSymbol, cleanSeries);
       var predictedSeries = cleanSeries.First(x => x.Symbol == predictedSymbol);

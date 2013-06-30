@@ -141,6 +141,10 @@ namespace VersaceExe
         var dataSets = DataPreprocessing.LoadTrainingAndValidationSets(db, masterReq.Symbol, masterReq.StartDate, masterReq.EndDate,
                                                                        masterReq.ValidationPct, GetSignalFunc(masterReq.SignalType));
 
+        Console.WriteLine("Data: {0:MM/dd/yyyy} - {1:MM/dd/yyyy}", masterReq.StartDate, masterReq.EndDate);
+        Console.WriteLine("Training set: {0} days", dataSets.Item1.Output.Count);
+        Console.WriteLine("Validation set: {0} days", dataSets.Item2.Output.Count);
+
         var run = Functions.Evolve(protoRun, new DistributedTrainer(), dataSets.Item1, dataSets.Item2,
                                    (genNum, completed, total) => Console.WriteLine("Generation {0}: Trained {1} of {2}", genNum, completed, total),
                                    gen => Console.WriteLine("Gen {0} {1}", gen.Order, gen.Evaluated.Fitness));

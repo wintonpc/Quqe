@@ -92,8 +92,10 @@ namespace Quqe
                                           select new TrainRequest(mixture.MixtureId.ToString(), chrom)).ToList();
 
         int total = outstanding.Count;
-
-        foreach (var msg in outstanding)
+        
+        foreach (var msg in outstanding.Where(x => x.Chromosome.NetworkType == NetworkType.Rnn))
+          trainRequests.Send(msg);
+        foreach (var msg in outstanding.Where(x => x.Chromosome.NetworkType == NetworkType.Rbf))
           trainRequests.Send(msg);
 
         trainNotifications.On<TrainNotification>(notification => {
