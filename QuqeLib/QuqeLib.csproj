@@ -126,7 +126,6 @@
     <Compile Include="Data\Transforms.cs" />
     <Compile Include="Data\VersaceDataFetching.cs" />
     <Compile Include="Util\Disposal.cs" />
-    <Compile Include="Util\EventHelpers.cs" />
     <Compile Include="Util\Util.cs" />
   </ItemGroup>
   <ItemGroup>

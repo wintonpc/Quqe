@@ -69,7 +69,7 @@
     <Compile Include="Host.cs" />
     <Compile Include="Master.cs" />
     <Compile Include="Messages.cs" />
-    <Compile Include="Worker.cs" />
+    <Compile Include="Slave.cs" />
     <Compile Include="Supervisor.cs" />
     <Compile Include="VersaceMain.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

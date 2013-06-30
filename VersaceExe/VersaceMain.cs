@@ -9,6 +9,7 @@ using System.Threading;
 using Quqe;
 using Quqe.NewVersace;
 using Quqe.Rabbit;
+using RabbitMQ.Client;
 
 namespace VersaceExe
 {
@@ -62,17 +63,19 @@ namespace VersaceExe
         {
           Console.WriteLine("Waiting for evolution to start");
           var hostStartMsg = Broadcaster.WaitFor<HostStartEvolution>();
-          AppDomainIsolator.Run(hostStartMsg.MasterRequest, masterReq => {
+          AppDomainIsolator.Run(hostStartMsg.MasterRequest.ToUtf8(), masterRequestBytes => {
+            RabbitMessageReader.Register(typeof (TrainRequest));
             using (var bcast = MakeBroadcaster())
             {
               var nodeName = GetNodeName();
               Console.WriteLine("HostUp   " + nodeName);
               try
               {
-                using (new Supervisor(1 /*Environment.ProcessorCount*/, masterReq))
+                using (new Supervisor(Environment.ProcessorCount, (MasterRequest)RabbitMessageReader.Read(0, masterRequestBytes)))
                 {
                   Console.WriteLine("Waiting for evolution to stop");
                   bcast.WaitFor<HostStopEvolution>();
+                  Console.WriteLine();
                   Console.WriteLine("Evolution stopped");
                 }
               }
@@ -95,6 +98,8 @@ namespace VersaceExe
     {
       var masterReq = (MasterRequest)RabbitMessageReader.Read(0, File.ReadAllBytes(masterRequestPath));
 
+      PurgeTrainRequests();
+
       using (var hostBroadcast = MakeBroadcaster())
       {
         Console.CancelKeyPress += (sender, eventArgs) => {
@@ -112,15 +117,31 @@ namespace VersaceExe
         var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
         var protoRun = db.QueryOne<ProtoRun>(x => x.Name == masterReq.ProtoRunName);
         var dataSets = DataPreprocessing.MakeTrainingAndValidationSets(masterReq.Symbol, masterReq.StartDate, masterReq.EndDate,
-          masterReq.ValidationPct, GetSignalFunc(masterReq.SignalType));
+                                                                       masterReq.ValidationPct, GetSignalFunc(masterReq.SignalType));
 
-        var run = Functions.Evolve(protoRun, new DistributedTrainer(), dataSets.Item1, dataSets.Item2, gen => {
-          Console.WriteLine("Gen {0} {1}", gen.Order, gen.Evaluated.Fitness);
-        });
-
-        Console.WriteLine("Finished Run {0} with fitness {1} in {2}", run.Id, run.Generations.Max(x => x.Evaluated.Fitness), sw.Elapsed);
+        var run = Functions.Evolve(protoRun, new DistributedTrainer(), dataSets.Item1, dataSets.Item2,
+                                   (genNum, completed, total) => Console.WriteLine("Generation {0}: Trained {1} of {2}", genNum, completed, total),
+                                   gen => Console.WriteLine("Gen {0} {1}", gen.Order, gen.Evaluated.Fitness));
 
         hostBroadcast.Send(new HostStopEvolution());
+
+        Console.WriteLine("Finished Run {0} with fitness {1} in {2}", run.Id, run.Generations.Max(x => x.Evaluated.Fitness), sw.Elapsed);
+        Console.ReadKey();
+      }
+    }
+
+    public static void PurgeTrainRequests()
+    {
+      using (var conn = new ConnectionFactory { HostName = RabbitHost }.CreateConnection())
+      using (var model = conn.CreateModel())
+      {
+        try
+        {
+          model.QueuePurge("TrainRequests");
+        }
+        catch (Exception)
+        {
+        }
       }
     }
 

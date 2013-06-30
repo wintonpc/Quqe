@@ -94,7 +94,7 @@ namespace Quqe
 
       var pop = Lists.Repeat(run.ProtoRun.MixturesPerGeneration, _ => makeMixture()).Select(makeMixtureInfo);
 
-      trainer.Train(seed, gen, pop, _ => { });
+      trainer.Train(seed, gen, pop, progress => Console.WriteLine("Initialized {0} of {1}", progress.Completed, progress.Total));
 
       return gen;
     }

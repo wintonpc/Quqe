@@ -11,16 +11,16 @@ namespace Quqe
 {
   public class Supervisor : IDisposable
   {
-    readonly int WorkerCount;
-    List<Worker> Workers;
+    readonly int SlaveCount;
+    List<Slave> Slaves;
     readonly Thread MyThread;
     SyncContext ThreadSync;
     readonly MasterRequest MasterRequest;
 
-    public Supervisor(int workerCount, MasterRequest masterRequest)
+    public Supervisor(int slaveCount, MasterRequest masterRequest)
     {
       Console.WriteLine("Supervisor created");
-      WorkerCount = workerCount;
+      SlaveCount = slaveCount;
       MasterRequest = masterRequest;
 
       MyThread = new Thread(Supervise) {
@@ -33,30 +33,30 @@ namespace Quqe
     {
       ThreadSync = SyncContext.Current;
 
-      Workers = Lists.Repeat(WorkerCount, _ => {
-        Worker worker = new Worker(MasterRequest);
-        worker.Task = Task.Factory.StartNew(worker.Run).ContinueWith(t => {
-          Workers.RemoveAll(x => x.Task == t);
+      Console.WriteLine("Supervisor started {0} slaves", SlaveCount);
+
+      Slaves = Lists.Repeat(SlaveCount, _ => {
+        Slave slave = new Slave(MasterRequest);
+        slave.Task = Task.Factory.StartNew(slave.Run).ContinueWith(t => {
+          Slaves.RemoveAll(x => x.Task == t);
           if (t.IsFaulted)
-            Console.WriteLine("Worker faulted: " + t.Exception);
+            Console.WriteLine("Slave faulted: " + t.Exception);
         });
-        return worker;
+        return slave;
       });
 
-      Console.WriteLine("Supervisor started {0} workers", WorkerCount);
-
-      Waiter.Wait(() => !Workers.Any());
+      Waiter.Wait(() => !Slaves.Any());
     }
 
-    void StopWorkers()
+    void StopSlaves()
     {
       ThreadSync.Post(() => {
-        foreach (var s in Workers.ToList())
+        foreach (var s in Slaves.ToList())
         {
           s.Dispose();
-          Workers.Remove(s);
+          Slaves.Remove(s);
         }
-        Task.WaitAll(Workers.Select(x => x.Task).ToArray());
+        Task.WaitAll(Slaves.Select(x => x.Task).ToArray());
         Console.WriteLine("done");
       });
       MyThread.Join();
@@ -68,8 +68,8 @@ namespace Quqe
     {
       if (IsDisposed) return;
       IsDisposed = true;
-      Console.Write("Stopping workers...");
-      StopWorkers();
+      Console.Write("Stopping slaves...");
+      StopSlaves();
     }
   }
 }

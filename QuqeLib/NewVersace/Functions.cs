@@ -5,12 +5,15 @@ using System.Linq;
 using Quqe.NewVersace;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
+using Quqe.Rabbit;
 
 namespace Quqe
 {
   public static partial class Functions
   {
-    public static Run Evolve(ProtoRun protoRun, IGenTrainer trainer, DataSet trainingSet, DataSet validationSet, Action<Generation> onGenerationComplete = null)
+    public static Run Evolve(ProtoRun protoRun, IGenTrainer trainer, DataSet trainingSet, DataSet validationSet,
+      Action<int, int, int> onGenerationProgress = null,
+      Action<Generation> onGenerationComplete = null)
     {
       var run = new Run(protoRun, protoRun.ProtoChromosome);
       var gen = Initialization.MakeInitialGeneration(trainingSet, run, trainer);
@@ -22,7 +25,7 @@ namespace Quqe
         if (gen.Order == protoRun.NumGenerations - 1)
           return run;
 
-        gen = Train(trainer, trainingSet, run, gen.Order + 1,
+        gen = Train(trainer, trainingSet, run, gen.Order + 1, onGenerationProgress,
                     Mutate(run,
                            Combine(protoRun.MixturesPerGeneration,
                                    Select(protoRun.SelectionSize,
@@ -30,12 +33,11 @@ namespace Quqe
       }
     }
 
-    static Generation Train(IGenTrainer trainer, DataSet seed, Run run, int generationNum, MixtureInfo[] pop)
+    static Generation Train(IGenTrainer trainer, DataSet seed, Run run, int generationNum, Action<int, int, int> onGenerationProgress, MixtureInfo[] pop)
     {
       var gen = new Generation(run, generationNum);
       trainer.Train(seed, gen, pop.Select(mi => new MixtureInfo(new Mixture(gen, mi.Parents).Id, mi.Chromosomes)).ToArray(),
-                    progress => Trace.WriteLine(string.Format("Generation {0}: Trained {1} of {2}",
-                                                              generationNum, progress.Completed, progress.Total)));
+                    progress => onGenerationProgress.Fire(generationNum, progress.Completed, progress.Total));
       return gen;
     }
 

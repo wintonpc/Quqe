@@ -13,7 +13,7 @@ namespace Quqe.Rabbit
   {
     static RabbitMessageReader()
     {
-      EnsureMessagesAreRegistered();
+      EnsureMessagesAreRegistered(GetMessageTypes());
     }
 
     public static RabbitMessage Read(ulong deliveryTag, byte[] bs)
@@ -48,15 +48,20 @@ namespace Quqe.Rabbit
       return new UnknownRequest(deliveryTag, x + "\nThe message was:\n" + Encoding.UTF8.GetString(bs));
     }
 
-    static void EnsureMessagesAreRegistered()
+    static void EnsureMessagesAreRegistered(IEnumerable<Type> types)
     {
-      foreach (var t in GetMessageTypes())
+      foreach (var t in types)
         FormatterServices.GetUninitializedObject(t).ToBson();
     }
 
     static IEnumerable<Type> GetMessageTypes()
     {
       return AppDomain.CurrentDomain.GetAssemblies().SelectMany(asm => asm.GetTypes().Where(t => !t.IsAbstract && typeof (RabbitMessage).IsAssignableFrom(t)));
+    }
+
+    public static void Register(params Type[] types)
+    {
+      EnsureMessagesAreRegistered(types);
     }
   }
 }
