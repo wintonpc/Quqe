@@ -48,9 +48,9 @@ namespace Quqe
       IsDegenerate = isDegenerate;
     }
 
-    public static RBFNet Train(Mat trainingData, Vec outputData, double tolerance, double spread)
+    public static RBFNet Train(Mat trainingData, Vec outputData, double tolerance, double spread, Func<bool> cancelled = null)
     {
-      var solution = SolveOLS(trainingData.Columns(), outputData.ToList(), tolerance, spread); // TODO: don't call Columns
+      var solution = SolveOLS(trainingData.Columns(), outputData.ToList(), tolerance, spread, cancelled); // TODO: don't call Columns
       return new RBFNet(solution.Bases.Where(b => b.Center != null).ToList(), solution.Bases.Single(b => b.Center == null).Weight, spread, solution.IsDegenerate);
     }
 
@@ -78,7 +78,7 @@ namespace Quqe
       return proj * yHat;
     }
 
-    public static RBFNetSolution SolveOLS(List<Vec> xs, List<double> ys, double tolerance, double spread)
+    public static RBFNetSolution SolveOLS(List<Vec> xs, List<double> ys, double tolerance, double spread, Func<bool> cancelled = null)
     {
       Func<Vec, Vec, double> phi = (x, c) => Phi(x, c, spread);
       var maxCenters = (int)Math.Min(xs.Count, Math.Max(1, 4 * Math.Sqrt(xs.Count)));
@@ -132,7 +132,7 @@ namespace Quqe
         candidateBases.Remove(best.Candidate);
         selectedBases.Add(new { Center = best.Center, Basis = best.Candidate.Basis, OrthoBasis = best.OrthoBasis });
         qualityTotal += best.Quality;
-        if (1 - qualityTotal < tolerance)
+        if (1 - qualityTotal < tolerance || (cancelled != null && cancelled()))
           break;
       }
       QMDestroyOrthoContext(context);

@@ -25,11 +25,10 @@
   
   
 - TODO
-  - distributed training
-    - no need for master; just Evolve() with distributed trainer directly from versace.exe; move distributed trainer to Workers
+  - get running on cloud servers
   - distributed/parallel evaluation?
-  - historical data in mongo
   - why is the GA overfitting the blind set? something about the mixtures must be degenerate
+    - could have been the fact that I was accidentally using 30% testing set, 70% validation
   - things to try
     - feed training set into experts to build up state before evaluating validation set?
     - experts vote either -1 or 1, or their vote is weighed by their certainty (magnitude of output)

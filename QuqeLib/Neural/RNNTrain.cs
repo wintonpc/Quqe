@@ -27,7 +27,7 @@ namespace Quqe
 
     /// <summary>Scaled Conjugate Gradient algorithm from Williams (1991)</summary>
     public static RnnTrainResult TrainSCG(List<LayerSpec> layerSpecs, Vec weights, double epoch_max, Mat trainingData,
-      Vec outputData)
+      Vec outputData, Func<bool> canceled = null)
     {
       using (var context = RNNInterop.CreateTrainingContext(layerSpecs, trainingData, outputData))
       {
@@ -168,7 +168,7 @@ namespace Quqe
           //if (n == 1 || n % 50 == 0 || done)
           //  Trace.WriteLine(string.Format("[{0}]  Error = {1}  |g| = {2}", n, errAtW, g.Norm(2)));
 
-          if (done) break;
+          if (done || (canceled != null && canceled())) break;
         }
 
         return new RnnTrainResult {

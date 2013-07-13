@@ -119,7 +119,7 @@ namespace Quqe
 
   public static class TrainerCommon
   {
-    public static void Train(Database db, ObjectId mixtureId, DataSet trainingSet, Chromosome chrom)
+    public static void Train(Database db, ObjectId mixtureId, DataSet trainingSet, Chromosome chrom, Func<bool> cancelled = null)
     {
       var trimmed = TrimToWindow(trainingSet, chrom);
       var tailoredData = DataTailoring.TailorInputs(trimmed.Input, trimmed.DatabaseAInputLength, chrom);
@@ -127,10 +127,10 @@ namespace Quqe
       switch (chrom.NetworkType)
       {
         case NetworkType.Rnn:
-          Training.TrainRnn(tailoredData, trimmed.Output, chrom, (a, b, c) => new RnnTrainRec(db, mixtureId, chrom, a, b, c));
+          Training.TrainRnn(tailoredData, trimmed.Output, chrom, (a, b, c) => new RnnTrainRec(db, mixtureId, chrom, a, b, c), cancelled);
           break;
         case NetworkType.Rbf:
-          Training.TrainRbf(tailoredData, trimmed.Output, chrom, (a, b, c, d) => new RbfTrainRec(db, mixtureId, chrom, a, b, c, d));
+          Training.TrainRbf(tailoredData, trimmed.Output, chrom, (a, b, c, d) => new RbfTrainRec(db, mixtureId, chrom, a, b, c, d), cancelled);
           break;
         default:
           throw new Exception("Unexpected network type: " + chrom.NetworkType);

@@ -274,7 +274,7 @@ namespace QuqeTest
     {
       SyncContext.Current.Post(() => {
         f();
-        SyncContext.Current.Stop();
+        SyncContext.ExitAllFrames();
       });
       SyncContext.Current.Run();
     }

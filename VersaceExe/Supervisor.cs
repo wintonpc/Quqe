@@ -67,11 +67,9 @@ namespace Quqe
     {
       ThreadSync.Post(() => {
         foreach (var s in Slaves.ToList())
-        {
           s.Dispose();
-          Slaves.Remove(s);
-        }
         Task.WaitAll(Slaves.Select(x => x.Task).ToArray());
+        Slaves.Clear();
       });
       MyThread.Join();
     }
@@ -82,7 +80,6 @@ namespace Quqe
     {
       if (IsDisposed) return;
       IsDisposed = true;
-      Console.Write("Stopping slaves...");
       StopSlaves();
     }
   }

@@ -7,6 +7,7 @@ using Quqe.Rabbit;
 using VersaceExe;
 using System.Threading;
 using System.Diagnostics;
+using System.Windows.Threading;
 
 namespace Quqe
 {
@@ -14,8 +15,10 @@ namespace Quqe
   {
     public Task Task { get; set; }
     SyncContext TaskSync;
+    Dispatcher Dispatcher;
     readonly Database Database;
     readonly DataSet TrainingSet;
+    volatile bool Cancelled;
     bool IsStopped;
 
     public Slave(DataSet trainingSet)
@@ -27,6 +30,7 @@ namespace Quqe
     public void Run()
     {
       TaskSync = SyncContext.Current;
+      Dispatcher = Dispatcher.CurrentDispatcher;
       Thread.CurrentThread.Name = "Slave Thread";
 
       var rabbitHost = ConfigurationManager.AppSettings["RabbitHost"];
@@ -35,7 +39,7 @@ namespace Quqe
       {
         requests.Received += msg => {
           var req = (TrainRequest)msg;
-          Train(req);
+          Train(req, () => Cancelled);
           requests.Ack(msg);
           Console.Write(".");
           notifications.Send(new TrainNotification(req));
@@ -45,9 +49,9 @@ namespace Quqe
       }
     }
 
-    void Train(TrainRequest req)
+    void Train(TrainRequest req, Func<bool> cancelled)
     {
-      TrainerCommon.Train(Database, new ObjectId(req.MixtureId), TrainingSet, req.Chromosome);
+      TrainerCommon.Train(Database, new ObjectId(req.MixtureId), TrainingSet, req.Chromosome, cancelled);
     }
 
     bool IsDisposed;
@@ -56,10 +60,10 @@ namespace Quqe
     {
       if (IsDisposed) return;
       IsDisposed = true;
+      Cancelled = true;
       TaskSync.Post(() => {
         IsStopped = true;
       });
-      Task.Wait();
     }
   }
 }

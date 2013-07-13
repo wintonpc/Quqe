@@ -24,7 +24,9 @@ namespace Quqe.Rabbit
       if (_SyncContext == null)
       {
         if (SynchronizationContext.Current == null)
+        {
           SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext());
+        }
         _SyncContext = new SyncContext(SynchronizationContext.Current);
       }
     }
@@ -39,7 +41,7 @@ namespace Quqe.Rabbit
       Dispatcher.Run();
     }
 
-    public void Stop()
+    public static void ExitAllFrames()
     {
       Dispatcher.ExitAllFrames();
     }
