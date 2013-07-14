@@ -34,7 +34,13 @@ namespace Quqe
 
     public static DataSet LoadTrainingSet(Database db, string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignalFunc)
     {
-      return LoadTrainingSet(GetCleanSeries(db, predictedSymbol, GetTickers(predictedSymbol)), predictedSymbol, startDate, endDate, idealSignalFunc);
+      var cleanSeries = GetCleanSeries(db, predictedSymbol, GetTickers(predictedSymbol));
+      return LoadTrainingSetInternal(predictedSymbol, startDate, endDate, cleanSeries, idealSignalFunc);
+    }
+
+    static DataSet LoadTrainingSetInternal(string predictedSymbol, DateTime startDate, DateTime endDate, List<DataSeries<Bar>> cleanSeries, Func<DataSeries<Bar>, double> idealSignalFunc)
+    {
+      return LoadTrainingSet(cleanSeries, predictedSymbol, startDate, endDate, idealSignalFunc);
     }
 
     public static DataSet LoadTrainingSetFromDisk(string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignalFunc)
@@ -60,9 +66,11 @@ namespace Quqe
                                                                 double validationPct, Func<DataSeries<Bar>, double> idealSignalFunc)
     {
       DateTime splitDate = startDate.AddDays((endDate - startDate).TotalDays * (1.0 - validationPct)).Date;
+      var tickers = GetTickers(predictedSymbol);
+      var cleanSeries = GetCleanSeries(db, predictedSymbol, tickers);
       return new Tuple2<DataSet>(
-        LoadTrainingSet(db, predictedSymbol, startDate, splitDate, idealSignalFunc),
-        LoadTrainingSet(db, predictedSymbol, splitDate.AddDays(1), endDate, idealSignalFunc));
+        LoadTrainingSetInternal(predictedSymbol, startDate, splitDate, cleanSeries, idealSignalFunc),
+        LoadTrainingSetInternal(predictedSymbol, splitDate.AddDays(1), endDate, cleanSeries, idealSignalFunc));
     }
 
     static Mat TrimToWindow(Mat inputs, DateTime startDate, DateTime endDate, DataSeries<Bar> s)
@@ -191,8 +199,7 @@ namespace Quqe
 
     static List<DataSeries<Bar>> GetCleanSeries(Database db, string predictedSymbol, List<string> tickers)
     {
-      var allBars = db.QueryAll<DbBar>(_ => true);
-      var allSeries = allBars.GroupBy(x => x.Symbol).Select(g => new DataSeries<Bar>(g.Key, g.OrderBy(x => x.Timestamp).Select(DbBarToBar).ToArray())).ToList();
+      var allSeries = tickers.Select(symbol => new DataSeries<Bar>(symbol, db.QueryAll<DbBar>(x => x.Symbol == symbol, "Timestamp").Select(DbBarToBar))).ToList();
       return CleanSeries(predictedSymbol, allSeries);
     }
 

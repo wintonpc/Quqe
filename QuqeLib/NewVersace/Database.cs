@@ -14,30 +14,32 @@ namespace Quqe
   {
     readonly MongoDatabase MDB;
 
+    public MongoDatabase MongoDatabase { get { return MDB; } }
+
     public Database(MongoDatabase db)
     {
       MDB = db;
     }
 
-    public T[] QueryAll<T>(Expression<Func<T, bool>> predicate, Func<T, IComparable> orderKey = null) where T : MongoTopLevelObject
+    public T[] QueryAll<T>(Expression<Func<T, bool>> predicate = null, string orderKey = null) where T : MongoTopLevelObject
     {
-      var query = new QueryBuilder<T>().Where(predicate);
-      return InternalQuery(query, false, orderKey);
+      var query = predicate != null ? new QueryBuilder<T>().Where(predicate) : null;
+      return InternalQuery<T>(query, orderKey);
     }
 
-    public T[] RawQuery<T>(IMongoQuery query) where T : MongoTopLevelObject
-    {
-      return InternalQuery<T>(query, true, null);
-    }
-
-    T[] InternalQuery<T>(IMongoQuery query, bool isRaw, Func<T, IComparable> orderKey) where T : MongoTopLevelObject
+    T[] InternalQuery<T>(IMongoQuery query, string orderKey) where T : MongoTopLevelObject
     {
       var coll = MDB.GetCollection(typeof (T).Name);
-      var cursor = coll.FindAs<T>(query);
-      var items = (orderKey != null ? (IEnumerable<T>)cursor.OrderBy(orderKey) : cursor).ToArray();
-      if (!isRaw)
-        foreach (var item in items)
-          item.Database = this;
+      MongoCursor<T> cursor;
+      if (query == null)
+        cursor = coll.FindAllAs<T>();
+      else
+        cursor = coll.FindAs<T>(query);
+      if (orderKey != null)
+        cursor.SetSortOrder(SortBy.Ascending(orderKey));
+      var items = cursor.ToArray();
+      foreach (var item in items)
+        item.Database = this;
       return items;
     }
 

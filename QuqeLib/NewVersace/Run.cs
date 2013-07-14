@@ -151,7 +151,7 @@ namespace Quqe
   {
     public ProtoChromosome ProtoChromosome { get; private set; }
     public ProtoRun ProtoRun { get; private set; }
-    public Generation[] Generations { get { return Database.QueryAll<Generation>(x => x.RunId == this.Id, x => x.Order); } }
+    public Generation[] Generations { get { return Database.QueryAll<Generation>(x => x.RunId == this.Id, "Order"); } }
 
     public Run(ProtoRun protoRun, ProtoChromosome protoChrom)
       : base(protoRun.Database)

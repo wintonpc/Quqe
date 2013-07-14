@@ -47,6 +47,8 @@ namespace VersaceExe
     static void FetchData()
     {
       var db = Database.GetProductionDatabase(MongoHostInfo.FromAppSettings());
+      var coll = db.MongoDatabase.GetCollection("DbBar");
+      coll.EnsureIndex(new IndexKeysBuilder().Ascending("Symbol", "Timestamp"));
       var allBars = db.QueryAll<DbBar>(_ => true);
       DateTime firstDate = DateTime.Parse("11/10/2001");
       DateTime lastDate = allBars.Any() ? allBars.OrderByDescending(x => x.Timestamp).First().Timestamp : firstDate;
