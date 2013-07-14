@@ -23,7 +23,7 @@ namespace Quqe
 
     public Slave(DataSet trainingSet)
     {
-      Database = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
+      Database = Database.GetProductionDatabase(MongoHostInfo.FromAppSettings());
       TrainingSet = trainingSet;
     }
 
@@ -33,9 +33,9 @@ namespace Quqe
       Dispatcher = Dispatcher.CurrentDispatcher;
       Thread.CurrentThread.Name = "Slave Thread";
 
-      var rabbitHost = ConfigurationManager.AppSettings["RabbitHost"];
-      using (var notifications = new Broadcaster(new BroadcastInfo(rabbitHost, "TrainNotifications")))
-      using (var requests = new AsyncWorkQueueConsumer(new WorkQueueInfo(rabbitHost, "TrainRequests", false)))
+      var hostInfo = RabbitHostInfo.FromAppSettings();
+      using (var notifications = new Broadcaster(new BroadcastInfo(hostInfo, "TrainNotifications")))
+      using (var requests = new AsyncWorkQueueConsumer(new WorkQueueInfo(hostInfo, "TrainRequests", false)))
       {
         requests.Received += msg => {
           var req = (TrainRequest)msg;

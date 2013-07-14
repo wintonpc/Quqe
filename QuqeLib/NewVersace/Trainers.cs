@@ -83,9 +83,9 @@ namespace Quqe
   {
     public void Train(DataSet data, Generation gen, IEnumerable<MixtureInfo> population, Action<TrainProgress> progress)
     {
-      var rabbitHost = ConfigurationManager.AppSettings["RabbitHost"];
-      using (var trainRequests = new WorkQueueProducer(new WorkQueueInfo(rabbitHost, "TrainRequests", false)))
-      using (var trainNotifications = new Broadcaster(new BroadcastInfo(rabbitHost, "TrainNotifications")))
+      var hostInfo = RabbitHostInfo.FromAppSettings();
+      using (var trainRequests = new WorkQueueProducer(new WorkQueueInfo(hostInfo, "TrainRequests", false)))
+      using (var trainNotifications = new Broadcaster(new BroadcastInfo(hostInfo, "TrainNotifications")))
       {
         List<TrainRequest> outstanding = (from mixture in population
                                           from chrom in mixture.Chromosomes

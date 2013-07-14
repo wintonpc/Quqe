@@ -46,9 +46,9 @@ namespace Quqe.Rabbit
       }
     }
 
-    public static IConnection MakeConnection(string host)
+    public static IConnection MakeConnection(RabbitHostInfo host)
     {
-      return new ConnectionFactory { HostName = host, RequestedHeartbeat = 5 }.CreateConnection();
+      return new ConnectionFactory { HostName = host.Hostname, RequestedHeartbeat = 5, UserName = host.Username, Password = host.Password }.CreateConnection();
     }
   }
 }

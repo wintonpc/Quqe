@@ -45,6 +45,7 @@
       <HintPath>..\packages\RabbitMQ.Client.3.1.1\lib\net30\RabbitMQ.Client.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.ServiceProcess" />
     <Reference Include="System.Xml.Linq" />
@@ -57,6 +58,7 @@
   <ItemGroup>
     <Compile Include="Broadcaster\Broadcaster.cs" />
     <Compile Include="Broadcaster\BroadcastInfo.cs" />
+    <Compile Include="HostInfo.cs" />
     <Compile Include="Util\Disposal.cs" />
     <Compile Include="Util\EventHelpers.cs" />
     <Compile Include="GenericConsumers\AsyncConsumer.cs" />

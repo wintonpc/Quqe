@@ -6,6 +6,7 @@ using MongoDB.Bson;
 using NUnit.Framework;
 using Quqe;
 using Quqe.NewVersace;
+using Quqe.Rabbit;
 
 namespace QuqeTest
 {
@@ -147,7 +148,7 @@ namespace QuqeTest
     //[Test]
     public void AddProtoRun()
     {
-      var db = Database.GetProductionDatabase("mongodb://localhost/?safe=true");
+      var db = Database.GetProductionDatabase(new MongoHostInfo("mamail.co", "quqe", "g00gleflex", "versace"));
       new ProtoRun(db, "Dist1", 4, Initialization.MakeProtoChromosome(), 10, 6, 4, 4, 0.05);
     }
 

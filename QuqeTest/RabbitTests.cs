@@ -15,7 +15,7 @@ namespace QuqeTest
     public void AsyncWorkQueue()
     {
       WithSync(() => {
-        var wq = new WorkQueueInfo("localhost", "fooQueue", false);
+        var wq = new WorkQueueInfo(new RabbitHostInfo("localhost"), "fooQueue", false);
         using (var c1 = new AsyncWorkQueueConsumer(wq))
         using (var c2 = new AsyncWorkQueueConsumer(wq))
         using (var p = new WorkQueueProducer(wq))
@@ -45,7 +45,7 @@ namespace QuqeTest
     public void SyncWorkQueue()
     {
       WithSync(() => {
-        var wq = new WorkQueueInfo("localhost", "fooQueue", false);
+        var wq = new WorkQueueInfo(new RabbitHostInfo("localhost"), "fooQueue", false);
         using (var p = new WorkQueueProducer(wq))
         {
           var task = Task.Factory.StartNew(() => {
@@ -71,7 +71,7 @@ namespace QuqeTest
     public void SyncWorkQueueCancelling()
     {
       WithSync(() => {
-        var wq = new WorkQueueInfo("localhost", "fooQueue", false);
+        var wq = new WorkQueueInfo(new RabbitHostInfo("localhost"), "fooQueue", false);
         using (var p = new WorkQueueProducer(wq))
         {
           var isConnected = false;
@@ -103,7 +103,7 @@ namespace QuqeTest
     public void WorkerQueueIsConnectedEvent()
     {
       WithSync(() => {
-        var wq = new WorkQueueInfo("localhost", "fooQueue", false);
+        var wq = new WorkQueueInfo(new RabbitHostInfo("localhost"), "fooQueue", false);
         using (var c = new AsyncWorkQueueConsumer(wq))
         using (var p = new WorkQueueProducer(wq))
         {
@@ -262,7 +262,7 @@ namespace QuqeTest
     static void WithBroadcaster(Action<Broadcaster> f)
     {
       WithSync(() => {
-        var broadcast = new BroadcastInfo("localhost", "BroadcastTestExchange");
+        var broadcast = new BroadcastInfo(new RabbitHostInfo("localhost"), "BroadcastTestExchange");
         using (var b1 = new Broadcaster(broadcast))
         {
           f(b1);

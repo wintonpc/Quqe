@@ -35,7 +35,7 @@ namespace Quqe
       ThreadSync = SyncContext.Current;
 
       Console.Write("Supervisor is loading dataset...");
-      var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
+      var db = Database.GetProductionDatabase(MongoHostInfo.FromAppSettings());
       var trainingSet = DataPreprocessing.LoadTrainingAndValidationSets(db, MasterRequest.Symbol, MasterRequest.StartDate,
                                                                      MasterRequest.EndDate, MasterRequest.ValidationPct,
                                                                      VersaceMain.GetSignalFunc(MasterRequest.SignalType)).Item1;

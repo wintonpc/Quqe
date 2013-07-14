@@ -12,7 +12,7 @@ namespace QuqeTest
   {
     public static void PurgeQueue(string name)
     {
-      using (var conn = Helpers.MakeConnection("localhost"))
+      using (var conn = Helpers.MakeConnection(new RabbitHostInfo("localhost")))
       using (var model = conn.CreateModel())
         model.QueuePurge(name);
     }

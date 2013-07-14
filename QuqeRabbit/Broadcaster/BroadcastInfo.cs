@@ -2,10 +2,10 @@
 {
   public class BroadcastInfo
   {
-    public readonly string Host;
+    public readonly RabbitHostInfo Host;
     public readonly string Channel;
 
-    public BroadcastInfo(string host, string channel)
+    public BroadcastInfo(RabbitHostInfo host, string channel)
     {
       Host = host;
       Channel = channel;

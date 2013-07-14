@@ -10,13 +10,15 @@ using Quqe;
 using Quqe.NewVersace;
 using Quqe.Rabbit;
 using RabbitMQ.Client;
+using System.Collections.Generic;
+using MongoDB.Driver.Builders;
 
 namespace VersaceExe
 {
   static partial class VersaceMain
   {
     static Broadcaster Broadcaster;
-    static string RabbitHost = ConfigurationManager.AppSettings["RabbitHost"];
+    static RabbitHostInfo RabbitHostInfo = RabbitHostInfo.FromAppSettings();
     static string Hostname = Dns.GetHostName();
 
     static string GetNodeName()
@@ -44,7 +46,7 @@ namespace VersaceExe
 
     static void FetchData()
     {
-      var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
+      var db = Database.GetProductionDatabase(MongoHostInfo.FromAppSettings());
       var allBars = db.QueryAll<DbBar>(_ => true);
       DateTime firstDate = DateTime.Parse("11/10/2001");
       DateTime lastDate = allBars.Any() ? allBars.OrderByDescending(x => x.Timestamp).First().Timestamp : firstDate;
@@ -56,15 +58,17 @@ namespace VersaceExe
       VersaceDataFetching.DownloadData(predicted, firstFetchDate, DateTime.Now.Date);
 
       Console.Write("Storing in mongo ...");
+      var allNewBars = new List<DbBar>();
       foreach (var symbol in DataPreprocessing.GetTickers(predicted))
         foreach (var dbBar in DataImport.LoadVersace(symbol).Select(x => new DbBar(db, symbol, x.Timestamp, x.Open, x.Low, x.High, x.Close, x.Volume)))
-          db.Store(dbBar);
+          allNewBars.Add(dbBar);
+      db.StoreAll(allNewBars);
       Console.WriteLine("done");
     }
 
     static Broadcaster MakeBroadcaster()
     {
-      var b = new Broadcaster(new BroadcastInfo(RabbitHost, "HostMsgs"));
+      var b = new Broadcaster(new BroadcastInfo(RabbitHostInfo, "HostMsgs"));
       b.On<HostShutdown>(_ => {
         throw new ShutdownException();
       });
@@ -136,7 +140,7 @@ namespace VersaceExe
         var sw = new Stopwatch();
         sw.Start();
 
-        var db = Database.GetProductionDatabase(ConfigurationManager.AppSettings["MongoHost"]);
+        var db = Database.GetProductionDatabase(MongoHostInfo.FromAppSettings());
         var protoRun = db.QueryOne<ProtoRun>(x => x.Name == masterReq.ProtoRunName);
         var dataSets = DataPreprocessing.LoadTrainingAndValidationSets(db, masterReq.Symbol, masterReq.StartDate, masterReq.EndDate,
                                                                        masterReq.ValidationPct, GetSignalFunc(masterReq.SignalType));
@@ -158,7 +162,7 @@ namespace VersaceExe
 
     public static void PurgeTrainRequests()
     {
-      using (var conn = new ConnectionFactory { HostName = RabbitHost }.CreateConnection())
+      using (var conn = new ConnectionFactory { HostName = RabbitHostInfo.Hostname, UserName = RabbitHostInfo.Username, Password = RabbitHostInfo.Password }.CreateConnection())
       using (var model = conn.CreateModel())
       {
         try
