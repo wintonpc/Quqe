@@ -5,6 +5,7 @@ using MathNet.Numerics.LinearAlgebra.Double;
 using Quqe.NewVersace;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -32,12 +33,6 @@ namespace Quqe
       return x.DotProduct(pc) * pc;
     }
 
-    public static DataSet LoadTrainingSet(Database db, string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignalFunc)
-    {
-      var cleanSeries = GetCleanSeries(db, predictedSymbol, GetTickers(predictedSymbol));
-      return LoadTrainingSetInternal(predictedSymbol, startDate, endDate, cleanSeries, idealSignalFunc);
-    }
-
     static DataSet LoadTrainingSetInternal(string predictedSymbol, DateTime startDate, DateTime endDate, List<DataSeries<Bar>> cleanSeries, Func<DataSeries<Bar>, double> idealSignalFunc)
     {
       return LoadTrainingSet(cleanSeries, predictedSymbol, startDate, endDate, idealSignalFunc);
@@ -55,34 +50,49 @@ namespace Quqe
       var predictedSeries = cleanSeries.First(x => x.Symbol == predictedSymbol);
       var output = GetIdealOutput(idealSignalFunc, predictedSeries);
       var inputs = preprocessedInput.Input.Columns().Take(preprocessedInput.Input.ColumnCount - 1).ColumnsToMatrix(); // trim to output
+      var trimmedPredictedSeries = new DataSeries<Bar>(predictedSeries.Symbol, predictedSeries.Take(inputs.ColumnCount));
 
+      Debug.Assert(output.Count == predictedSeries.Length - 1);
+      Debug.Assert(inputs.ColumnCount == predictedSeries.Length - 1);
+
+      var window = GetWindow(startDate, endDate, trimmedPredictedSeries);
       return new DataSet(
-        TrimToWindow(inputs, startDate, endDate, predictedSeries),
-        TrimToWindow(output, startDate, endDate, predictedSeries),
+        TrimToWindow(inputs, window),
+        TrimToWindow(output, window),
         preprocessedInput.DatabaseAInputLength);
     }
 
     public static Tuple2<DataSet> LoadTrainingAndValidationSets(Database db, string predictedSymbol, DateTime startDate, DateTime endDate,
                                                                 double validationPct, Func<DataSeries<Bar>, double> idealSignalFunc)
     {
+      var cleanSeries = GetCroppedCleanSeries(db, predictedSymbol, startDate, endDate);
       DateTime splitDate = startDate.AddDays((endDate - startDate).TotalDays * (1.0 - validationPct)).Date;
-      var tickers = GetTickers(predictedSymbol);
-      var cleanSeries = GetCleanSeries(db, predictedSymbol, tickers);
       return new Tuple2<DataSet>(
         LoadTrainingSetInternal(predictedSymbol, startDate, splitDate, cleanSeries, idealSignalFunc),
         LoadTrainingSetInternal(predictedSymbol, splitDate.AddDays(1), endDate, cleanSeries, idealSignalFunc));
     }
 
-    static Mat TrimToWindow(Mat inputs, DateTime startDate, DateTime endDate, DataSeries<Bar> s)
+    public static DataSet LoadTrainingSet(Database db, string predictedSymbol, DateTime startDate, DateTime endDate, Func<DataSeries<Bar>, double> idealSignalFunc)
     {
-      var w = GetWindow(startDate, endDate, s);
-      return inputs.Columns().Skip(w.Item1).Take(w.Item2 - w.Item1 + 1).ColumnsToMatrix();
+      var cleanSeries = GetCroppedCleanSeries(db, predictedSymbol, startDate, endDate);
+      return LoadTrainingSetInternal(predictedSymbol, startDate, endDate, cleanSeries, idealSignalFunc);
     }
 
-    static Vec TrimToWindow(Vec outputs, DateTime startDate, DateTime endDate, DataSeries<Bar> s)
+    public static List<DataSeries<Bar>> GetCroppedCleanSeries(Database db, string predictedSymbol, DateTime startDate, DateTime endDate)
     {
-      var w = GetWindow(startDate, endDate, s);
-      return outputs.SubVector(w.Item1, w.Item2 - w.Item1 + 1);
+      // -100: go back far enough to get moving averages warmed up before we trim.
+      // +7: give enough lookahead so we know what the predicted output should be on the endDate
+      return GetCleanSeries(db, predictedSymbol, GetTickers(predictedSymbol), startDate.AddDays(-100), endDate.AddDays(7));
+    }
+
+    static Mat TrimToWindow(Mat inputs, Tuple2<int> window)
+    {
+      return inputs.Columns().Skip(window.Item1).Take(window.Item2 - window.Item1 + 1).ColumnsToMatrix();
+    }
+
+    static Vec TrimToWindow(Vec outputs, Tuple2<int> window)
+    {
+      return outputs.SubVector(window.Item1, window.Item2 - window.Item1 + 1);
     }
 
     static Tuple2<int> GetWindow(DateTime startDate, DateTime endDate, DataSeries<Bar> s)
@@ -197,9 +207,9 @@ namespace Quqe
       return new DenseVector(outputSignal.Skip(1).Select(x => x.Val).ToArray());
     }
 
-    static List<DataSeries<Bar>> GetCleanSeries(Database db, string predictedSymbol, List<string> tickers)
+    static List<DataSeries<Bar>> GetCleanSeries(Database db, string predictedSymbol, List<string> tickers, DateTime startDate, DateTime endDate)
     {
-      var allSeries = tickers.Select(symbol => new DataSeries<Bar>(symbol, db.QueryAll<DbBar>(x => x.Symbol == symbol, "Timestamp").Select(DbBarToBar))).ToList();
+      var allSeries = tickers.Select(symbol => new DataSeries<Bar>(symbol, db.QueryAll<DbBar>(x => x.Symbol == symbol && x.Timestamp >= startDate && x.Timestamp <= endDate, "Timestamp").Select(DbBarToBar))).ToList();
       return CleanSeries(predictedSymbol, allSeries);
     }
 
@@ -238,7 +248,7 @@ namespace Quqe
           newElements.Add(q[i].X);
         else
         {
-          var prev = newElements.Last();
+          var prev = newElements.Any() ? newElements.Last() : q.First(qq => qq.X != null).X;
           newElements.Add(new Bar(q[i].Timestamp, prev.Open, prev.Low, prev.High, prev.Close, prev.Volume));
         }
       }

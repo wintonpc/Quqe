@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -22,7 +23,7 @@ namespace Quqe
       return File.ReadAllLines(fn).Select(line => {
         var toks = line.Trim().Split(';');
         return new Bar(
-          DateTime.ParseExact(toks[0], "yyyyMMdd", null),
+          DateTime.ParseExact(toks[0], "yyyyMMdd", null, DateTimeStyles.AssumeUniversal),
           double.Parse(toks[1]),
           double.Parse(toks[3]),
           double.Parse(toks[2]),

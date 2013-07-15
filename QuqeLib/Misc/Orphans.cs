@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -67,7 +68,7 @@ namespace Quqe
           var toks = Regex.Split(line, @"\s+");
           if (toks[0] == "")
             continue;
-          var timestamp = DateTime.ParseExact(toks[0], "M/d/yyyy", null);
+          var timestamp = DateTime.ParseExact(toks[0], "M/d/yyyy", null, DateTimeStyles.AdjustToUniversal);
           var qqqGain = double.Parse(toks[1]);
           int numQqqShares;
           double profitWith12TimesMargin;
@@ -168,7 +169,7 @@ namespace Quqe
           var toks = Regex.Split(line, @"\s+");
           if (toks[0] == "")
             continue;
-          var timestamp = DateTime.ParseExact(toks[0], "M/d/yyyy", null);
+          var timestamp = DateTime.ParseExact(toks[0], "M/d/yyyy", null, DateTimeStyles.AdjustToUniversal);
           var qqqGain = double.Parse(toks[1]);
           var bar = qqq.FirstOrDefault(x => x.Timestamp == timestamp);
           if (bar == null)

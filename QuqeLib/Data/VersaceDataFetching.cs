@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -36,7 +37,7 @@ namespace Quqe
 
           var fixedLines = File.ReadAllLines(fn).Skip(1).Reverse().Select(line => {
             var toks = line.Split(',');
-            var timestamp = DateTime.ParseExact(toks[0], "yyyy-MM-dd", null);
+            var timestamp = DateTime.ParseExact(toks[0], "yyyy-MM-dd", null, DateTimeStyles.AdjustToUniversal);
             var open = double.Parse(toks[1]);
             var high = double.Parse(toks[2]);
             var low = double.Parse(toks[3]);
@@ -67,7 +68,7 @@ namespace Quqe
           var fs = Regex.Matches(tr, @"<td [^>]*tabledata[^>]*>([^<]+)</td>", RegexOptions.IgnoreCase | RegexOptions.Singleline).OfType<Match>().Select(m => m.Groups[1].Value).ToList();
           if (fs.Count != 7)
             continue;
-          var timestamp = DateTime.ParseExact(fs[0], "MMM d, yyyy", null);
+          var timestamp = DateTime.ParseExact(fs[0], "MMM d, yyyy", null, DateTimeStyles.AdjustToUniversal);
           if (timestamp < start) // yahoo enumerates data in reverse chronological order
             goto Done;
           lines.Add(string.Format("{0:yyyy-MM-dd},{1},{2},{3},{4},{5}",

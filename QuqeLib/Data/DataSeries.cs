@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 
@@ -323,12 +324,12 @@ namespace Quqe
 
     public DataSeries<T> From(string timestamp)
     {
-      return From(DateTime.Parse(timestamp));
+      return From(DateTime.Parse(timestamp, null, DateTimeStyles.AdjustToUniversal));
     }
 
     public DataSeries<T> To(string timestamp)
     {
-      return To(DateTime.Parse(timestamp));
+      return To(DateTime.Parse(timestamp, null, DateTimeStyles.AdjustToUniversal));
     }
 
     public IEnumerable<T> FromHere()

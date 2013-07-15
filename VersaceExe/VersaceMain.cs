@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Configuration;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -50,7 +51,7 @@ namespace VersaceExe
       var coll = db.MongoDatabase.GetCollection("DbBar");
       coll.EnsureIndex(new IndexKeysBuilder().Ascending("Symbol", "Timestamp"));
       var allBars = db.QueryAll<DbBar>(_ => true);
-      DateTime firstDate = DateTime.Parse("11/10/2001");
+      DateTime firstDate = DateTime.Parse("11/10/2001", null, DateTimeStyles.AdjustToUniversal);
       DateTime lastDate = allBars.Any() ? allBars.OrderByDescending(x => x.Timestamp).First().Timestamp : firstDate;
       var predicted = "DIA";
 
@@ -144,7 +145,7 @@ namespace VersaceExe
 
         var db = Database.GetProductionDatabase(MongoHostInfo.FromAppSettings());
         var protoRun = db.QueryOne<ProtoRun>(x => x.Name == masterReq.ProtoRunName);
-        var dataSets = DataPreprocessing.LoadTrainingAndValidationSets(db, masterReq.Symbol, masterReq.StartDate, masterReq.EndDate,
+        var dataSets = DataPreprocessing.LoadTrainingAndValidationSets(db, masterReq.Symbol, masterReq.StartDate.Date, masterReq.EndDate.Date,
                                                                        masterReq.ValidationPct, GetSignalFunc(masterReq.SignalType));
 
         Console.WriteLine("Data: {0:MM/dd/yyyy} - {1:MM/dd/yyyy}", masterReq.StartDate, masterReq.EndDate);

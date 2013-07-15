@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using Machine.Specifications;
 using MongoDB.Bson;
@@ -137,12 +138,14 @@ namespace QuqeTest
 
     static DataSet MakeTrainingSet(Database db, string startDate, string endDate)
     {
-      return DataPreprocessing.LoadTrainingSet(db, "DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), Signals.NextClose);
+      return DataPreprocessing.LoadTrainingSet(db, "DIA", DateTime.Parse(startDate, null, DateTimeStyles.AdjustToUniversal), DateTime.Parse(endDate, null, DateTimeStyles.AdjustToUniversal),
+        Signals.NextClose);
     }
 
     static Tuple2<DataSet> MakeTrainingAndValidationSets(Database db, string startDate, string endDate)
     {
-      return DataPreprocessing.LoadTrainingAndValidationSets(db, "DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), 0.20, Signals.NextClose);
+      return DataPreprocessing.LoadTrainingAndValidationSets(db, "DIA", DateTime.Parse(startDate, null, DateTimeStyles.AdjustToUniversal), DateTime.Parse(endDate, null, DateTimeStyles.AdjustToUniversal),
+        0.20, Signals.NextClose);
     }
 
     //[Test]

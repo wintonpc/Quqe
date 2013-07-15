@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using Quqe;
@@ -11,7 +12,8 @@ namespace QuqeTest
   {
     public static DataSet GetData(string startDate, string endDate)
     {
-      return DataPreprocessing.LoadTrainingSetFromDisk("DIA", DateTime.Parse(startDate), DateTime.Parse(endDate), Signals.NextClose);
+      return DataPreprocessing.LoadTrainingSetFromDisk("DIA", DateTime.Parse(startDate, null, DateTimeStyles.AdjustToUniversal), DateTime.Parse(endDate, null, DateTimeStyles.AdjustToUniversal),
+        Signals.NextClose);
     }
 
     public static string Checksum(Vec v)
