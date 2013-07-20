@@ -21,6 +21,10 @@ namespace Quqe.Rabbit
 
     delegate bool Hook(RabbitMessage msg);
 
+    /// <summary>
+    /// Careful! the constructor pumps messages for a few seconds
+    /// </summary>
+    /// <param name="broadcast"></param>
     public Broadcaster(BroadcastInfo broadcast)
     {
       BroadcastInfo = broadcast;
@@ -44,6 +48,8 @@ namespace Quqe.Rabbit
 
       if (!Waiter.Wait(3000, () => Consumer.IsConnected))
         throw new IOException();
+      if (MyState == State.Disposed) // could have been disposed while waiting
+        return; 
 
       Consumer.IsConnectedChanged += isConnected => {
         if (!isConnected)
