@@ -43,8 +43,10 @@ namespace Quqe
 
     static MixtureEval[] Evaluate(Generation gen, DataSet data)
     {
+      Console.Write("Evaluating generation " + gen.Order + " ...");
       var evaluatedMixtures = gen.Mixtures.Select(m => EvaluateMixture(m, data)).ToArray();
       new GenEval(gen, evaluatedMixtures.Max(x => x.Fitness));
+      Console.WriteLine("done");
       return evaluatedMixtures;
     }
 

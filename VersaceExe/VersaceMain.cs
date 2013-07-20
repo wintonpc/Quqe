@@ -32,14 +32,22 @@ namespace VersaceExe
       using (Broadcaster = MakeBroadcaster())
       {
         var cmd = cmdLine[0];
+
+        if (cmd == "shutdown")
+        {
+          Shutdown();
+          return;
+        }
+
+        Console.WriteLine("Connecting to rabbit at " + ConfigurationManager.AppSettings["RabbitHost"]);
+        Console.WriteLine("Connecting to mongo  at " + ConfigurationManager.AppSettings["MongoHost"]);
+
         if (cmd == "fetch")
           FetchData();
         else if (cmd == "host")
           RunSupervisor();
         else if (cmd == "run")
           DistributedEvolve(cmdLine[1]);
-        else if (cmd == "shutdown")
-          Shutdown();
         else
           Console.WriteLine("Unknown command: " + cmd);
       }
