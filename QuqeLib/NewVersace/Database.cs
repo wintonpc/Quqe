@@ -65,10 +65,12 @@ namespace Quqe
 
     public static Database GetProductionDatabase(MongoHostInfo mongo)
     {
-      var mongoClient = new MongoClient(new MongoClientSettings {
-        Server = new MongoServerAddress(mongo.Hostname),
-        Credentials = new[] { MongoCredential.CreateMongoCRCredential(mongo.DatabaseName, mongo.Username, mongo.Password) },
-      });
+      var mongoSettings = new MongoClientSettings {
+        Server = new MongoServerAddress(mongo.Hostname)
+      };
+      if (mongo.Username != "guest")
+        mongoSettings.Credentials = new[] { MongoCredential.CreateMongoCRCredential(mongo.DatabaseName, mongo.Username, mongo.Password) };
+      var mongoClient = new MongoClient(mongoSettings);
       var mongoServer = mongoClient.GetServer();
       var mongoDb = mongoServer.GetDatabase(mongo.DatabaseName);
       return new Database(mongoDb);
