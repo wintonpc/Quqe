@@ -152,7 +152,7 @@ namespace QuqeTest
     public void AddProtoRun()
     {
       var db = Database.GetProductionDatabase(new MongoHostInfo("beast", "guest", "guest", "versace"));
-      new ProtoRun(db, "Dist3", 4, Initialization.MakeProtoChromosome(), 10, 6, 4, 4, 0.05);
+      new ProtoRun(db, "Paper", 100, Initialization.MakeProtoChromosome(), 10, 6, 4, 4, 0.05);
     }
 
     [Test]

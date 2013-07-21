@@ -130,18 +130,18 @@
     <Compile Include="Util\Util.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\QuqeRabbit\QuqeRabbit.csproj">
-      <Project>{b0fabc22-4984-47cf-93ff-8e35f25bea70}</Project>
-      <Name>QuqeRabbit</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="App_Readme\MathNet.Numerics.authors.txt" />
     <Content Include="App_Readme\MathNet.Numerics.copyright.txt" />
     <Content Include="App_Readme\MathNet.Numerics.readme.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\QuqeRabbit\QuqeRabbit.csproj">
+      <Project>{b0fabc22-4984-47cf-93ff-8e35f25bea70}</Project>
+      <Name>QuqeRabbit</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\nuget.targets" />

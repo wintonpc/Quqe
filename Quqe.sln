@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuqeRabbit", "QuqeRabbit\Qu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VersaceExe", "VersaceExe\VersaceExe.csproj", "{95675739-7A84-441F-9470-A6EA9224F591}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuqeView", "QuqeView\QuqeView.csproj", "{AB938CE9-68BE-4900-A3C3-905C9612A918}"
+EndProject
 Global
 	GlobalSection(TestCaseManagementSettings) = postSolution
 		CategoryFile = Quqe.vsmdi
@@ -196,6 +198,24 @@ Global
 		{95675739-7A84-441F-9470-A6EA9224F591}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{95675739-7A84-441F-9470-A6EA9224F591}.Release|Win32.ActiveCfg = Release|Any CPU
 		{95675739-7A84-441F-9470-A6EA9224F591}.Release|x86.ActiveCfg = Release|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.DebugNoHost|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.DebugNoHost|Any CPU.Build.0 = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.DebugNoHost|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.DebugNoHost|Mixed Platforms.Build.0 = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.DebugNoHost|Win32.ActiveCfg = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.DebugNoHost|x86.ActiveCfg = Debug|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Release|Win32.ActiveCfg = Release|Any CPU
+		{AB938CE9-68BE-4900-A3C3-905C9612A918}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
