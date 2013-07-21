@@ -101,6 +101,7 @@ namespace VersaceExe
           Console.WriteLine("Waiting for evolution to start");
           var hostStartMsg = Broadcaster.WaitFor<HostStartEvolution>();
           AppDomainIsolator.Run(hostStartMsg.MasterRequest.ToUtf8(), masterRequestBytes => {
+            Console.WriteLine("Built on " + new FileInfo(typeof (Functions).Assembly.Location).LastWriteTime);
             RabbitMessageReader.Register(typeof (TrainRequest));
             using (var bcast = MakeBroadcaster())
             {
@@ -108,7 +109,7 @@ namespace VersaceExe
               Console.WriteLine("HostUp   " + nodeName);
               try
               {
-                using (new Supervisor(Environment.ProcessorCount, (MasterRequest)RabbitMessageReader.Read(0, masterRequestBytes)))
+                using (new Supervisor(Environment.ProcessorCount * 2, (MasterRequest)RabbitMessageReader.Read(0, masterRequestBytes)))
                 {
                   Console.WriteLine("Waiting for evolution to stop");
                   bcast.WaitFor<HostStopEvolution>();

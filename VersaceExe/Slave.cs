@@ -20,6 +20,7 @@ namespace Quqe
     readonly DataSet TrainingSet;
     volatile bool Cancelled;
     bool IsStopped;
+    volatile bool IsInitialized;
 
     public Slave(DataSet trainingSet)
     {
@@ -32,6 +33,7 @@ namespace Quqe
       TaskSync = SyncContext.Current;
       Dispatcher = Dispatcher.CurrentDispatcher;
       Thread.CurrentThread.Name = "Slave Thread";
+      IsInitialized = true;
 
       var hostInfo = RabbitHostInfo.FromAppSettings();
       using (var notifications = new Broadcaster(new BroadcastInfo(hostInfo, "TrainNotifications")))
@@ -58,7 +60,7 @@ namespace Quqe
 
     public void Dispose()
     {
-      if (IsDisposed) return;
+      if (IsDisposed || !IsInitialized) return;
       IsDisposed = true;
       Cancelled = true;
       TaskSync.Post(() => {

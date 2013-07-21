@@ -8,7 +8,7 @@ namespace Quqe.Rabbit
 
     public AsyncWorkQueueConsumer(WorkQueueInfo wq)
     {
-      Consumer = new AsyncConsumer(new ConsumerInfo(wq.Host, wq.Name, true, wq.IsPersistent, 2), msg => Received.Fire(msg));
+      Consumer = new AsyncConsumer(new ConsumerInfo(wq.Host, wq.Name, true, wq.IsPersistent, 1), msg => Received.Fire(msg));
       Consumer.IsConnectedChanged += x => IsConnectedChanged.Fire(x);
     }
 
