@@ -109,7 +109,7 @@ namespace VersaceExe
               Console.WriteLine("HostUp   " + nodeName);
               try
               {
-                using (new Supervisor(Environment.ProcessorCount * 2, (MasterRequest)RabbitMessageReader.Read(0, masterRequestBytes)))
+                using (new Supervisor((int)(Environment.ProcessorCount * 1.5), (MasterRequest)RabbitMessageReader.Read(0, masterRequestBytes)))
                 {
                   Console.WriteLine("Waiting for evolution to stop");
                   bcast.WaitFor<HostStopEvolution>();
@@ -161,9 +161,14 @@ namespace VersaceExe
         Console.WriteLine("Training set: {0} days", dataSets.Item1.Output.Count);
         Console.WriteLine("Validation set: {0} days", dataSets.Item2.Output.Count);
 
+        var genSw = new Stopwatch();
+        genSw.Restart();
         var run = Functions.Evolve(protoRun, new DistributedTrainer(), dataSets.Item1, dataSets.Item2,
                                    (genNum, completed, total) => Console.WriteLine("Generation {0}: Trained {1} of {2}", genNum, completed, total),
-                                   gen => Console.WriteLine("Gen {0} {1}", gen.Order, gen.Evaluated.Fitness));
+                                   gen => {
+                                     Console.WriteLine("Gen {0} fitness {1} took {2}s", gen.Order, gen.Evaluated.Fitness, genSw.Elapsed.TotalSeconds);
+                                     genSw.Restart();
+                                   });
 
         hostBroadcast.Send(new HostStopEvolution());
 

@@ -37,24 +37,28 @@ namespace Quqe.Rabbit
       Model = Connection.CreateModel();
 
       Model.ExchangeDeclare(BroadcastInfo.Channel, ExchangeType.Fanout, false, false, null);
-      var q = Model.QueueDeclare("", false, false, true, null);
-      Model.QueueBind(q.QueueName, BroadcastInfo.Channel, "");
-      MyQueueName = q.QueueName;
 
       PublishProps = Model.CreateBasicProperties();
       PublishProps.DeliveryMode = 1;
 
-      Consumer = new AsyncConsumer(new ConsumerInfo(BroadcastInfo.Host, MyQueueName, false, false, 4), DispatchMessage);
+      if (!BroadcastInfo.SendOnly)
+      {
+        var q = Model.QueueDeclare("", false, false, true, null);
+        Model.QueueBind(q.QueueName, BroadcastInfo.Channel, "");
+        MyQueueName = q.QueueName;
 
-      if (!Waiter.Wait(3000, () => Consumer.IsConnected))
-        throw new IOException();
-      if (MyState == State.Disposed) // could have been disposed while waiting
-        return; 
+        Consumer = new AsyncConsumer(new ConsumerInfo(BroadcastInfo.Host, MyQueueName, false, false, 4), DispatchMessage);
 
-      Consumer.IsConnectedChanged += isConnected => {
-        if (!isConnected)
-          ConnectionBroke();
-      };
+        if (!Waiter.Wait(3000, () => Consumer.IsConnected))
+          throw new IOException();
+        if (MyState == State.Disposed) // could have been disposed while waiting
+          return;
+
+        Consumer.IsConnectedChanged += isConnected => {
+          if (!isConnected)
+            ConnectionBroke();
+        };
+      }
     }
 
     protected override void AfterConnect()
@@ -65,7 +69,7 @@ namespace Quqe.Rabbit
     {
       if (MyState != State.Connected) return;
 
-      Safely(() => Model.BasicPublish(BroadcastInfo.Channel, "", PublishProps, msg.ToUtf8()));
+      Safely(() => Model.BasicPublish(BroadcastInfo.Channel, "", true, false, PublishProps, msg.ToUtf8()));
     }
 
     void DispatchMessage(RabbitMessage msg)

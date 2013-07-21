@@ -15,12 +15,10 @@ namespace Quqe
   {
     public Task Task { get; set; }
     SyncContext TaskSync;
-    Dispatcher Dispatcher;
     readonly Database Database;
     readonly DataSet TrainingSet;
     volatile bool Cancelled;
     bool IsStopped;
-    volatile bool IsInitialized;
 
     public Slave(DataSet trainingSet)
     {
@@ -30,13 +28,14 @@ namespace Quqe
 
     public void Run()
     {
+      if (Cancelled)
+        return;
+
       TaskSync = SyncContext.Current;
-      Dispatcher = Dispatcher.CurrentDispatcher;
       Thread.CurrentThread.Name = "Slave Thread";
-      IsInitialized = true;
 
       var hostInfo = RabbitHostInfo.FromAppSettings();
-      using (var notifications = new Broadcaster(new BroadcastInfo(hostInfo, "TrainNotifications")))
+      using (var notifications = new Broadcaster(new BroadcastInfo(hostInfo, "TrainNotifications", true)))
       using (var requests = new AsyncWorkQueueConsumer(new WorkQueueInfo(hostInfo, "TrainRequests", false)))
       {
         requests.Received += msg => {
@@ -60,12 +59,13 @@ namespace Quqe
 
     public void Dispose()
     {
-      if (IsDisposed || !IsInitialized) return;
+      if (IsDisposed) return;
       IsDisposed = true;
       Cancelled = true;
-      TaskSync.Post(() => {
-        IsStopped = true;
-      });
+      if (TaskSync != null)
+        TaskSync.Post(() => {
+          IsStopped = true;
+        });
     }
   }
 }
