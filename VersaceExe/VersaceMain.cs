@@ -120,6 +120,7 @@ namespace VersaceExe
               finally
               {
                 Console.WriteLine("HostDown " + nodeName);
+                RNNInterop.FreeQuqeMathDll();
               }
             }
           });

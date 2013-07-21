@@ -142,6 +142,13 @@ namespace Quqe
       return layers.Select(x => new QMLayerSpec(x)).ToArray();
     }
 
+    public static void FreeQuqeMathDll()
+    {
+      var handle = LoadLibrary("QuqeMath.dll"); // get a handle
+      FreeLibrary(handle); // free for the LoadLibrary() call we just made
+      FreeLibrary(handle); // free for .NET
+    }
+
     [DllImport("QuqeMath.dll", EntryPoint = "GetWeightCount", CallingConvention = CallingConvention.Cdecl)]
     static extern int QMGetWeightCount(QMLayerSpec[] layerSpecs, int numLayers, int nInputs);
 
@@ -163,5 +170,12 @@ namespace Quqe
 
     [DllImport("QuqeMath.dll", EntryPoint = "DestroyPropagationContext", CallingConvention = CallingConvention.Cdecl)]
     static extern void QMDestroyPropagationContext(IntPtr context);
+
+    [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern IntPtr LoadLibrary(string lpFileName);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool FreeLibrary(IntPtr hModule);
   }
 }
