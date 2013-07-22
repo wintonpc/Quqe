@@ -15,9 +15,9 @@ namespace Quqe
     public double Spread { get; private set; }
     public bool IsDegenerate { get; private set; }
 
-    public RbfTrainRec(Database db, ObjectId mixtureId, Chromosome chromosome,
+    public RbfTrainRec(Database db, ObjectId mixtureId, Chromosome chromosome, double trainingSeconds,
       IEnumerable<MRadialBasis> bases, double outputBias, double spread, bool isDegenerate)
-      : base(db, mixtureId, chromosome)
+      : base(db, mixtureId, chromosome, trainingSeconds)
     {
       Bases = bases.ToArray();
       OutputBias = outputBias;

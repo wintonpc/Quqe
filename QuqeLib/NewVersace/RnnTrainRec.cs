@@ -15,9 +15,9 @@ namespace Quqe
     public MRnnSpec RnnSpec { get; private set; }
     public double[] CostHistory { get; private set; }
 
-    public RnnTrainRec(Database db, ObjectId mixtureId, Chromosome chromosome,
+    public RnnTrainRec(Database db, ObjectId mixtureId, Chromosome chromosome, double trainingSeconds,
       Vec initialWeights, MRnnSpec rnnSpec, IEnumerable<double> costHistory)
-      : base(db, mixtureId, chromosome)
+      : base(db, mixtureId, chromosome, trainingSeconds)
     {
       InitialWeights = initialWeights;
       RnnSpec = rnnSpec;

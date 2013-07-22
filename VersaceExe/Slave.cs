@@ -35,7 +35,7 @@ namespace Quqe
       Thread.CurrentThread.Name = "Slave Thread";
 
       var hostInfo = RabbitHostInfo.FromAppSettings();
-      using (var notifications = new Broadcaster(new BroadcastInfo(hostInfo, "TrainNotifications", true)))
+      using (var notifications = new WorkQueueProducer(new WorkQueueInfo(hostInfo, "TrainNotifications", false)))
       using (var requests = new AsyncWorkQueueConsumer(new WorkQueueInfo(hostInfo, "TrainRequests", false)))
       {
         requests.Received += msg => {

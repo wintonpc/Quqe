@@ -244,12 +244,14 @@ namespace Quqe
     public ObjectId MixtureId { get; private set; }
     public Mixture Mixture { get { return Database.Get<Mixture>(MixtureId); } }
     public Chromosome Chromosome { get; private set; }
+    public double TrainingSeconds { get; private set; }
 
-    protected Expert(Database db, ObjectId mixtureId, Chromosome chromosome)
+    protected Expert(Database db, ObjectId mixtureId, Chromosome chromosome, double trainingSeconds)
       : base(db)
     {
       MixtureId = mixtureId;
       Chromosome = chromosome;
+      TrainingSeconds = trainingSeconds;
     }
   }
 }

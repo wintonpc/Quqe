@@ -25,8 +25,9 @@
   
   
 - TODO
-  - get running on cloud servers
-  - distributed/parallel evaluation?
+  - compress BinData fields
+  - analyze chromosome/trainingTime correlation to make better use of CPU cycles
+  - hotswap dlls isn't working properly. xcopy gives "Sharing violation"
   - why is the GA overfitting the blind set? something about the mixtures must be degenerate
     - could have been the fact that I was accidentally using 30% testing set, 70% validation
   - things to try

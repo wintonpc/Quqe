@@ -8,6 +8,7 @@ using Quqe.NewVersace;
 using Quqe.Rabbit;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
+using System.Diagnostics;
 
 namespace Quqe
 {
@@ -85,7 +86,7 @@ namespace Quqe
     {
       var hostInfo = RabbitHostInfo.FromAppSettings();
       using (var trainRequests = new WorkQueueProducer(new WorkQueueInfo(hostInfo, "TrainRequests", false)))
-      using (var trainNotifications = new Broadcaster(new BroadcastInfo(hostInfo, "TrainNotifications")))
+      using (var trainNotifications = new AsyncWorkQueueConsumer(new WorkQueueInfo(hostInfo, "TrainNotifications", false)))
       {
         List<TrainRequest> outstanding = (from mixture in population
                                           from chrom in mixture.Chromosomes
@@ -98,15 +99,17 @@ namespace Quqe
 
         var orderedRbfRequests = outstanding.Where(x => x.Chromosome.NetworkType == NetworkType.Rbf)
                                             .OrderByDescending(x => x.Chromosome.TrainingSizePct * (1 - x.Chromosome.RbfNetTolerance));
-        
-        foreach (var msg in orderedRnnRequests.Interleave(orderedRbfRequests))
-          trainRequests.Send(msg);
 
-        trainNotifications.On<TrainNotification>(notification => {
+        trainNotifications.Received += msg => {
+          var notification = (TrainNotification)msg;
           outstanding.RemoveAll(x => x.MixtureId == notification.OriginalRequest.MixtureId &&
                                      x.Chromosome.OrderInMixture == notification.OriginalRequest.Chromosome.OrderInMixture);
           progress(new TrainProgress(total - outstanding.Count, total));
-        });
+          trainNotifications.Ack(msg);
+        };
+
+        foreach (var msg in orderedRnnRequests.Interleave(orderedRbfRequests))
+          trainRequests.Send(msg);
 
         Waiter.Wait(() => !outstanding.Any());
       }
@@ -124,13 +127,15 @@ namespace Quqe
       var trimmed = TrimToWindow(trainingSet, chrom);
       var tailoredData = DataTailoring.TailorInputs(trimmed.Input, trimmed.DatabaseAInputLength, chrom);
 
+      var sw = new Stopwatch();
+      sw.Start();
       switch (chrom.NetworkType)
       {
         case NetworkType.Rnn:
-          Training.TrainRnn(tailoredData, trimmed.Output, chrom, (a, b, c) => new RnnTrainRec(db, mixtureId, chrom, a, b, c), cancelled);
+          Training.TrainRnn(tailoredData, trimmed.Output, chrom, (a, b, c) => new RnnTrainRec(db, mixtureId, chrom, sw.Elapsed.TotalSeconds, a, b, c), cancelled);
           break;
         case NetworkType.Rbf:
-          Training.TrainRbf(tailoredData, trimmed.Output, chrom, (a, b, c, d) => new RbfTrainRec(db, mixtureId, chrom, a, b, c, d), cancelled);
+          Training.TrainRbf(tailoredData, trimmed.Output, chrom, (a, b, c, d) => new RbfTrainRec(db, mixtureId, chrom, sw.Elapsed.TotalSeconds, a, b, c, d), cancelled);
           break;
         default:
           throw new Exception("Unexpected network type: " + chrom.NetworkType);
