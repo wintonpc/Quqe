@@ -49,10 +49,8 @@ namespace Quqe.Rabbit
 
         Consumer = new AsyncConsumer(new ConsumerInfo(BroadcastInfo.Host, MyQueueName, false, false, 4), DispatchMessage);
 
-        Console.WriteLine("Broadcast consumer waiting to be connected");
         if (!Waiter.Wait(3000, () => Consumer.IsConnected))
           throw new IOException();
-        Console.WriteLine("Broadcast consumer waiting to be connected...finished");
         if (MyState == State.Disposed) // could have been disposed while waiting
           return;
 
@@ -81,7 +79,6 @@ namespace Quqe.Rabbit
       foreach (var h in Hooks)
         if (h(msg))
           return;
-      Console.WriteLine("!!!!!!!! NO HANLDER FOR: " + msg.GetType().Name);
     }
 
     public object On<T>(Action<T> handler)
