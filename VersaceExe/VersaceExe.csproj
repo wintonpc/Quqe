@@ -102,9 +102,13 @@
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <PropertyGroup>
     <PostBuildEvent>cd $(OutputDir)
-xcopy /Y *.exe c:\public\quqe
-xcopy /Y *.dll c:\public\quqe
-xcopy /Y *.config c:\public\quqe</PostBuildEvent>
+xcopy /F /Y *.exe c:\public\quqe
+xcopy /F /Y *.dll c:\public\quqe
+xcopy /F /Y *.config c:\public\quqe
+mkdir c:\public\quqe\x86
+mkdir c:\public\quqe\x64
+xcopy /F /Y x86 c:\public\quqe\x86
+xcopy /F /Y x64 c:\public\quqe\x64</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

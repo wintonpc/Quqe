@@ -1,18 +1,36 @@
 ﻿using System;
+using Lz4Net;
 using MathNet.Numerics.LinearAlgebra.Double;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
 using MongoDB.Bson.Serialization;
+using System.Linq;
 using Vec = MathNet.Numerics.LinearAlgebra.Generic.Vector<double>;
 using Mat = MathNet.Numerics.LinearAlgebra.Generic.Matrix<double>;
 
 namespace Quqe.NewVersace
 {
-  class VectorSerializer : IBsonSerializer
+  public class VectorSerializer : IBsonSerializer
   {
+    static object Lock = new object();
+    static int NumCompressed;
+    public static double AverageCompressionRatio { get; private set; }
+
+    static void RecordCompression(int compressed, int uncompressed)
+    {
+      lock (Lock)
+      {
+        var thisRatio = (double)compressed / uncompressed;
+        AverageCompressionRatio = ((AverageCompressionRatio * NumCompressed) + thisRatio) / (double)(NumCompressed + 1);
+        NumCompressed++;
+      }
+    }
+
     public void Serialize(BsonWriter bsonWriter, Type nominalType, object value, IBsonSerializationOptions options)
     {
-      bsonWriter.WriteBinaryData(new BsonBinaryData(LittleEndian.DoublesToBytes(((Vec)value).ToArray()), BsonBinarySubType.Binary));
+      var before = LittleEndian.DoublesToBytes(((Vec)value).ToArray());
+      var after = Lz4.CompressBytes(before, Lz4Mode.HighCompression);
+      bsonWriter.WriteBinaryData(new BsonBinaryData(after, BsonBinarySubType.Binary));
     }
 
     public object Deserialize(BsonReader bsonReader, Type nominalType, Type actualType, IBsonSerializationOptions options)
@@ -27,7 +45,18 @@ namespace Quqe.NewVersace
 
     static Vec Deserialize(BsonReader bsonReader)
     {
-      return new DenseVector(LittleEndian.BytesToDoubles(bsonReader.ReadBinaryData().Bytes));
+      var bs = bsonReader.ReadBinaryData().Bytes;
+      byte[] decompressed;
+      try
+      {
+        decompressed = Lz4.DecompressBytes(bs);
+      }
+      catch (Exception)
+      {
+        decompressed = bs;
+      }
+      RecordCompression(bs.Length, decompressed.Length);
+      return new DenseVector(LittleEndian.BytesToDoubles(decompressed));
     }
 
     public IBsonSerializationOptions GetDefaultSerializationOptions()

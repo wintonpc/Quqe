@@ -49,6 +49,9 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Lz4Net">
+      <HintPath>..\packages\Lz4.Net.1.0.98\lib\net45\Lz4Net.dll</HintPath>
+    </Reference>
     <Reference Include="MathNet.Numerics">
       <HintPath>..\packages\MathNet.Numerics.2.5.0\lib\net40\MathNet.Numerics.dll</HintPath>
     </Reference>
@@ -133,6 +136,12 @@
     <Content Include="App_Readme\MathNet.Numerics.authors.txt" />
     <Content Include="App_Readme\MathNet.Numerics.copyright.txt" />
     <Content Include="App_Readme\MathNet.Numerics.readme.txt" />
+    <Content Include="x64\lz4X64.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="x86\lz4X86.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

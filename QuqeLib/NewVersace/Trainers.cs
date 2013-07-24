@@ -94,11 +94,10 @@ namespace Quqe
 
         int total = outstanding.Count;
 
-        var orderedRnnRequests = outstanding.Where(x => x.Chromosome.NetworkType == NetworkType.Rnn)
-                                            .OrderByDescending(x => x.Chromosome.TrainingSizePct * x.Chromosome.RnnLayer1NodeCount * x.Chromosome.RnnLayer2NodeCount * x.Chromosome.RnnTrainingEpochs);
-
-        var orderedRbfRequests = outstanding.Where(x => x.Chromosome.NetworkType == NetworkType.Rbf)
-                                            .OrderByDescending(x => x.Chromosome.TrainingSizePct * (1 - x.Chromosome.RbfNetTolerance));
+        var orderedRequests = outstanding.OrderByDescending(x => {
+          return Math.Pow(x.Chromosome.TrainingSizePct, 2)
+                 * (x.Chromosome.NetworkType == NetworkType.Rnn ? x.Chromosome.RnnTrainingEpochs : 100);
+        }).ToList();
 
         trainNotifications.Received += msg => {
           var notification = (TrainNotification)msg;
@@ -108,8 +107,8 @@ namespace Quqe
           trainNotifications.Ack(msg);
         };
 
-        foreach (var msg in orderedRnnRequests.Interleave(orderedRbfRequests))
-          trainRequests.Send(msg);
+        foreach (var req in orderedRequests)
+          trainRequests.Send(req);
 
         Waiter.Wait(() => !outstanding.Any());
       }

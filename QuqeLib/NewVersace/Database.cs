@@ -19,6 +19,12 @@ namespace Quqe
     public Database(MongoDatabase db)
     {
       MDB = db;
+      db.GetCollection(typeof(Generation).Name).EnsureIndex("RunId");
+      db.GetCollection(typeof(Mixture).Name).EnsureIndex("GenerationId");
+      db.GetCollection(typeof(GenEval).Name).EnsureIndex("GenerationId");
+      db.GetCollection(typeof(RnnTrainRec).Name).EnsureIndex("MixtureId");
+      db.GetCollection(typeof(RbfTrainRec).Name).EnsureIndex("MixtureId");
+      db.GetCollection(typeof(MixtureEval).Name).EnsureIndex("MixtureId");
     }
 
     public T[] QueryAll<T>(Expression<Func<T, bool>> predicate = null, string orderKey = null) where T : MongoTopLevelObject
