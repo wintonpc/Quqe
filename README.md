@@ -25,8 +25,8 @@
   
   
 - TODO
-  - compress BinData fields
-  - analyze chromosome/trainingTime correlation to make better use of CPU cycles
+  - web UI
+  - backtesting
   - hotswap dlls isn't working properly. xcopy gives "Sharing violation"
   - why is the GA overfitting the blind set? something about the mixtures must be degenerate
     - could have been the fact that I was accidentally using 30% testing set, 70% validation
@@ -34,6 +34,4 @@
     - feed training set into experts to build up state before evaluating validation set?
     - experts vote either -1 or 1, or their vote is weighed by their certainty (magnitude of output)
   - pick better initial weights: http://www.heatonresearch.com/encog/articles/nguyen-widrow-neural-network-weight.html
-  - web UI
-  - backtesting
   - catch NaN bug

@@ -1,0 +1,74 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fitness</title>
+  </head>
+  <style>
+    .line {
+      fill: none;
+      stroke: steelblue;
+      stroke-width: 1.5px;
+    }
+  </style>
+  <body>
+   
+    <script type="text/javascript" src="js/jquery-1.10.2.min.js"> </script>
+    <script type="text/javascript" src="js/d3.v3.min.js"> </script>
+    <script type="text/javascript" src="js/knockout-2.3.0.js"> </script>
+    <script type="text/javascript" src="js/pchart.js"> </script>
+    
+    <select size="20" data-bind="options: runIds, value: chosenRunId, event: { change: runIdChanged }"></select>
+
+    <svg id="chart"></svg>
+    
+    <script type="text/javascript">
+
+      var generations = [];
+      var gw = 1000;
+      var gh = 500;
+      var chart = makeChart("chart", "#chart", gw, gh);
+
+      var fitnessPath = chart.append("path").attr("class", "line");
+
+      var model = {
+        runIds: ko.observable([]),
+        chosenRunId: ko.observable(),
+        runIdChanged: function () { query(this.chosenRunId()); }
+      };
+
+      ko.applyBindings(model);
+
+      function query(runId) {
+        getUri("/quqe/fitnesses/" + runId, function(fitnesses) {
+          var x = d3.scale.linear().domain([0, fitnesses.length - 1]).range([0, gw]);
+          var y = d3.scale.linear().domain(d3.extent(fitnesses)).range([gh, 0]);
+
+          $("#best").text(d3.max(fitnesses));
+
+          var line = d3.svg.line().x(function(d, i) { return x(i); }).y(y);
+          fitnessPath.datum(fitnesses).attr("d", line);
+        }, function() {
+          var line = d3.svg.line().x(0).y(0);
+          fitnessPath.datum([]).attr("d", line);
+        });
+      }
+
+      function getUri(uri, success, error) {
+        $.ajax(uri, {
+          dataType: "json",
+          success: success,
+          error: error
+        });
+      }
+
+      getUri("/quqe/runIds", function (runIds) { model.runIds(runIds); });
+
+    </script>
+    
+    <div>
+      Best: <span id="best"></span>
+    </div>
+  </body>
+</html>
