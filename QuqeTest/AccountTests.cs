@@ -40,12 +40,37 @@ namespace QuqeTest
     }
 
     [Test]
+    public void ShortPosition()
+    {
+      var a = new VAccount(10000, 4, 3);
+      a.Short("DIA", 30, 5.00);
+      a.Equity.ShouldEqual(9997);
+      a.Invested.ShouldEqual(150);
+      a.BuyingPower.ShouldEqual(39838);
+
+      a.Cover("DIA", 30, 4.00);
+      a.Equity.ShouldEqual(10024);
+      a.Invested.ShouldEqual(0);
+      a.BuyingPower.ShouldEqual(40096);
+    }
+
+    [Test]
     public void MultipleBuys()
     {
       var a = new VAccount(10000, 4, 3);
       a.Buy("DIA", 10, 1.00);
       a.Buy("DIA", 10, 2.00);
       a.Sell("DIA", 20, 2.50);
+      a.Equity.ShouldEqual(10011);
+    }
+
+    [Test]
+    public void MultipleShorts()
+    {
+      var a = new VAccount(10000, 4, 3);
+      a.Short("DIA", 10, 2.00);
+      a.Short("DIA", 10, 3.00);
+      a.Cover("DIA", 20, 1.50);
       a.Equity.ShouldEqual(10011);
     }
 
@@ -61,25 +86,58 @@ namespace QuqeTest
     }
 
     [Test]
-    public void JustEnoughCashToBuy()
+    public void MultipleCovers()
+    {
+      var a = new VAccount(10000, 4, 3);
+      a.Short("DIA", 20, 5.00);
+      a.Cover("DIA", 10, 2.00);
+      a.Equity.ShouldEqual(10024);
+      a.Cover("DIA", 10, 3.00);
+      a.Equity.ShouldEqual(10041);
+    }
+
+    [Test]
+    public void JustEnoughEquityToBuy()
     {
       var a = new VAccount(10, 4, 3);
       a.Buy("DIA", 4, 7.00);
     }
 
     [Test]
-    public void NotEnoughCashToBuy()
+    public void NotEnoughEquityToBuy()
     {
       var a = new VAccount(10, 4, 3);
       new Action(() => a.Buy("DIA", 4, 7.01)).ShouldThrow<Exception>(x => x.Message.ShouldEqual("Insufficient buying power"));
     }
 
     [Test]
-    public void CannotSellMoreThanYouHave()
+    public void JustEnoughEquityToShort()
     {
       var a = new VAccount(10, 4, 3);
+      a.Short("DIA", 4, 7.00);
+    }
+
+    [Test]
+    public void NotEnoughEquityToShort()
+    {
+      var a = new VAccount(10, 4, 3);
+      new Action(() => a.Short("DIA", 4, 7.01)).ShouldThrow<Exception>(x => x.Message.ShouldEqual("Insufficient buying power"));
+    }
+
+    [Test]
+    public void CannotSellMoreThanYouHave()
+    {
+      var a = new VAccount(10000, 4, 3);
       a.Buy("DIA", 4, 7.00);
       new Action(() => a.Sell("DIA", 5, 7.00)).ShouldThrow<Exception>(x => x.Message.ShouldContain("Can't sell"));
+    }
+
+    [Test]
+    public void CannotCoverMoreThanYouShorted()
+    {
+      var a = new VAccount(10000, 4, 3);
+      a.Short("DIA", 4, 7.00);
+      new Action(() => a.Cover("DIA", 5, 7.00)).ShouldThrow<Exception>(x => x.Message.ShouldContain("Can't cover"));
     }
   }
 }

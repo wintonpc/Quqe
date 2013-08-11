@@ -53,6 +53,36 @@ namespace Quqe.NewVersace
       DecreasePosition(s, numShares);
     }
 
+    public void Short(string s, int numShares, double pricePerShare)
+    {
+      var existingNumShares = GetPosition(s).NumShares;
+      if (existingNumShares > 0)
+        throw new Exception(string.Format("Can't short when already long {0} shares", existingNumShares));
+
+      Equity -= TradeCost;
+
+      if (numShares * pricePerShare > BuyingPower)
+        throw new Exception("Insufficient buying power");
+
+      Invested += numShares * pricePerShare;
+      IncreasePosition(s, -numShares, pricePerShare);
+    }
+
+    public void Cover(string s, int numShares, double pricePerShare)
+    {
+      var existingNumShares = GetPosition(s).NumShares;
+      if (Math.Abs(existingNumShares) < numShares)
+        throw new Exception(string.Format("Can't cover {0} when you only have {1} shares", numShares, existingNumShares));
+
+      var pos = GetPosition(s);
+      var profit = numShares * (pos.AveragePrice - pricePerShare);
+
+      Equity += profit;
+      Equity -= TradeCost;
+      Invested -= numShares * pos.AveragePrice;
+      DecreasePosition(s, -numShares);
+    }
+
     void IncreasePosition(string s, int numShares, double pricePerShare)
     {
       var pos = GetPosition(s);
