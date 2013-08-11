@@ -93,6 +93,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AccountTests.cs" />
+    <Compile Include="BacktestingTests.cs" />
     <Compile Include="MongoTests.cs" />
     <Compile Include="NewVersace\DatabaseTests.cs" />
     <Compile Include="NewVersace\FunctionTests.cs" />

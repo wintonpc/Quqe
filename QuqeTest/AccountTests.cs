@@ -25,6 +25,13 @@ namespace QuqeTest
     }
 
     [Test]
+    public void MaxShares()
+    {
+      var a = new VAccount(28, 4, 3);
+      a.MaxSharesAtPrice(9).ShouldEqual(11);
+    }
+
+    [Test]
     public void LongPosition()
     {
       var a = new VAccount(10000, 4, 3);

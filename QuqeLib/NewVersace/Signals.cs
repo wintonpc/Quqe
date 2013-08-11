@@ -11,5 +11,10 @@ namespace Quqe.NewVersace
       if (ideal == 0) return 1; // we never predict "no change", so if there actually was no change, consider it a buy
       return ideal;
     }
+
+    public static double Null(DataSeries<Bar> s)
+    {
+      return 0;
+    }
   }
 }

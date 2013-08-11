@@ -95,7 +95,12 @@ namespace Quqe
       return outputs.SubVector(window.Item1, window.Item2 - window.Item1 + 1);
     }
 
-    static Tuple2<int> GetWindow(DateTime startDate, DateTime endDate, DataSeries<Bar> s)
+    public static DataSeries<Bar> TrimToWindow(DataSeries<Bar> bars, Tuple2<int> window)
+    {
+      return new DataSeries<Bar>(bars.Symbol, bars.Skip(window.Item1).Take(window.Item2 - window.Item1 + 1));
+    }
+
+    public static Tuple2<int> GetWindow(DateTime startDate, DateTime endDate, DataSeries<Bar> s)
     {
       var sList = s.ToList();
       var start = sList.FindIndex(x => x.Timestamp.Date >= startDate.Date);
@@ -226,7 +231,7 @@ namespace Quqe
     }
 
 
-    static Bar DbBarToBar(DbBar x)
+    public static Bar DbBarToBar(DbBar x)
     {
       return new Bar(x.Timestamp, x.Open, x.Low, x.High, x.Close, x.Volume);
     }

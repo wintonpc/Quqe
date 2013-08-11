@@ -100,6 +100,7 @@
     <Compile Include="Misc\Optimize.cs" />
     <Compile Include="Misc\Orphans.cs" />
     <Compile Include="Misc\QuqeUtil.cs" />
+    <Compile Include="NewVersace\Backtesting.cs" />
     <Compile Include="NewVersace\DataModel.cs" />
     <Compile Include="NewVersace\Database.cs" />
     <Compile Include="NewVersace\EvolutionAux.cs" />

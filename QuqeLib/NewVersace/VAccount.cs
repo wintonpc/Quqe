@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Quqe.NewVersace
+namespace Quqe
 {
   class VAccount
   {
@@ -21,6 +21,11 @@ namespace Quqe.NewVersace
       Equity = initialEquity;
       MarginFactor = marginFactor;
       TradeCost = tradeCost;
+    }
+
+    public int MaxSharesAtPrice(double price)
+    {
+      return (int)Math.Floor(((Equity - TradeCost) * MarginFactor - Invested) / price);
     }
 
     public void Buy(string s, int numShares, double pricePerShare)
