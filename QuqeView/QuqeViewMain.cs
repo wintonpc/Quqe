@@ -138,12 +138,13 @@ namespace QuqeView
 
     static Response Json(BsonValue bson)
     {
-      var jsonBytes = Encoding.UTF8.GetBytes(bson.ToJson(typeof (object), new JsonWriterSettings {
+      var jsonString = bson.ToJson(typeof (object), new JsonWriterSettings {
         OutputMode = JsonOutputMode.JavaScript,
         Indent = true,
         NewLineChars = "\n",
         IndentChars = " "
-      }));
+      });
+      var jsonBytes = Encoding.UTF8.GetBytes(jsonString);
 
       return new Response {
         Contents = s => s.Write(jsonBytes, 0, jsonBytes.Length),

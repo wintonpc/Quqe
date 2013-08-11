@@ -99,6 +99,9 @@
     <Content Include="pages\js\knockout-2.3.0.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="pages\js\moment.min.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="pages\js\pchart.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

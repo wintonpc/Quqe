@@ -35,7 +35,10 @@
       var model = {
         runIds: ko.observable([]),
         chosenRunId: ko.observable(),
-        runIdChanged: function () { query(this.chosenRunId()); }
+        runIdChanged: function () {
+          $("#lblRunId").text(this.chosenRunId());
+          query(this.chosenRunId());
+        }
       };
 
       ko.applyBindings(model);
@@ -60,6 +63,7 @@
 
     </script>
     
+    <p id="lblRunId"></p>
     <div>
       Best: <span id="best"></span>
     </div>

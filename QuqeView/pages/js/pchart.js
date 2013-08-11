@@ -1,8 +1,8 @@
 ﻿function makeChart(name, elementSelector, width, height) {
   return d3.select(elementSelector)
-            .attr("class", name)
-            .attr("width", width)
-            .attr("height", height);
+    .attr("class", name)
+    .attr("width", width)
+    .attr("height", height);
 }
 
 function addSubchart(chart, name, shape, data, style, attrs) {
@@ -10,9 +10,9 @@ function addSubchart(chart, name, shape, data, style, attrs) {
   $("head").append('<style>.' + name + '{' + style + '}</style>');
 
   var c = chart.selectAll("." + name + " " + shape)
-                .data(data)
-                .enter().append(shape)
-                .attr("class", name);
+    .data(data)
+    .enter().append(shape)
+    .attr("class", name);
 
   for (var key in attrs) {
     c.attr(key, attrs[key]);
@@ -23,8 +23,8 @@ function addSubchart(chart, name, shape, data, style, attrs) {
 
 function getUri(uri, success, error) {
   $.ajax(uri, {
-    dataType: "json",
-    success: success,
-    error: error
+    dataType: "script",
+    success: function(x) { success(eval(x)); },
+    error: error || function(xhr, status) { alert(status); }
   });
 }

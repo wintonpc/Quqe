@@ -18,15 +18,10 @@
     <script type="text/javascript" src="js/d3.v3.min.js"> </script>
     <script type="text/javascript" src="js/knockout-2.3.0.js"> </script>
     <script type="text/javascript" src="js/underscore-min.js"> </script>
+    <script type="text/javascript" src="js/moment.min.js"> </script>
     <script type="text/javascript" src="js/pchart.js"> </script>
     
-    <div>
-      <select data-bind="options: runs, value: selectedRun, optionsText: function(run) { return getRunDescription(run); }"></select>
-      <span id="runInfo">
-        <span>ProtoRun: </span><span style="font-weight: bold;" data-bind="text: selectedRun().ProtoRun.Name"></span>
-        <!--<span>Gens: </span><span style="font-weight: bold;" data-bind="text: selectedRun().Generations.length"></span>-->
-      </span>
-    </div>
+    <select data-bind="options: runs, value: selectedRun, optionsText: function(run) { return getRunDescription(run); }"></select>
 
     <svg id="chart" height="400">
       <g id="bars"></g>
@@ -42,8 +37,20 @@
         run: ko.observable()
       };
 
+      function peakFitness(run) {
+        return d3.max(run.Generations.map(function (x) { return x.Evaluated.Fitness; }));
+      }
+
+      function round(n, p) {
+        var s = Math.pow(10, p);
+        return Math.round(s * n) / s;
+      }
+
       function getRunDescription(run) {
-        return run._id.$oid + " - " + run.ProtoRun.Name + ", " + run.Generations.length + " gens,  ";
+        return run._id.$oid + " - " + run.ProtoRun.Name + " (" + round(peakFitness(run), 3) + "), " + run.Generations.length + " gens,  " +
+          moment(run.StartDate).format("MMM D, 'YY") + " to " + moment(run.EndDate).format("MMM D, 'YY") +
+          " Validation: " + Math.round(100 * run.ValidationPct) + "%";
+        
       }
 
       getUri("/quqe/runs", function (runs) {

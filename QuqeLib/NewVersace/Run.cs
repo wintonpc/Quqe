@@ -151,13 +151,24 @@ namespace Quqe
   {
     public ProtoChromosome ProtoChromosome { get; private set; }
     public ProtoRun ProtoRun { get; private set; }
+    public DateTime StartDate { get; private set; }
+    public DateTime EndDate { get; private set; }
+    public double ValidationPct { get; private set; }
     public Generation[] Generations { get { return Database.QueryAll<Generation>(x => x.RunId == this.Id, "Order"); } }
 
     public Run(ProtoRun protoRun, ProtoChromosome protoChrom)
+      : this(protoRun, protoChrom, DateTime.MinValue, DateTime.MinValue, 0)
+    {
+    }
+
+    public Run(ProtoRun protoRun, ProtoChromosome protoChrom, DateTime startDate, DateTime endDate, double validationPct)
       : base(protoRun.Database)
     {
       ProtoChromosome = protoChrom;
       ProtoRun = protoRun;
+      StartDate = startDate;
+      EndDate = endDate;
+      ValidationPct = validationPct;
       Database.Store(this);
     }
   }
