@@ -165,7 +165,7 @@ namespace VersaceExe
         var genSw = new Stopwatch();
         genSw.Restart();
         var run = Functions.Evolve(protoRun, new DistributedTrainer(), dataSets.Item1, dataSets.Item2,
-                                   masterReq.StartDate, masterReq.EndDate, masterReq.ValidationPct,
+                                   masterReq.Symbol, masterReq.StartDate, masterReq.EndDate, masterReq.ValidationPct,
                                    (genNum, completed, total) => Console.WriteLine("Generation {0}: Trained {1} of {2}", genNum, completed, total),
                                    gen => {
                                      Console.WriteLine("Gen {0} fitness {1} took {2}s, avg comp {3:N2}",

@@ -4,14 +4,10 @@
   <head>
     <meta charset="utf-8" />
     <title>Backtest</title>
-  </head>
   <style>
-    .line {
-      fill: none;
-      stroke: steelblue;
-      stroke-width: 1.5px;
-    }
+
   </style>
+  </head>
   <body>
    
     <script type="text/javascript" src="js/jquery-1.10.2.min.js"> </script>
@@ -22,6 +18,11 @@
     <script type="text/javascript" src="js/pchart.js"> </script>
     
     <select data-bind="options: runs, value: selectedRun, optionsText: function(run) { return getRunDescription(run); }"></select>
+    <div>
+      Start: <input type="text" data-bind="value: backtestStart" />
+      End: <input type="text" data-bind="value: backtestEnd" />
+      <button onclick="doBacktest()">Backtest</button>
+    </div>
 
     <svg id="chart" height="400">
       <g id="bars"></g>
@@ -34,7 +35,9 @@
       var model = {
         runs: ko.observable([]),
         selectedRun: ko.observable(),
-        run: ko.observable()
+        run: ko.observable(),
+        backtestStart: ko.observable("1/1/2012"),
+        backtestEnd: ko.observable("1/1/2013")
       };
 
       function peakFitness(run) {
@@ -47,10 +50,13 @@
       }
 
       function getRunDescription(run) {
-        return run._id.$oid + " - " + run.ProtoRun.Name + " (" + round(peakFitness(run), 3) + "), " + run.Generations.length + " gens,  " +
+        return run._id.$oid + " - " + run.ProtoRun.Name + " (" + round(peakFitness(run), 3) + "), " + run.Symbol + ", " + run.Generations.length + " gens,  " +
           moment(run.StartDate).format("MMM D, 'YY") + " to " + moment(run.EndDate).format("MMM D, 'YY") +
           " Validation: " + Math.round(100 * run.ValidationPct) + "%";
-        
+      }
+
+      function doBacktest() {
+        getUri
       }
 
       getUri("/quqe/runs", function (runs) {

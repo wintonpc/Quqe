@@ -119,6 +119,7 @@
     <Compile Include="NewVersace\Signals.cs" />
     <Compile Include="NewVersace\Trainers.cs" />
     <Compile Include="NewVersace\Training.cs" />
+    <Compile Include="NewVersace\VAccount.cs" />
     <Compile Include="NewVersace\VectorSerializer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Neural\RBFNet.cs" />

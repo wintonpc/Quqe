@@ -12,11 +12,11 @@ namespace Quqe
   public static partial class Functions
   {
     public static Run Evolve(ProtoRun protoRun, IGenTrainer trainer, DataSet trainingSet, DataSet validationSet,
-      DateTime startDate = default(DateTime), DateTime endDate = default(DateTime), double validationPct = 0, 
+      string symbol = null, DateTime startDate = default(DateTime), DateTime endDate = default(DateTime), double validationPct = 0, 
       Action<int, int, int> onGenerationProgress = null,
       Action<Generation> onGenerationComplete = null)
     {
-      var run = new Run(protoRun, protoRun.ProtoChromosome, startDate, endDate, validationPct);
+      var run = new Run(protoRun, protoRun.ProtoChromosome, null, startDate, endDate, validationPct);
       var gen = Initialization.MakeInitialGeneration(trainingSet, run, trainer);
 
       while (true)
