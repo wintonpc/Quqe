@@ -56,22 +56,32 @@ namespace QuqeView
 
       Get["/protoruns"] = p => Json(DB.QueryAll<ProtoRun>());
 
-      Get["/runs"] = p => Json(DB.QueryAll<Run>());
+      Get["/runs"] = p => Json(DB.QueryAll<Run>().Select(RunToBson).Where(x => x != null));
 
       Get["/runIds"] = p => Json(DB.QueryAll<Run>().Select(x => x.Id.ToString()));
 
-      Get["/run/{runId}"] = p =>
-      {
+      Get["/run/{runId}"] = p => {
         var runId = new ObjectId((string)p["runId"]);
         var run = DB.QueryOne<Run>(x => x.Id == runId);
         return Json(RunToBson(run));
       };
 
-      Get["/fitnesses/{runId}"] = p =>
-      {
+      Get["/fitnesses/{runId}"] = p => {
         var runId = new ObjectId((string)p["runId"]);
         var run = DB.QueryOne<Run>(x => x.Id == runId);
         return Json(run.Generations.Select(x => x.Evaluated.Fitness));
+      };
+
+      Get["/bars/{symbol}"] = p => {
+        var symbol = (string)p["symbol"];
+        return Json(DB.QueryAll<DbBar>(x => x.Symbol == symbol, "Timestamp"));
+      };
+
+      Get["/bars/{symbol}/from/{fYear}/{fMonth}/{fDay}/to/{tYear}/{tMonth}/{tDay}"] = p => {
+        var symbol = (string)p["symbol"];
+        var from = new DateTime((int)p["fYear"], (int)p["fMonth"], (int)p["fDay"]);
+        var to = new DateTime((int)p["tYear"], (int)p["tMonth"], (int)p["tDay"]);
+        return Json(DB.QueryAll<DbBar>(x => x.Symbol == symbol, "Timestamp").Where(x => from <= x.Timestamp && x.Timestamp <= to));
       };
 
       Get["/run/{runId}/gen/{genIdx}"] = p => {
@@ -90,9 +100,16 @@ namespace QuqeView
 
     static BsonDocument RunToBson(Run run)
     {
-      var runDoc = run.ToBsonDocument();
-      runDoc["Generations"] = ToBson(run.Generations.OrderBy(x => x.Order).Select(GenerationToBson));
-      return runDoc;
+      try
+      {
+        var runDoc = run.ToBsonDocument();
+        runDoc["Generations"] = ToBson(run.Generations.OrderBy(x => x.Order).Select(GenerationToBson));
+        return runDoc;
+      }
+      catch (Exception)
+      {
+        return null;
+      }
     }
 
     static BsonDocument GenerationToBson(Generation gen)

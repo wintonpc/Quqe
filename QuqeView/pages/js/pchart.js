@@ -20,3 +20,11 @@ function addSubchart(chart, name, shape, data, style, attrs) {
 
   return c;
 }
+
+function getUri(uri, success, error) {
+  $.ajax(uri, {
+    dataType: "json",
+    success: success,
+    error: error
+  });
+}

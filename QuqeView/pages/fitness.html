@@ -52,14 +52,7 @@
         }, function() {
           var line = d3.svg.line().x(0).y(0);
           fitnessPath.datum([]).attr("d", line);
-        });
-      }
-
-      function getUri(uri, success, error) {
-        $.ajax(uri, {
-          dataType: "json",
-          success: success,
-          error: error
+          $("#best").text("");
         });
       }
 
